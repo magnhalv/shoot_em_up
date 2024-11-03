@@ -14,11 +14,11 @@ endif()
 
 find_package(OpenGL REQUIRED)
 
-####### END DEPENDENCIES ########
+####### LOCAL ########
 
 include_directories(include)
 include_directories(src)
-include_directories(src/deps/)
+include_directories(src/deps)
 
 add_executable(shoot_em_up
         src/win_main.cpp

@@ -1,13 +1,5 @@
 [
   {
-    "name": "glm",
-    "source": {
-      "type": "git",
-      "url": "https://github.com/g-truc/glm.git",
-      "revision": "0.9.9.8"
-    }
-  },
-  {
     "name": "stb",
     "source": {
       "type": "git",

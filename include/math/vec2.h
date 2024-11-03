@@ -4,6 +4,8 @@
 #include <iostream>
 #include <platform/types.h>
 
+#define VEC2_EPSILON 0.000001f
+
 template <typename T> struct TVec2 {
   union {
     struct {
@@ -34,4 +36,8 @@ inline auto ivec2_to_vec2(ivec2 iv) -> vec2 {
 template <typename T> inline TVec2<T> operator+(const TVec2<T>& l, const TVec2<T>& r) {
   return { l.x + r.x, l.y + r.y };
 }
+
+void normalize(vec2& v);
+vec2 normalized(const vec2& v);
+
 #endif

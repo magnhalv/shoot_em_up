@@ -27,7 +27,7 @@ set(SOURCE_FILES
         engine/text_renderer.cpp
         engine/options.cpp
 
-        engine/stb_image_write.cpp
+        deps/libs.cpp
         )
 
 add_library(engine_dyn SHARED ${SOURCE_FILES})
@@ -36,8 +36,8 @@ add_library(engine_static ${SOURCE_FILES} )
 include_directories(../shared_deps/glad/include)
 include_directories(deps/src/glm)
 
-include_directories(deps/src/freetype/include)
-add_subdirectory(deps/src/freetype)
+include_directories(deps/libs/freetype/include)
+add_subdirectory(deps/libs/freetype)
 
 add_subdirectory(math)
 

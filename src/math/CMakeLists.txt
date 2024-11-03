@@ -7,6 +7,7 @@ add_library(math STATIC
         quat.cpp
         transform.cpp
         vec3.cpp
+        vec2.cpp
         )
 
 

@@ -1,13 +1,14 @@
 #include "text_renderer.h"
-#include "gl/gl.h"
 
 #include <cstring>
+
+#include <engine/gl/gl.h>
 #include <ft2build.h>
+#include <libs/stb/stb_image_write.h>
 #include FT_FREETYPE_H
 
 #include "logger.h"
 #include "memory_arena.h"
-#include "stb_image_write.h"
 
 auto font_str_dim(const char* str, f32 scale, Font& font) -> vec2 {
   auto length = strlen(str);

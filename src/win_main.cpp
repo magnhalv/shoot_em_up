@@ -657,6 +657,7 @@ void win32_bind_gl_funcs(GLFunctions* gl) {
   gl->get_tex_image = glGetTexImage;
   gl->copy_tex_sub_image_2d = glCopyTexSubImage2D;
   gl->tex_sub_image_2d = glTexSubImage2D;
+  gl->generate_mip_map = glGenerateMipmap;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {

@@ -86,6 +86,7 @@ struct GLFunctions {
   PFNGLDRAWELEMENTSPROC draw_elements;
   PFNGLCOPYTEXSUBIMAGE2DPROC copy_tex_sub_image_2d;
   PFNGLTEXSUBIMAGE2DPROC tex_sub_image_2d;
+  PFNGLGENERATEMIPMAPPROC generate_mip_map;
 };
 
 const u32 Gl_Invalid_Id = 0;

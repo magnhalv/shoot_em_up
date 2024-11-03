@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include <glad/gl.h>
+#include <libs/stb/stb_image.h>
 
 #include <math/math.h>
 #include <math/vec3.h>
@@ -44,7 +45,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   auto& font_program = asset_manager->shader_programs[1];
   auto& imgui_program = asset_manager->shader_programs[2];
   auto& single_color_program = asset_manager->shader_programs[3];
-  asset_manager->num_shader_programs = 4;
+  auto& texture_program = asset_manager->shader_programs[4];
+  asset_manager->num_shader_programs = 5;
 
   // region Initialize
   [[unlikely]] if (!state->is_initialized) {
@@ -63,6 +65,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     font_program.initialize(R"(.\assets\shaders\font.vert)", R"(.\assets\shaders\font.frag)");
     imgui_program.initialize(R"(.\assets\shaders\imgui.vert)", R"(.\assets\shaders\imgui.frag)");
     single_color_program.initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
+    texture_program.initialize(R"(.\assets\shaders\texture.vert)", R"(.\assets\shaders\texture.frag)");
 
     state->framebuffer.init(app_input->client_width, app_input->client_height);
     state->ms_framebuffer.init(app_input->client_width, app_input->client_height);
@@ -187,7 +190,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       1, 2, 3  // second triangle
     };
     u32 VBO, VAO, EBO;
-    glGenVertexArrays(1, &VAO);
     gl->create_vertex_arrays(1, &VAO);
     gl->create_buffers(1, &VBO);
     gl->create_buffers(1, &EBO);
@@ -197,6 +199,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     gl->named_buffer_storage(VBO, sizeof(vertices), vertices, GL_DYNAMIC_STORAGE_BIT);
     gl->named_buffer_storage(EBO, sizeof(indices), indices, GL_DYNAMIC_STORAGE_BIT);
     gl->vertex_array_element_buffer(VAO, EBO);
+    u32 VBO_bi = 0;
+    gl->vertex_array_vertex_buffer(VAO, VBO_bi, VBO, 0, 8 * sizeof(f32)); // 8 * sizeof(f32) is the stride
 
     u32 vbo_binding_index = 0;
     u32 attrib_index = 0;
@@ -207,40 +211,56 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     attrib_index++;
 
     // color attribute
-    gl->vertex_array_attrib_format(VAO, attrib_index, 3, GL_FLOAT, GL_FALSE, 0);
+    gl->vertex_array_attrib_format(VAO, attrib_index, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(f32));
     gl->vertex_array_attrib_binding(VAO, attrib_index, vbo_binding_index);
     gl->enable_vertex_array_attrib(VAO, attrib_index);
     attrib_index++;
+
     // texture coord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
+    gl->vertex_array_attrib_format(VAO, attrib_index, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(f32));
+    gl->vertex_array_attrib_binding(VAO, attrib_index, vbo_binding_index);
+    gl->enable_vertex_array_attrib(VAO, attrib_index);
+    attrib_index++;
 
     // load and create a texture
     // -------------------------
-    unsigned int texture1, texture2;
+    u32 texture1, texture2;
     // texture 1
     // ---------
-    glGenTextures(1, &texture1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
+    gl->gen_textures(1, &texture1);
+    gl->bind_texture(GL_TEXTURE_2D, texture1);
     // set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); // set texture wrapping to GL_REPEAT (default wrapping method)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // set texture wrapping to GL_REPEAT (default wrapping method)
+    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     // set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // load image, create texture and generate mipmaps
-    int width, height, nrChannels;
+    i32 width, height, nrChannels;
     stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
     // The FileSystem::getPath(...) is part of the GitHub repository so we can find files on any IDE/platform; replace it with your own image path.
-    unsigned char* data =
-        stbi_load(FileSystem::getPath("resources/textures/container.jpg").c_str(), &width, &height, &nrChannels, 0);
+    const char* texture_path = "assets/sprites/enemy_1_1.png";
+    unsigned char* data = stbi_load(texture_path, &width, &height, &nrChannels, 0);
     if (data) {
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-      glGenerateMipmap(GL_TEXTURE_2D);
+      if (nrChannels == 4) {
+        gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+      } else if (nrChannels == 3) {
+        gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+      } else {
+        std::cout << "Unsupported number of channels: " << nrChannels << std::endl;
+      }
+      gl->generate_mip_map(GL_TEXTURE_2D);
     } else {
       std::cout << "Failed to load texture" << std::endl;
     }
     stbi_image_free(data);
+
+    texture_program.useProgram();
+
+    gl->bind_vertex_array(VAO);
+    gl->draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    std::cout << "Sucess" << std::endl;
   }
 
   // RenderGUI
