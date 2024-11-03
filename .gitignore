@@ -1,0 +1,14 @@
+.idea
+cmake-build-debug-visual-studio
+cmake-build
+bin
+.cache
+build
+*.dat
+
+*vim
+compile_commands.json
+
+
+src/deps/libs
+src/deps/archives
