@@ -3,6 +3,8 @@
 
 #include <math/mat4.h>
 
+// clang-format off
+
 bool operator==(const mat4& a, const mat4& b) {
     for (int i = 0; i < 16; ++i) {
         if (fabsf(a.v[i] - b.v[i]) > MAT4_EPSILON) {
@@ -228,5 +230,15 @@ mat4 lookAt(const vec3& position, const vec3& target, const vec3& up) {
             r.y, u.y, f.y, 0,
             r.z, u.z, f.z, 0,
             t.x, t.y, t.z, 1
+    );
+}
+
+auto identity() -> mat4 {
+    return mat4(
+            // Transpose upper 3x3 matrix to invert it
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
     );
 }

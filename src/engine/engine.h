@@ -9,6 +9,7 @@
 #include "framebuffer.h"
 #include "gl/gl_shader.h"
 #include "gl/gl_vao.h"
+#include "math/transform.h"
 #include "memory_arena.h"
 #include "options.hpp"
 #include "text_renderer.h"
@@ -36,6 +37,8 @@ struct Sprite {
   u32 ebo = 0;
   u32 tex1 = 0;
   GLShaderProgram* program = nullptr;
+
+  Transform transform = {};
 };
 
 struct Window {

@@ -13,11 +13,14 @@
 #include "gl/gl_vao.h"
 #include "gui.hpp"
 #include "logger.h"
+#include "math/mat4.h"
+#include "math/transform.h"
 #include "memory_arena.h"
 #include "options.hpp"
 #include "platform.h"
 #include "text_renderer.h"
 #include <engine/renderer/asset_manager.h>
+#include <math/transform.h>
 
 auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
   Sprite sprite = {};
@@ -25,10 +28,10 @@ auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
   f32 vertices[] = {
     // clang-format off
       // positions         // colors           // texture coords
-      0.5f, 0.5f, 0.0f,    1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-      0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,  // bottom right
-      -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // bottom left
-      -0.5f, 0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f   // top left
+      1.0f, 1.0f, 0.0f,    1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+      1.0f, 0.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,  // bottom right
+      0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // bottom left
+      0.0f, 1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f   // top left
     // clang-format on
   };
   u32 indices[] = {
@@ -97,11 +100,19 @@ auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
     crash_and_burn("Failed to load texture: %s", path);
   }
   stbi_image_free(data);
+
+  Transform tranform = Transform();
+  tranform.scale.x = width;
+  tranform.scale.y = height;
+  sprite.transform = tranform;
   return sprite;
 }
 
-auto render_sprite(Sprite& sprite) -> void {
+auto render_sprite(Sprite& sprite, mat4 projection) -> void {
   sprite.program->useProgram();
+  sprite.program->set_uniform("projection", projection);
+  mat4 model = identity();
+  sprite.program->set_uniform("model", sprite.transform.to_mat4());
   gl->bind_vertex_array(sprite.vao);
   gl->bind_texture(GL_TEXTURE_2D, sprite.tex1);
   gl->draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -133,7 +144,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   auto& font_program = asset_manager->shader_programs[1];
   auto& imgui_program = asset_manager->shader_programs[2];
   auto& single_color_program = asset_manager->shader_programs[3];
-  auto& texture_program = asset_manager->shader_programs[4];
+  auto& sprite_program = asset_manager->shader_programs[4];
   asset_manager->num_shader_programs = 5;
 
   // region Initialize
@@ -153,7 +164,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     font_program.initialize(R"(.\assets\shaders\font.vert)", R"(.\assets\shaders\font.frag)");
     imgui_program.initialize(R"(.\assets\shaders\imgui.vert)", R"(.\assets\shaders\imgui.frag)");
     single_color_program.initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
-    texture_program.initialize(R"(.\assets\shaders\texture.vert)", R"(.\assets\shaders\texture.frag)");
+    sprite_program.initialize(R"(.\assets\shaders\sprite.vert)", R"(.\assets\shaders\sprite.frag)");
 
     state->framebuffer.init(app_input->client_width, app_input->client_height);
     state->ms_framebuffer.init(app_input->client_width, app_input->client_height);
@@ -190,7 +201,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     im::initialize_imgui(state->font, &state->permanent);
 
-    state->sprite = load_sprite("assets/sprites/enemy_1_1.png", &texture_program);
+    state->sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
     state->is_initialized = true;
   }
 
@@ -212,6 +223,25 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     time.fps = time.num_frames;
     time.num_frames = 0;
     time.second_counter -= 1000;
+  }
+
+  {
+    auto& input = app_input->input;
+    auto dt = app_input->dt_ms;
+    auto& p_pos = state->sprite.transform.position;
+    auto speed = 1.0;
+    if (input.w.ended_down) {
+      p_pos.y += speed * dt;
+    }
+    if (input.s.ended_down) {
+      p_pos.y -= speed * dt;
+    }
+    if (input.a.ended_down) {
+      p_pos.x -= speed * dt;
+    }
+    if (input.d.ended_down) {
+      p_pos.x += speed * dt;
+    }
   }
 
   auto ortho_projection = create_ortho(0, app_input->client_width, 0, app_input->client_height, 0.0f, 100.0f);
@@ -265,7 +295,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   gl->viewport(0, 0, app_input->client_width, app_input->client_height);
 
   // render sprite
-  render_sprite(state->sprite);
+  render_sprite(state->sprite, ortho_projection);
 
   // RenderGUI
   {
