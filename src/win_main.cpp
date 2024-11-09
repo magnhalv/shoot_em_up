@@ -326,6 +326,9 @@ void win32_load_dll(EngineFunctions* functions) {
   if (!CreateDirectory(dir_path, nullptr)) {
     DWORD error = GetLastError();
     printf("Failed to create directory %s. Error code: %lu\n", dir_path, error);
+    fprintf(stderr, "Test\n");
+    fflush(stderr);
+    fflush(stdout);
     exit(1);
   }
 

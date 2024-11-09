@@ -29,6 +29,15 @@ struct Pointer {
   }
 };
 
+// TODO: The sprites can probably share the vao, vbo, ebo etc.
+struct Sprite {
+  u32 vao = 0;
+  u32 vbo = 0;
+  u32 ebo = 0;
+  u32 tex1 = 0;
+  GLShaderProgram* program = nullptr;
+};
+
 struct Window {
   f32 width;
   f32 height;
@@ -81,6 +90,8 @@ struct EngineState {
 
   TextRenderer text_renderer;
   Font* font;
+
+  Sprite sprite;
 };
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);
