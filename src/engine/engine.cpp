@@ -215,6 +215,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   auto& time = state->time;
   time.dt_ms = app_input->dt_ms;
   time.dt = static_cast<f32>(time.dt_ms) * 0.001;
+  const auto dt = time.dt;
   time.t_ms = app_input->t_ms;
   time.num_frames++;
   time.second_counter += time.dt_ms;
@@ -227,21 +228,54 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
   {
     auto& input = app_input->input;
-    auto dt = app_input->dt_ms;
     auto& p_pos = state->sprite.transform.position;
+    auto& sprite = state->sprite;
+    const auto max_speed = 300.0;
+    const f32 acc = 60.0f;
+    vec2 accelaration = vec2(acc, acc);
+
+    vec2 direction = vec2();
+
     auto speed = 1.0;
     if (input.w.ended_down) {
-      p_pos.y += speed * dt;
+      direction.y = 1.0;
     }
     if (input.s.ended_down) {
-      p_pos.y -= speed * dt;
+      direction.y = -1.0;
     }
     if (input.a.ended_down) {
-      p_pos.x -= speed * dt;
+      direction.x = -1.0;
     }
     if (input.d.ended_down) {
-      p_pos.x += speed * dt;
+      direction.x = 1.0;
     }
+    normalize(direction);
+    accelaration = accelaration * direction;
+
+    if (accelaration.x != 0.0) {
+      const auto new_speed_x = sprite.speed.x + accelaration.x;
+      sprite.speed.x = hm::min(hm::max(new_speed_x, -max_speed), max_speed);
+    } else {
+      if (sprite.speed.x < 0.0f) {
+        sprite.speed.x = fmax(sprite.speed.x + acc, 0.0f);
+      } else if (sprite.speed.x > 0.0f) {
+        sprite.speed.x = fmin(sprite.speed.x - acc, 0.0f);
+      }
+    }
+
+    if (accelaration.y != 0.0) {
+      const auto new_speed_y = sprite.speed.y + accelaration.y;
+      sprite.speed.y = hm::min(hm::max(new_speed_y, -max_speed), max_speed);
+    } else {
+      if (sprite.speed.y < 0.0f) {
+        sprite.speed.y = fmax(sprite.speed.y + acc, 0.0f);
+      } else if (sprite.speed.y > 0.0f) {
+        sprite.speed.y = fmin(sprite.speed.y - acc, 0.0f);
+      }
+    }
+
+    sprite.transform.position.x += (sprite.speed.x * dt);
+    sprite.transform.position.y += (sprite.speed.y * dt);
   }
 
   auto ortho_projection = create_ortho(0, app_input->client_width, 0, app_input->client_height, 0.0f, 100.0f);

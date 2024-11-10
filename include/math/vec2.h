@@ -6,19 +6,17 @@
 
 #define VEC2_EPSILON 0.000001f
 
-template <typename T> struct TVec2 {
+struct ivec2 {
   union {
     struct {
-      T x;
-      T y;
+      i32 x;
+      i32 y;
     };
-    T v[2];
+    i32 v[2];
   };
-  inline TVec2() : x(T(0)), y(T(0)) {
+  inline ivec2() : x(0), y(0) {
   }
-  inline TVec2(T _x, T _y) : x(_x), y(_y) {
-  }
-  inline TVec2(T* fv) : x(fv[0]), y(fv[1]) {
+  inline ivec2(i32 _x, i32 _y) : x(_x), y(_y) {
   }
 
   auto print() -> void {
@@ -26,18 +24,45 @@ template <typename T> struct TVec2 {
   }
 };
 
-typedef TVec2<f32> vec2;
-typedef TVec2<i32> ivec2;
+inline ivec2 operator+(const ivec2& l, const ivec2& r) {
+  return { l.x + r.x, l.y + r.y };
+}
+
+struct vec2 {
+  union {
+    struct {
+      f32 x;
+      f32 y;
+    };
+    f32 v[2];
+  };
+  inline vec2() : x(0), y(0) {
+  }
+  inline vec2(f32 _x, f32 _y) : x(_x), y(_y) {
+  }
+
+  auto print() -> void {
+    std::cout << "x: " << x << "y: " << y << std::endl;
+  }
+};
+
+inline vec2 operator+(const vec2& l, const ivec2& r) {
+  return { l.x + r.x, l.y + r.y };
+}
+
+inline vec2 operator*(const vec2& l, const vec2& r) {
+  return { l.x * r.x, l.y * r.y };
+}
+
+inline vec2 operator*(const vec2& l, u64 r) {
+  return { l.x * r, l.y * r };
+}
+
+auto normalize(vec2& v) -> void;
+auto normalized(const vec2& v) -> vec2;
 
 inline auto ivec2_to_vec2(ivec2 iv) -> vec2 {
   return vec2(static_cast<f32>(iv.x), static_cast<f32>(iv.y));
 }
-
-template <typename T> inline TVec2<T> operator+(const TVec2<T>& l, const TVec2<T>& r) {
-  return { l.x + r.x, l.y + r.y };
-}
-
-void normalize(vec2& v);
-vec2 normalized(const vec2& v);
 
 #endif

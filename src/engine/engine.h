@@ -39,6 +39,7 @@ struct Sprite {
   GLShaderProgram* program = nullptr;
 
   Transform transform = {};
+  vec2 speed;
 };
 
 struct Window {

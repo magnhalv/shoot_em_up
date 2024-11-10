@@ -1,6 +1,6 @@
 #include <math/vec2.h>
 
-void normalize(vec2& v) {
+auto normalize(vec2& v) -> void {
   f32 lenSq = v.x * v.x + v.y * v.y;
   if (lenSq < VEC2_EPSILON) {
     return;
@@ -11,7 +11,7 @@ void normalize(vec2& v) {
   v.y *= invLen;
 }
 
-vec2 normalized(const vec2& v) {
+auto normalized(const vec2& v) -> vec2 {
   f32 lenSq = v.x * v.x + v.y * v.y;
   if (lenSq < VEC2_EPSILON) {
     return v;
