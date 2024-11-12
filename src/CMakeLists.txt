@@ -26,6 +26,7 @@ set(SOURCE_FILES
         engine/renderer.cpp
         engine/text_renderer.cpp
         engine/options.cpp
+        engine/sprite.cpp
 
         deps/libs.cpp
         )

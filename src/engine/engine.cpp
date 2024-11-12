@@ -3,7 +3,6 @@
 #include <cstdio>
 
 #include <glad/gl.h>
-#include <libs/stb/stb_image.h>
 
 #include <math/math.h>
 #include <math/vec3.h>
@@ -18,106 +17,11 @@
 #include "memory_arena.h"
 #include "options.hpp"
 #include "platform.h"
+#include "platform/platform.h"
 #include "text_renderer.h"
 #include <engine/renderer/asset_manager.h>
 #include <math/transform.h>
 
-auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
-  Sprite sprite = {};
-  sprite.program = program;
-  f32 vertices[] = {
-    // clang-format off
-      // positions         // colors           // texture coords
-      1.0f, 1.0f, 0.0f,    1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-      1.0f, 0.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,  // bottom right
-      0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // bottom left
-      0.0f, 1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f   // top left
-    // clang-format on
-  };
-  u32 indices[] = {
-    0, 1, 3, // first triangle
-    1, 2, 3  // second triangle
-  };
-  gl->create_vertex_arrays(1, &sprite.vao);
-  gl->create_buffers(1, &sprite.vbo);
-  gl->create_buffers(1, &sprite.ebo);
-
-  gl->bind_vertex_array(sprite.vao);
-
-  gl->named_buffer_storage(sprite.vbo, sizeof(vertices), vertices, GL_DYNAMIC_STORAGE_BIT);
-  gl->named_buffer_storage(sprite.ebo, sizeof(indices), indices, GL_DYNAMIC_STORAGE_BIT);
-  gl->vertex_array_element_buffer(sprite.vao, sprite.ebo);
-  u32 VBO_bi = 0;
-  gl->vertex_array_vertex_buffer(sprite.vao, VBO_bi, sprite.vbo, 0, 8 * sizeof(f32)); // 8 * sizeof(f32) is the stride
-
-  u32 vbo_binding_index = 0;
-  u32 attrib_index = 0;
-  // position attribute
-  gl->vertex_array_attrib_format(sprite.vao, attrib_index, 3, GL_FLOAT, GL_FALSE, 0);
-  gl->vertex_array_attrib_binding(sprite.vao, attrib_index, vbo_binding_index);
-  gl->enable_vertex_array_attrib(sprite.vao, attrib_index);
-  attrib_index++;
-
-  // color attribute
-  gl->vertex_array_attrib_format(sprite.vao, attrib_index, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(f32));
-  gl->vertex_array_attrib_binding(sprite.vao, attrib_index, vbo_binding_index);
-  gl->enable_vertex_array_attrib(sprite.vao, attrib_index);
-  attrib_index++;
-
-  // texture coord attribute
-  gl->vertex_array_attrib_format(sprite.vao, attrib_index, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(f32));
-  gl->vertex_array_attrib_binding(sprite.vao, attrib_index, vbo_binding_index);
-  gl->enable_vertex_array_attrib(sprite.vao, attrib_index);
-  attrib_index++;
-
-  // load and create a texture
-  // -------------------------
-  // texture 1
-  // ---------
-  gl->gen_textures(1, &sprite.tex1);
-  gl->bind_texture(GL_TEXTURE_2D, sprite.tex1);
-  // set the texture wrapping parameters
-  // set texture wrapping to GL_REPEAT (default wrapping method)
-  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  // set texture filtering parameters
-  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  // load image, create texture and generate mipmaps
-  i32 width, height, nrChannels;
-  stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-  unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
-  if (data) {
-    if (nrChannels == 4) {
-      gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    } else if (nrChannels == 3) {
-      gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-    } else {
-      crash_and_burn("Unsupported number of channels when loading texture: : %s", path);
-    }
-    gl->generate_mip_map(GL_TEXTURE_2D);
-  } else {
-    crash_and_burn("Failed to load texture: %s", path);
-  }
-  stbi_image_free(data);
-
-  Transform tranform = Transform();
-  tranform.scale.x = width;
-  tranform.scale.y = height;
-  sprite.transform = tranform;
-  return sprite;
-}
-
-auto render_sprite(Sprite& sprite, mat4 projection) -> void {
-  sprite.program->useProgram();
-  sprite.program->set_uniform("projection", projection);
-  mat4 model = identity();
-  sprite.program->set_uniform("model", sprite.transform.to_mat4());
-  gl->bind_vertex_array(sprite.vao);
-  gl->bind_texture(GL_TEXTURE_2D, sprite.tex1);
-  gl->draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-  gl->bind_vertex_array(0);
-}
 // Globals
 Options* graphics_options = nullptr;
 
@@ -132,6 +36,26 @@ inline f32 new_x(f32 x, f32 y, f32 degree) {
 
 inline f32 new_y(f32 x, f32 y, f32 degree) {
   return sin(degree) * x + cos(degree) * y;
+}
+
+auto get_sound_samples() -> SoundBuffer {
+  SoundBuffer buffer;
+  buffer.num_samples = 44100;
+  buffer.samples = allocate<u16>(*g_transient, buffer.num_samples);
+  buffer.tone_hz = 220;
+  buffer.samples_per_second = buffer.num_samples;
+
+  // Fill the buffer with a sine wave.
+  double phase = 0.0;
+  double volume = 0.5;
+  uint32_t buffer_index = 0;
+  while (buffer_index < buffer.num_samples) {
+    phase += (2 * PI * buffer.tone_hz) / buffer.samples_per_second;
+    int16_t sample = static_cast<int16_t>(sin(phase) * INT16_MAX * volume);
+    buffer.samples[buffer_index++] = sample;
+  }
+
+  return buffer;
 }
 
 // TODO: Handle change of screen width and height
@@ -204,6 +128,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     state->sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
     state->is_initialized = true;
   }
+  // TODO: Gotta set this on hot reload
+  clear_transient();
 
   // endregion
 
@@ -436,9 +362,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   if (found_error) {
     exit(1);
   }
-
-  // TODO: Gotta set this on hot reload
-  clear_transient();
 }
 
 void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory) {

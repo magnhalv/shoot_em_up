@@ -9,10 +9,18 @@
 #include "framebuffer.h"
 #include "gl/gl_shader.h"
 #include "gl/gl_vao.h"
-#include "math/transform.h"
 #include "memory_arena.h"
 #include "options.hpp"
+#include "platform/platform.h"
+#include "sprite.hpp"
 #include "text_renderer.h"
+
+struct Sound {
+  u16 samples;
+  u32 num_samples;
+  f32 frequency;
+  i32 samples_per_sec;
+};
 
 /// Processed mouse input
 struct Pointer {
@@ -28,18 +36,6 @@ struct Pointer {
     x = std::min(std::max(dx + x, 0.0f), static_cast<f32>(client_width));
     y = std::min(std::max(dy + y, 0.0f), static_cast<f32>(client_height));
   }
-};
-
-// TODO: The sprites can probably share the vao, vbo, ebo etc.
-struct Sprite {
-  u32 vao = 0;
-  u32 vbo = 0;
-  u32 ebo = 0;
-  u32 tex1 = 0;
-  GLShaderProgram* program = nullptr;
-
-  Transform transform = {};
-  vec2 speed;
 };
 
 struct Window {
@@ -100,3 +96,4 @@ struct EngineState {
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);
 extern "C" __declspec(dllexport) void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory);
+extern "C" __declspec(dllexport) SoundBuffer get_sound_samples();
