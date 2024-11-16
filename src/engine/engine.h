@@ -55,12 +55,10 @@ struct PerFrameData {
 
 struct TimeInfo {
   f32 dt; // in seconds
-  u64 dt_ms;
-  u64 t_ms;
+  f32 t;
 
   // Performance stuff. Improve when needed
-  i32 num_frames;
-  u64 second_counter;
+  i32 num_frames_this_second;
   i32 fps;
 };
 

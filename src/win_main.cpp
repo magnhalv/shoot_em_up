@@ -2,6 +2,7 @@
 #include <comdef.h>
 #include <cstdio>
 
+#include <cstdlib>
 #include <fileapi.h>
 #include <glad/gl.h>
 #include <glad/wgl.h>
@@ -691,6 +692,32 @@ void win32_process_pending_messages(HWND hwnd, bool& is_running, UserInput& new_
   }
 }
 
+static inline auto win32_get_ticks_frequency() -> i64 {
+  LARGE_INTEGER frequency;
+  if (!QueryPerformanceFrequency(&frequency)) {
+    printf("Error retrieving QueryPerformanceFrequency\n");
+    exit(1);
+  }
+  return frequency.QuadPart;
+}
+
+static inline auto win32_check_ticks_frequency() -> void {
+  auto frequency = win32_get_ticks_frequency();
+  const auto expected_num_ticks = us_in_second * 10;
+  if (frequency != expected_num_ticks) {
+    printf("QueryPerformanceFrequency is %lld, not %lld.\n", frequency, expected_num_ticks);
+    exit(1);
+  }
+}
+static inline auto win32_get_tick() -> i64 {
+  LARGE_INTEGER ticks;
+  if (!QueryPerformanceCounter(&ticks)) {
+    // TODO: error handling
+    printf("Error retrieving QueryPerformanceCounter\n");
+  }
+  return ticks.QuadPart;
+}
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) {
   return DefWindowProc(hwnd, iMsg, wParam, lParam);
 }
@@ -797,6 +824,7 @@ void win32_bind_gl_funcs(GLFunctions* gl) {
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
+  win32_check_ticks_frequency();
   /* CREATE WINDOW */
   WNDCLASSEX wndclass;
   wndclass.cbSize = sizeof(WNDCLASSEX);
@@ -951,11 +979,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   Recording recording = {};
   Playback playback = {};
 
-  auto last_tick = GetTickCount64();
+  win32_load_dll(&app_functions);
+  app_functions.load(&gl_funcs, &platform, &memory);
+
+  i64 last_tick = win32_get_tick();
+  const auto tick_frequency = win32_get_ticks_frequency();
   while (is_running) {
-    auto this_tick = GetTickCount64();
-    app_input.dt_ms = this_tick - last_tick;
-    app_input.t_ms += app_input.dt_ms;
+    const auto this_tick = win32_get_tick();
+
+    app_input.dt_tick = this_tick - last_tick;
+    app_input.ticks += app_input.dt_tick;
+    app_input.dt = static_cast<f32>(app_input.dt_tick) / tick_frequency;
+    app_input.t += app_input.dt;
     last_tick = this_tick;
 
     if (win32_should_reload_dll(&app_functions)) {
@@ -968,21 +1003,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     app_input.client_height = client_rect.bottom - client_rect.top;
     app_input.client_width = client_rect.right - client_rect.left;
 
-    {
-      // Lock cursor to screen
-      POINT top_left = { client_rect.left, client_rect.top };
-      POINT bottom_right = { client_rect.right, client_rect.bottom };
-
-      ClientToScreen(hwnd, &top_left);
-      ClientToScreen(hwnd, &bottom_right);
-      RECT screen_rect = {
-        .left = top_left.x,
-        .top = top_left.y,
-        .right = bottom_right.x,
-        .bottom = bottom_right.y,
-      };
-      ClipCursor(&screen_rect);
-    }
+    /*{*/
+    /*  // Lock cursor to screen*/
+    /*  POINT top_left = { client_rect.left, client_rect.top };*/
+    /*  POINT bottom_right = { client_rect.right, client_rect.bottom };*/
+    /**/
+    /*  ClientToScreen(hwnd, &top_left);*/
+    /*  ClientToScreen(hwnd, &bottom_right);*/
+    /*  RECT screen_rect = {*/
+    /*    .left = top_left.x,*/
+    /*    .top = top_left.y,*/
+    /*    .right = bottom_right.x,*/
+    /*    .bottom = bottom_right.y,*/
+    /*  };*/
+    /*  ClipCursor(&screen_rect);*/
+    /*}*/
 
     win32_process_pending_messages(hwnd, is_running, *current_input, *previous_input);
 
@@ -1044,16 +1079,28 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
       XAUDIO2_VOICE_STATE state;
       audio.sourceVoice->GetState(&state);
       if (state.BuffersQueued == 0) {
-        printf("Howdy\n");
         auto sound_buffer = app_functions.get_sound_samples();
         win32_play_sound(audio, sound_buffer);
       }
     }
     SwapBuffers(hdc);
 
+    const f32 target_fps = 60;
+    const f32 ticks_per_frame = win32_get_ticks_frequency() / target_fps;
+    i64 ticks_used_this_frame = win32_get_tick() - last_tick;
+    if (ticks_used_this_frame > ticks_per_frame) {
+      printf("Failed to hit ticks per frame target!\n");
+      printf("Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
+    } else {
+      while (ticks_used_this_frame < ticks_per_frame) {
+        ticks_used_this_frame = win32_get_tick() - last_tick;
+      }
+    }
+
+    auto prev_input_idx = curr_input_idx;
     curr_input_idx = curr_input_idx == 0 ? 1 : 0;
     current_input = &inputs[curr_input_idx];
-    previous_input = &inputs[curr_input_idx == 0 ? 1 : 0];
+    previous_input = &inputs[prev_input_idx];
     current_input->frame_clear(*previous_input);
   }
 

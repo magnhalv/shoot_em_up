@@ -20,6 +20,9 @@ using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 
+const u64 us_in_second = 1000000;
+const u64 ms_in_second = 1000;
+
 const f32 F32_MAX = FLT_MAX;
 const f32 PI = 3.14159265358979323846;
 

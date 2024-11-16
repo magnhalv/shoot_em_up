@@ -16,9 +16,9 @@ An example project for how to set up OpenGl with hot reloading.
 
 ## TODO 
 
-* Add performance debug info in top right window
-* Global MemoryArena handling
-* Make shaders global
+* Add steady fps support
+* Test playing sound while holding space
+* Play laser sound effect when "shooting"
 
 ### GUI
 

@@ -139,18 +139,15 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 #endif
 
   auto& time = state->time;
-  time.dt_ms = app_input->dt_ms;
-  time.dt = static_cast<f32>(time.dt_ms) * 0.001;
-  const auto dt = time.dt;
-  time.t_ms = app_input->t_ms;
-  time.num_frames++;
-  time.second_counter += time.dt_ms;
-
-  if (time.second_counter > 1000) {
-    time.fps = time.num_frames;
-    time.num_frames = 0;
-    time.second_counter -= 1000;
+  auto is_new_second = static_cast<i32>(time.t) < static_cast<i32>(time.t + app_input->dt);
+  if (is_new_second) {
+    time.fps = time.num_frames_this_second;
+    time.num_frames_this_second = 0;
   }
+
+  time.dt = app_input->dt;
+  time.t += time.dt;
+  time.num_frames_this_second++;
 
   {
     auto& input = app_input->input;
@@ -200,8 +197,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       }
     }
 
-    sprite.transform.position.x += (sprite.speed.x * dt);
-    sprite.transform.position.y += (sprite.speed.y * dt);
+    sprite.transform.position.x += (sprite.speed.x * time.dt);
+    sprite.transform.position.y += (sprite.speed.y * time.dt);
   }
 
   auto ortho_projection = create_ortho(0, app_input->client_width, 0, app_input->client_height, 0.0f, 100.0f);
