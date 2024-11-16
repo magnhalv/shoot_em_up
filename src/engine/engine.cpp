@@ -8,6 +8,7 @@
 #include <math/vec3.h>
 
 #include "engine.h"
+#include "engine/hm_assert.h"
 #include "gl/gl.h"
 #include "gl/gl_vao.h"
 #include "gui.hpp"
@@ -38,21 +39,30 @@ inline f32 new_y(f32 x, f32 y, f32 degree) {
   return sin(degree) * x + cos(degree) * y;
 }
 
-auto get_sound_samples() -> SoundBuffer {
+static bool play_sound = false;
+
+auto get_sound_samples(i32 num_samples) -> SoundBuffer {
+  HM_ASSERT(num_samples >= 0);
   SoundBuffer buffer;
-  buffer.num_samples = 44100;
+  buffer.num_samples = num_samples;
   buffer.samples = allocate<u16>(*g_transient, buffer.num_samples);
   buffer.tone_hz = 220;
-  buffer.samples_per_second = buffer.num_samples;
+  buffer.samples_per_second = 44100;
 
   // Fill the buffer with a sine wave.
-  double phase = 0.0;
+  static double phase = 0.0;
   double volume = 0.5;
   uint32_t buffer_index = 0;
-  while (buffer_index < buffer.num_samples) {
-    phase += (2 * PI * buffer.tone_hz) / buffer.samples_per_second;
-    int16_t sample = static_cast<int16_t>(sin(phase) * INT16_MAX * volume);
-    buffer.samples[buffer_index++] = sample;
+  if (play_sound) {
+    while (buffer_index < buffer.num_samples) {
+      phase += (2 * PI * buffer.tone_hz) / buffer.samples_per_second;
+      int16_t sample = static_cast<int16_t>(sin(phase) * INT16_MAX * volume);
+      buffer.samples[buffer_index++] = sample;
+    }
+  } else {
+    while (buffer_index < buffer.num_samples) {
+      buffer.samples[buffer_index++] = 0;
+    }
   }
 
   return buffer;
@@ -149,6 +159,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   time.t += time.dt;
   time.num_frames_this_second++;
 
+  play_sound = app_input->input.space.ended_down;
   {
     auto& input = app_input->input;
     auto& p_pos = state->sprite.transform.position;

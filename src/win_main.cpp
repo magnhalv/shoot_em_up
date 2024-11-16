@@ -12,23 +12,8 @@
 #include <platform/types.h>
 #include <sysinfoapi.h>
 
-#include <cmath>
 #include <cstdint>
-#include <iostream>
-#include <stdexcept>
 #include <xaudio2.h>
-
-constexpr WORD BITSPERSSAMPLE = 16;          // 16 bits per sample.
-constexpr DWORD SAMPLESPERSEC = 44100;       // 44,100 samples per second.
-constexpr double CYCLESPERSEC = 220.0;       // 220 cycles per second (frequency of the audible tone).
-constexpr double VOLUME = 0.5;               // 50% volume.
-constexpr WORD AUDIOBUFFERSIZEINCYCLES = 10; // 10 cycles per audio buffer.
-constexpr double PI2 = 3.14159265358979323846;
-
-// Calculated constants.
-constexpr DWORD SAMPLESPERCYCLE = static_cast<DWORD>(SAMPLESPERSEC / CYCLESPERSEC);      // 200 samples per cycle.
-constexpr DWORD AUDIOBUFFERSIZEINSAMPLES = SAMPLESPERCYCLE * AUDIOBUFFERSIZEINCYCLES;    // 2,000 samples per buffer.
-constexpr UINT32 AUDIOBUFFERSIZEINBYTES = AUDIOBUFFERSIZEINSAMPLES * BITSPERSSAMPLE / 8; // 4,000 bytes per buffer.
 
 struct SoundDataBuffer {
   u8* data;
@@ -36,6 +21,9 @@ struct SoundDataBuffer {
   i32 max_size;
 };
 struct Audio {
+  i32 num_channels;
+  i32 sample_size;
+  i32 samples_per_second;
   // Xaudio stuff
   IXAudio2* xAudio2;
   IXAudio2MasteringVoice* masteringVoice;
@@ -43,14 +31,29 @@ struct Audio {
   XAUDIO2_BUFFER buffer_desc[2];
 
   SoundDataBuffer buffer[2];
-  i32 active_buffer;
+  i32 active_buffer_idx;
+
+  i32 samples_processed;
 
   /*audio.sourceVoice->Stop();*/
   /*audio.sourceVoice->DestroyVoice();*/
   /*audio.masteringVoice->DestroyVoice();*/
   /*audio.xAudio2->Release();*/
 };
+auto win32_print_error_msg(HRESULT hr) {
+  char* errorMessage = nullptr;
 
+  // Format the error message
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr,
+      hr, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&errorMessage, 0, nullptr);
+
+  if (errorMessage) {
+    std::cerr << "Error: " << errorMessage << " (HRESULT: 0x" << std::hex << hr << ")" << std::endl;
+    LocalFree(errorMessage); // Free the allocated memory
+  } else {
+    std::cerr << "Unknown error (HRESULT: 0x" << std::hex << hr << ")" << std::endl;
+  }
+}
 auto win32_init_audio(Audio& audio) -> bool {
   HRESULT result;
   result = XAudio2Create(&audio.xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
@@ -66,10 +69,10 @@ auto win32_init_audio(Audio& audio) -> bool {
     return false;
   }
 
-  auto num_channels = 1;
-  auto sample_size = sizeof(u16);
-  auto samples_per_second = 44100;
-  auto buffer_size = 44100 * sample_size * num_channels;
+  audio.num_channels = 1;
+  audio.sample_size = sizeof(u16);
+  audio.samples_per_second = 44100;
+  auto buffer_size = audio.samples_per_second * audio.sample_size * audio.num_channels;
   for (auto i = 0; i < 2; i++) {
     audio.buffer[i].max_size = buffer_size;
     audio.buffer[i].size = 0;
@@ -81,7 +84,7 @@ auto win32_init_audio(Audio& audio) -> bool {
   WAVEFORMATEX waveFormatEx{};
   waveFormatEx.wFormatTag = WAVE_FORMAT_PCM;
   waveFormatEx.nChannels = 1; // 1 channel
-  waveFormatEx.nSamplesPerSec = samples_per_second;
+  waveFormatEx.nSamplesPerSec = audio.samples_per_second;
   waveFormatEx.nBlockAlign = SoundSampleSize * waveFormatEx.nChannels;
   waveFormatEx.nAvgBytesPerSec = waveFormatEx.nSamplesPerSec * waveFormatEx.nBlockAlign;
   waveFormatEx.wBitsPerSample = SoundSampleSize * 8;
@@ -90,28 +93,25 @@ auto win32_init_audio(Audio& audio) -> bool {
   // Create a source voice.
   if (FAILED(audio.xAudio2->CreateSourceVoice(&audio.sourceVoice, &waveFormatEx))) {
     DWORD err_code = GetLastError();
-    printf("win32_play_sound::CreateSourceVoice failed: %lu", err_code);
+    printf("win32_init_audio::CreateSourceVoice failed: %lu", err_code);
     return false;
   }
   return true;
 }
 
-auto win32_play_sound(Audio& audio, SoundBuffer& src_buffer) -> bool {
-  audio.active_buffer = audio.active_buffer == 0 ? 1 : 0;
-  auto& target_buffer = audio.buffer[audio.active_buffer];
+auto win32_add_sound_samples_to_queue(Audio& audio, SoundBuffer& src_buffer) -> bool {
+  audio.active_buffer_idx = audio.active_buffer_idx == 0 ? 1 : 0;
+  auto& target_buffer = audio.buffer[audio.active_buffer_idx];
   target_buffer.size = 0;
-  assert(target_buffer.max_size <= src_buffer.num_samples * SoundSampleSize);
+  assert(target_buffer.max_size >= src_buffer.num_samples * SoundSampleSize);
   for (auto i = 0; i < src_buffer.num_samples; i++) {
     int16_t sample = src_buffer.samples[i];
     target_buffer.data[target_buffer.size++] = static_cast<BYTE>(sample);      // Lower byte
     target_buffer.data[target_buffer.size++] = static_cast<BYTE>(sample >> 8); // Upper byte
   }
 
-  /*Indicates that there cannot be any buffers in the queue after this buffer.
-   * The only effect of this flag is to suppress debug output warnings caused
-   * by starvation of the buffer queue. */
   XAUDIO2_BUFFER buffer_desc = {};
-  buffer_desc.Flags = 0;
+  buffer_desc.Flags = 0; // Not the end of stream
   buffer_desc.AudioBytes = target_buffer.size;
   buffer_desc.pAudioData = target_buffer.data;
   // Zero means start at the begining and play until end
@@ -122,16 +122,20 @@ auto win32_play_sound(Audio& audio, SoundBuffer& src_buffer) -> bool {
   buffer_desc.LoopCount = 0;
 
   // Submit the buffer and start playback.
-  if (FAILED(audio.sourceVoice->SubmitSourceBuffer(&buffer_desc))) {
-    DWORD err_code = GetLastError();
-    printf("win32_init_audio::SubmitSourceBuffer failed: %lu", err_code);
+  auto result = audio.sourceVoice->SubmitSourceBuffer(&buffer_desc);
+  if (FAILED(result)) {
+    win32_print_error_msg(result);
     return false;
   }
 
-  if (FAILED(audio.sourceVoice->Start(0))) {
-    DWORD err_code = GetLastError();
-    printf("win32_init_audio::Stat: %lu", err_code);
-    return false;
+  XAUDIO2_VOICE_STATE state;
+  audio.sourceVoice->GetState(&state);
+  if (state.BuffersQueued == 1) {
+    result = audio.sourceVoice->Start(0);
+    if (FAILED(result)) {
+      win32_print_error_msg(result);
+      exit(1);
+    }
   }
   return true;
 }
@@ -692,7 +696,7 @@ void win32_process_pending_messages(HWND hwnd, bool& is_running, UserInput& new_
   }
 }
 
-static inline auto win32_get_ticks_frequency() -> i64 {
+static inline auto win32_get_ticks_per_second() -> i64 {
   LARGE_INTEGER frequency;
   if (!QueryPerformanceFrequency(&frequency)) {
     printf("Error retrieving QueryPerformanceFrequency\n");
@@ -702,7 +706,7 @@ static inline auto win32_get_ticks_frequency() -> i64 {
 }
 
 static inline auto win32_check_ticks_frequency() -> void {
-  auto frequency = win32_get_ticks_frequency();
+  auto frequency = win32_get_ticks_per_second();
   const auto expected_num_ticks = us_in_second * 10;
   if (frequency != expected_num_ticks) {
     printf("QueryPerformanceFrequency is %lld, not %lld.\n", frequency, expected_num_ticks);
@@ -970,8 +974,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   platform.debug_print_readable_timestamp = &win32_debug_print_readable_timestamp;
   // endregion
 
-  Audio audio;
+  Audio audio = {};
   win32_init_audio(audio);
+  printf("Buffer active idx: %d\n", audio.active_buffer_idx);
+  printf("Buffer curr size: %d\n", audio.buffer[audio.active_buffer_idx].size);
   /* MAIN LOOP */
   auto is_running = true;
   auto is_recording = false;
@@ -982,8 +988,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   win32_load_dll(&app_functions);
   app_functions.load(&gl_funcs, &platform, &memory);
 
+  const f32 target_fps = 60;
+  const auto tick_frequency = win32_get_ticks_per_second();
+  const f32 ticks_per_frame = tick_frequency / target_fps;
+  const f32 seconds_per_frame = 1.0 / 60;
+
   i64 last_tick = win32_get_tick();
-  const auto tick_frequency = win32_get_ticks_frequency();
+  bool is_first_frame = true;
   while (is_running) {
     const auto this_tick = win32_get_tick();
 
@@ -1075,20 +1086,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     }
 
     app_functions.update_and_render(&memory, &app_input);
+    SwapBuffers(hdc);
+
     {
       XAUDIO2_VOICE_STATE state;
       audio.sourceVoice->GetState(&state);
-      if (state.BuffersQueued == 0) {
-        auto sound_buffer = app_functions.get_sound_samples();
-        win32_play_sound(audio, sound_buffer);
+      while (state.BuffersQueued < 2) {
+        const auto num_samples_to_add = static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
+        if (num_samples_to_add > 0) {
+          auto sound_buffer = app_functions.get_sound_samples(num_samples_to_add);
+          win32_add_sound_samples_to_queue(audio, sound_buffer);
+        }
+        audio.sourceVoice->GetState(&state);
       }
     }
-    SwapBuffers(hdc);
 
-    const f32 target_fps = 60;
-    const f32 ticks_per_frame = win32_get_ticks_frequency() / target_fps;
     i64 ticks_used_this_frame = win32_get_tick() - last_tick;
-    if (ticks_used_this_frame > ticks_per_frame) {
+    if (ticks_used_this_frame > ticks_per_frame && !is_first_frame) {
       printf("Failed to hit ticks per frame target!\n");
       printf("Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
     } else {
@@ -1102,6 +1116,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     current_input = &inputs[curr_input_idx];
     previous_input = &inputs[prev_input_idx];
     current_input->frame_clear(*previous_input);
+    is_first_frame = false;
   }
 
   return 0;

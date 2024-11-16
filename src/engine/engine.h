@@ -94,4 +94,4 @@ struct EngineState {
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);
 extern "C" __declspec(dllexport) void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory);
-extern "C" __declspec(dllexport) SoundBuffer get_sound_samples();
+extern "C" __declspec(dllexport) SoundBuffer get_sound_samples(i32 num_samples);
