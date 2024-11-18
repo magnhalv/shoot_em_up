@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdio>
 
+#include <cstring>
 #include <glad/gl.h>
 
 #include <math/math.h>
@@ -40,28 +41,34 @@ inline f32 new_y(f32 x, f32 y, f32 degree) {
 }
 
 static bool play_sound = false;
+static u16* sound_buffer = nullptr;
+static i32 sound_buffer_size = 0;
+static uint32_t src_buf_idx = 0;
 
 auto get_sound_samples(i32 num_samples) -> SoundBuffer {
   HM_ASSERT(num_samples >= 0);
   SoundBuffer buffer;
-  buffer.num_samples = num_samples;
-  buffer.samples = allocate<u16>(*g_transient, buffer.num_samples);
   buffer.tone_hz = 220;
-  buffer.samples_per_second = 44100;
+  buffer.samples_per_second = 48000;
+  buffer.sample_size_in_bytes = SoundSampleSize;
+  buffer.num_samples = num_samples * buffer.sample_size_in_bytes;
+  buffer.samples = allocate<u16>(*g_transient, buffer.num_samples);
 
   // Fill the buffer with a sine wave.
   static double phase = 0.0;
   double volume = 0.5;
-  uint32_t buffer_index = 0;
+  uint32_t target_buf_idx = 0;
   if (play_sound) {
-    while (buffer_index < buffer.num_samples) {
-      phase += (2 * PI * buffer.tone_hz) / buffer.samples_per_second;
-      int16_t sample = static_cast<int16_t>(sin(phase) * INT16_MAX * volume);
-      buffer.samples[buffer_index++] = sample;
+    while (target_buf_idx < buffer.num_samples) {
+      if (target_buf_idx >= sound_buffer_size) {
+        buffer.samples[target_buf_idx++] = 0;
+      } else {
+        buffer.samples[target_buf_idx++] = sound_buffer[src_buf_idx++];
+      }
     }
   } else {
-    while (buffer_index < buffer.num_samples) {
-      buffer.samples[buffer_index++] = 0;
+    while (target_buf_idx < buffer.num_samples) {
+      buffer.samples[target_buf_idx++] = 0;
     }
   }
 
@@ -137,6 +144,44 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     state->sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
     state->is_initialized = true;
+
+    const char* laser_path = "assets/sound/laser_primary.wav";
+    auto file_size = platform->get_file_size(laser_path);
+    auto buffer = allocate<char>(state->permanent, file_size);
+    platform->read_file(laser_path, buffer, file_size);
+
+    WavFile wav_file;
+    wav_file.riff_chunk = reinterpret_cast<WavRiffChunk*>(buffer);
+    u32 cursor = sizeof(WavRiffChunk);
+    u32 cursor_end = wav_file.riff_chunk->file_size + 8;
+    HM_ASSERT(cursor_end == file_size);
+    while (cursor < cursor_end) {
+      // TODO: memcopy the data into a WavFile struct, without pointers, so we can release the extra memory.
+      WavSubchunkDesc* desc = reinterpret_cast<WavSubchunkDesc*>(buffer + cursor);
+      if (std::memcmp("fmt", desc->chunk_id, 3) == 0) {
+        wav_file.fmt_chunk = reinterpret_cast<WavFmtChunk*>(buffer + cursor);
+        printf("Found fmt\n");
+      } else if (std::memcmp("data", desc->chunk_id, 4) == 0) {
+        wav_file.data_chunk = reinterpret_cast<WavDataChunk*>(buffer + cursor);
+        wav_file.data = reinterpret_cast<u8*>(buffer + cursor + sizeof(WavDataChunk));
+        sound_buffer = allocate<u16>(state->permanent, wav_file.data_chunk->data_size / 3);
+        i32 idx = 0;
+        while (idx < wav_file.data_chunk->data_size) {
+          u16 sample = 0;
+          // we drop the least significant part
+          idx++;
+          sample |= wav_file.data[idx++] << 16;
+          sample |= wav_file.data[idx++] << 8;
+          sound_buffer[sound_buffer_size++] = sample;
+        }
+      } else {
+        printf("Found %.4s\n", desc->chunk_id);
+      }
+      HM_ASSERT(desc->chunk_size > 0);
+      cursor += desc->chunk_size + sizeof(WavSubchunkDesc);
+    }
+
+    print(&wav_file);
   }
   // TODO: Gotta set this on hot reload
   clear_transient();
@@ -160,6 +205,9 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   time.num_frames_this_second++;
 
   play_sound = app_input->input.space.ended_down;
+  if (app_input->input.space.is_pressed_this_frame()) {
+    src_buf_idx = 0;
+  }
   {
     auto& input = app_input->input;
     auto& p_pos = state->sprite.transform.position;

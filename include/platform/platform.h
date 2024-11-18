@@ -93,7 +93,7 @@ const u32 Gl_Invalid_Id = 0;
 
 // Functions platform MUST support
 typedef u64 (*GET_FILE_LAST_MODIFIED_PROC)(const char* file_path);
-typedef bool (*READ_FILE_PROC)(const char*, char*, const u64);
+typedef bool (*READ_FILE_PROC)(const char* path, char* buffer, const u64 buffer_size);
 typedef bool (*WRITE_FILE_PROC)(const char*, const char*, const u64);
 typedef u64 (*GET_FILE_SIZE_PROC)(const char*);
 typedef void (*DEBUG_PRINT_READABLE_TIMESTAMP_PROC)(u64);

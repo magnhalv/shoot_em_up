@@ -70,8 +70,8 @@ auto win32_init_audio(Audio& audio) -> bool {
   }
 
   audio.num_channels = 1;
-  audio.sample_size = sizeof(u16);
-  audio.samples_per_second = 44100;
+  audio.sample_size = SoundSampleSize;
+  audio.samples_per_second = 48000;
   auto buffer_size = audio.samples_per_second * audio.sample_size * audio.num_channels;
   for (auto i = 0; i < 2; i++) {
     audio.buffer[i].max_size = buffer_size;
@@ -1091,6 +1091,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     {
       XAUDIO2_VOICE_STATE state;
       audio.sourceVoice->GetState(&state);
+      // We make sure there is max 2 frames of sound data available for the sound  card.
       while (state.BuffersQueued < 2) {
         const auto num_samples_to_add = static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
         if (num_samples_to_add > 0) {
