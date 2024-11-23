@@ -12,20 +12,16 @@
 #include "engine/hm_assert.h"
 #include "gl/gl.h"
 #include "gl/gl_vao.h"
+#include "globals.hpp"
 #include "gui.hpp"
 #include "logger.h"
 #include "math/mat4.h"
 #include "math/transform.h"
 #include "memory_arena.h"
-#include "options.hpp"
-#include "platform.h"
 #include "platform/platform.h"
 #include "text_renderer.h"
 #include <engine/renderer/asset_manager.h>
 #include <math/transform.h>
-
-// Globals
-Options* graphics_options = nullptr;
 
 inline auto to_ndc(i32 pixels, i32 range) -> f32 {
   auto x = range / 2;
@@ -40,12 +36,9 @@ inline f32 new_y(f32 x, f32 y, f32 degree) {
   return sin(degree) * x + cos(degree) * y;
 }
 
-static bool play_sound = false;
-static u16* sound_buffer = nullptr;
-static i32 sound_buffer_size = 0;
-static uint32_t src_buf_idx = 0;
-
-auto get_sound_samples(i32 num_samples) -> SoundBuffer {
+auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
+  auto* engine = (EngineState*)memory->permanent;
+  auto& audio = engine->audio;
   HM_ASSERT(num_samples >= 0);
   SoundBuffer buffer;
   buffer.tone_hz = 220;
@@ -55,21 +48,27 @@ auto get_sound_samples(i32 num_samples) -> SoundBuffer {
   buffer.samples = allocate<u16>(*g_transient, buffer.num_samples);
 
   // Fill the buffer with a sine wave.
-  static double phase = 0.0;
-  double volume = 0.5;
   uint32_t target_buf_idx = 0;
-  if (play_sound) {
+  for (auto& playing_sound : audio.playing_sounds) {
+    if (playing_sound.sound == nullptr) {
+      continue;
+    }
+
+    auto src_buffer = playing_sound.sound->samples;
     while (target_buf_idx < buffer.num_samples) {
-      if (target_buf_idx >= sound_buffer_size) {
-        buffer.samples[target_buf_idx++] = 0;
-      } else {
-        buffer.samples[target_buf_idx++] = sound_buffer[src_buf_idx++];
+      buffer.samples[target_buf_idx++] = src_buffer[playing_sound.curr_sample++];
+
+      if (playing_sound.curr_sample >= playing_sound.sound->samples.size()) {
+        playing_sound.sound = nullptr;
+        playing_sound.curr_sample = 0;
+        break;
       }
     }
-  } else {
-    while (target_buf_idx < buffer.num_samples) {
-      buffer.samples[target_buf_idx++] = 0;
-    }
+  }
+
+  // Fill remaining with zeros
+  while (target_buf_idx < buffer.num_samples) {
+    buffer.samples[target_buf_idx++] = 0;
   }
 
   return buffer;
@@ -145,43 +144,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     state->sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
     state->is_initialized = true;
 
-    const char* laser_path = "assets/sound/laser_primary.wav";
-    auto file_size = platform->get_file_size(laser_path);
-    auto buffer = allocate<char>(state->permanent, file_size);
-    platform->read_file(laser_path, buffer, file_size);
-
-    WavFile wav_file;
-    wav_file.riff_chunk = reinterpret_cast<WavRiffChunk*>(buffer);
-    u32 cursor = sizeof(WavRiffChunk);
-    u32 cursor_end = wav_file.riff_chunk->file_size + 8;
-    HM_ASSERT(cursor_end == file_size);
-    while (cursor < cursor_end) {
-      // TODO: memcopy the data into a WavFile struct, without pointers, so we can release the extra memory.
-      WavSubchunkDesc* desc = reinterpret_cast<WavSubchunkDesc*>(buffer + cursor);
-      if (std::memcmp("fmt", desc->chunk_id, 3) == 0) {
-        wav_file.fmt_chunk = reinterpret_cast<WavFmtChunk*>(buffer + cursor);
-        printf("Found fmt\n");
-      } else if (std::memcmp("data", desc->chunk_id, 4) == 0) {
-        wav_file.data_chunk = reinterpret_cast<WavDataChunk*>(buffer + cursor);
-        wav_file.data = reinterpret_cast<u8*>(buffer + cursor + sizeof(WavDataChunk));
-        sound_buffer = allocate<u16>(state->permanent, wav_file.data_chunk->data_size / 3);
-        i32 idx = 0;
-        while (idx < wav_file.data_chunk->data_size) {
-          u16 sample = 0;
-          // we drop the least significant part
-          idx++;
-          sample |= wav_file.data[idx++] << 16;
-          sample |= wav_file.data[idx++] << 8;
-          sound_buffer[sound_buffer_size++] = sample;
-        }
-      } else {
-        printf("Found %.4s\n", desc->chunk_id);
-      }
-      HM_ASSERT(desc->chunk_size > 0);
-      cursor += desc->chunk_size + sizeof(WavSubchunkDesc);
-    }
-
-    print(&wav_file);
+    init_audio_system(state->audio, state->permanent);
   }
   // TODO: Gotta set this on hot reload
   clear_transient();
@@ -204,9 +167,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   time.t += time.dt;
   time.num_frames_this_second++;
 
-  play_sound = app_input->input.space.ended_down;
   if (app_input->input.space.is_pressed_this_frame()) {
-    src_buf_idx = 0;
+    play_sound(SoundType::Laser, state->audio);
   }
   {
     auto& input = app_input->input;
@@ -299,7 +261,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   ///////       Render       ///////
   //////////////////////////////////
 
-  if (graphics_options->anti_aliasing) {
+  if (g_graphics_options->anti_aliasing) {
     gl->bind_framebuffer(GL_FRAMEBUFFER, state->ms_framebuffer.fbo);
   } else {
     gl->bind_framebuffer(GL_FRAMEBUFFER, state->framebuffer.fbo);
@@ -381,7 +343,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
   // region Draw end quad
   {
-    if (graphics_options->anti_aliasing) {
+    if (g_graphics_options->anti_aliasing) {
       const i32 w = app_input->client_width;
       const i32 h = app_input->client_height;
       gl->bind_framebuffer(GL_READ_FRAMEBUFFER, state->ms_framebuffer.fbo);
@@ -422,7 +384,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
 void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory) {
   load_gl(in_gl);
-  platform = in_platform;
+  load(in_platform);
 
   assert(sizeof(EngineState) < Permanent_Memory_Block_Size);
   auto* state = (EngineState*)in_memory->permanent;
@@ -432,5 +394,5 @@ void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory) {
   assert(sizeof(AssetManager) <= Assets_Memory_Block_Size);
   asset_manager_set_memory(in_memory->asset);
 
-  graphics_options = &state->graphics_options;
+  load(&state->graphics_options);
 }

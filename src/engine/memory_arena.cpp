@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstring>
 
+#include "engine/hm_assert.h"
 #include "logger.h"
 #include "memory.h"
 #include "memory_arena.h"
@@ -8,14 +9,14 @@
 MemoryArena* g_transient = nullptr;
 
 auto MemoryArena::allocate(u64 request_size) -> void* {
-  assert(memory != nullptr);
+  HM_ASSERT(memory != nullptr);
   if (size < used + request_size + sizeof(ArenaGuard)) {
     crash_and_burn("Failed to allocate %" PRIu64 " bytes. Only %" PRIu64 " remaining.", request_size,
         size - used - sizeof(ArenaGuard));
   }
 
   auto* previous_guard = reinterpret_cast<ArenaGuard*>(&memory[used - sizeof(ArenaGuard)]);
-  assert(previous_guard->guard_pattern == GUARD_PATTERN);
+  HM_ASSERT(previous_guard->guard_pattern == GUARD_PATTERN);
 
   memset(&memory[used], 0, request_size);
 

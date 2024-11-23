@@ -139,6 +139,6 @@ struct SoundBuffer {
 // Functions application MUST support
 typedef void(__cdecl* UPDATE_AND_RENDER_PROC)(EngineMemory*, EngineInput*);
 typedef void(__cdecl* LOAD_PROC)(GLFunctions*, Platform*, EngineMemory*);
-typedef SoundBuffer(__cdecl* GET_SOUND_SAMPLES_PROC)(i32);
+typedef SoundBuffer(__cdecl* GET_SOUND_SAMPLES_PROC)(EngineMemory* memory, i32 num_samples);
 
 #endif // HOT_RELOAD_OPENGL_PLATFORM_H

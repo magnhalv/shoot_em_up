@@ -1095,7 +1095,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
       while (state.BuffersQueued < 2) {
         const auto num_samples_to_add = static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
         if (num_samples_to_add > 0) {
-          auto sound_buffer = app_functions.get_sound_samples(num_samples_to_add);
+          auto sound_buffer = app_functions.get_sound_samples(&memory, num_samples_to_add);
           win32_add_sound_samples_to_queue(audio, sound_buffer);
         }
         audio.sourceVoice->GetState(&state);

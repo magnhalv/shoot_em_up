@@ -22,7 +22,7 @@ set(SOURCE_FILES
         engine/logger.cpp
         engine/memory.cpp
         engine/memory_arena.cpp
-        engine/platform.cpp
+        engine/globals.cpp
         engine/renderer.cpp
         engine/text_renderer.cpp
         engine/options.cpp

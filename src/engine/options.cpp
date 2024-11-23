@@ -1,7 +1,7 @@
 #include "options.hpp"
+#include "globals.hpp"
 #include "logger.h"
 #include "memory_arena.h"
-#include "platform.h"
 #include <cstring>
 
 auto line_in_buffer(const char* line, LineBuffer& line_buffer) {
@@ -42,16 +42,16 @@ auto save_to_file(Options* options) -> void {
     raw_buffer[raw_buffer_size - 2] = '\r';
     raw_buffer[raw_buffer_size - 1] = '\n';
   }
-  platform->write_file(graphic_options_path, raw_buffer, raw_buffer_size);
+  g_platform->write_file(graphic_options_path, raw_buffer, raw_buffer_size);
 }
 
 auto read_from_file(Options* options) -> void {
-  auto file_size = platform->get_file_size(graphic_options_path);
+  auto file_size = g_platform->get_file_size(graphic_options_path);
   if (file_size == 0) {
     return;
   }
   char* raw_buffer = allocate<char>(*g_transient, file_size + 1);
-  auto success = platform->read_file(graphic_options_path, raw_buffer, file_size + 1);
+  auto success = g_platform->read_file(graphic_options_path, raw_buffer, file_size + 1);
   if (!success) {
     log_error("Options: Failed to read %s.", graphic_options_path);
     return;

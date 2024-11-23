@@ -14,64 +14,7 @@
 #include "platform/platform.h"
 #include "sprite.hpp"
 #include "text_renderer.h"
-
-struct Sound {
-  u16 samples;
-  u32 num_samples;
-  f32 frequency;
-  i32 samples_per_sec;
-};
-
-struct WavRiffChunk {
-  char identifier[4];
-  u32 file_size;
-  char file_format_id[4];
-};
-
-struct WavSubchunkDesc {
-  char chunk_id[4];
-  u32 chunk_size;
-};
-
-struct WavFmtChunk {
-  char format_block_id[4];
-  u32 block_size;
-  u16 audio_format;
-  u16 num_channels;
-  u32 frequency;
-  u32 bytes_per_sec;
-  u16 bytes_per_block;
-  u16 bits_per_sample;
-};
-
-struct WavDataChunk {
-  char data_block_id[4];
-  u32 data_size;
-};
-
-struct WavFile {
-  WavRiffChunk* riff_chunk;
-  WavFmtChunk* fmt_chunk;
-  WavDataChunk* data_chunk;
-  u8* data;
-};
-
-auto inline print(WavFile* file) -> void {
-  printf("Header: %.4s\n", file->riff_chunk->identifier);
-  printf("File Size: %u\n", file->riff_chunk->file_size);
-  printf("File format id: %.4s\n", file->riff_chunk->file_format_id);
-  printf("--------------\n");
-  printf("Format block id: %.4s\n", file->fmt_chunk->format_block_id);
-  printf("Block size: %u\n", file->fmt_chunk->block_size);
-  printf("Audio format: %u\n", file->fmt_chunk->audio_format);
-  printf("Num channels: %u\n", file->fmt_chunk->num_channels);
-  printf("Frequency: %u\n", file->fmt_chunk->frequency);
-  printf("Bytes per sec: %u\n", file->fmt_chunk->bytes_per_sec);
-  printf("Bytes per block: %u\n", file->fmt_chunk->bytes_per_block);
-  printf("Bits per sample: %u\n", file->fmt_chunk->bits_per_sample);
-  printf("Data block id: %.4s\n", file->data_chunk->data_block_id);
-  printf("Data size: %u\n", file->data_chunk->data_size);
-}
+#include <engine/audio.hpp>
 
 /// Processed mouse input
 struct Pointer {
@@ -95,8 +38,6 @@ struct Window {
   mat4 ortho;
   mat4 perspective;
 };
-
-extern Options* graphics_options;
 
 struct PerFrameData {
   mat4 projection;
@@ -126,6 +67,8 @@ struct EngineState {
   MemoryArena transient;
   MemoryArena permanent;
 
+  AudioSystemState audio;
+
   GLGlobalUniformBufferContainer uniform_buffer_container;
   Framebuffer framebuffer;
   MultiSampleFramebuffer ms_framebuffer;
@@ -145,4 +88,4 @@ struct EngineState {
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);
 extern "C" __declspec(dllexport) void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory);
-extern "C" __declspec(dllexport) SoundBuffer get_sound_samples(i32 num_samples);
+extern "C" __declspec(dllexport) SoundBuffer get_sound_samples(EngineMemory* memory, i32 num_samples);

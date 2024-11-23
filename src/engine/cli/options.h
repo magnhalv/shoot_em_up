@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../engine.h"
+#include <cstdio> // TODO: remove
+
 #include "../options.hpp"
 #include "cli_app.h"
-#include "math/mat4.h"
-#include <cstdio>
+#include <engine/globals.hpp>
 
 enum class CliOptionType { INT, BOOL, STRING };
 
@@ -144,24 +144,24 @@ auto inline handle_options(Array<FStr>& args, LinkedListBuffer& buf) -> void {
   printf("Do stuff\n");
   if (command->long_name == "antialias") {
     if (get_bool("enable", *command)) {
-      graphics_options->anti_aliasing = true;
+      g_graphics_options->anti_aliasing = true;
     }
     if (get_bool("disable", *command)) {
-      graphics_options->anti_aliasing = true;
+      g_graphics_options->anti_aliasing = true;
     }
   }
   if (command->long_name == "grid") {
     if (get_bool("enable", *command)) {
-      graphics_options->anti_aliasing = true;
+      g_graphics_options->anti_aliasing = true;
     }
     if (get_bool("disable", *command)) {
-      graphics_options->anti_aliasing = true;
+      g_graphics_options->anti_aliasing = true;
     }
   } else {
     buf.add(help_message);
   }
 
-  save_to_file(graphics_options);
+  save_to_file(g_graphics_options);
 }
 
 auto inline handle_autocomplete(Array<FStr>& args, LinkedListBuffer& buf, MemoryArena& arena) -> List<FStr> {

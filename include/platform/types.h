@@ -40,6 +40,11 @@ constexpr u64 GigaBytes(u64 num_gb) noexcept {
 
 const i32 Max_Path_Length = 128;
 
+// Returns the length of a static array
+template <typename T, std::size_t N> constexpr std::size_t array_length(const T (&)[N]) noexcept {
+  return N;
+}
+
 template <typename T>
 constexpr auto operator+(T e) noexcept -> std::enable_if_t<std::is_enum<T>::value, std::underlying_type_t<T>> {
   return static_cast<std::underlying_type_t<T>>(e);
