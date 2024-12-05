@@ -32,6 +32,16 @@ struct Pointer {
   }
 };
 
+struct Projectile {
+  bool is_active;
+  Transform transform;
+};
+
+struct Player {
+  Transform transform;
+  vec2 speed;
+};
+
 struct Window {
   f32 width;
   f32 height;
@@ -83,7 +93,11 @@ struct EngineState {
   TextRenderer text_renderer;
   Font* font;
 
-  Sprite sprite;
+  Sprite player_sprite;
+  Sprite projectile_sprite;
+
+  Player player;
+  Projectile projectiles[100];
 };
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);

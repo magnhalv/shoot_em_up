@@ -1,5 +1,6 @@
 #include "sprite.hpp"
 
+#include <cstdio>
 #include <libs/stb/stb_image.h>
 
 #include "gl/gl.h"
@@ -11,10 +12,10 @@ auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
   f32 vertices[] = {
     // clang-format off
       // positions         // colors           // texture coords
-      1.0f, 1.0f, 0.0f,    1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-      1.0f, 0.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,  // bottom right
-      0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // bottom left
-      0.0f, 1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f   // top left
+      1.0f, 1.0f, 0.0f,    0.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+      1.0f, 0.0f, 0.0f,   0.0f, 0.0f, 0.0f,   1.0f, 0.0f,  // bottom right
+      0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+      0.0f, 1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   0.0f, 1.0f   // top left
     // clang-format on
   };
   u32 indices[] = {
@@ -84,20 +85,26 @@ auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
   }
   stbi_image_free(data);
 
-  Transform tranform = Transform();
-  tranform.scale.x = width;
-  tranform.scale.y = height;
-  sprite.transform = tranform;
+  sprite.width = width;
+  sprite.height = height;
+
   return sprite;
 }
 
-auto render_sprite(Sprite& sprite, mat4 projection) -> void {
+auto render_sprite(const Sprite& sprite, const Transform& transform, const mat4& projection) -> void {
+
+  auto sprite_flags = GL_BLEND;
+  gl->enable(sprite_flags);
+
+  gl->blend_func(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   sprite.program->useProgram();
   sprite.program->set_uniform("projection", projection);
   mat4 model = identity();
-  sprite.program->set_uniform("model", sprite.transform.to_mat4());
+  sprite.program->set_uniform("model", transform.to_mat4());
   gl->bind_vertex_array(sprite.vao);
   gl->bind_texture(GL_TEXTURE_2D, sprite.tex1);
   gl->draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
   gl->bind_vertex_array(0);
+
+  gl->disable(sprite_flags);
 }

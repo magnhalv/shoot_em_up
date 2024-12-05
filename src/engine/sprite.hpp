@@ -10,11 +10,12 @@ struct Sprite {
   u32 vbo = 0;
   u32 ebo = 0;
   u32 tex1 = 0;
+  // TODO: Move this
   GLShaderProgram* program = nullptr;
 
-  Transform transform = {};
-  vec2 speed;
+  i32 width;
+  i32 height;
 };
 
 auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite;
-auto render_sprite(Sprite& sprite, mat4 projection) -> void;
+auto render_sprite(const Sprite& sprite, const Transform& transform, const mat4& projection) -> void;

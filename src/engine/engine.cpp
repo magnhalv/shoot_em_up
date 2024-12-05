@@ -6,6 +6,7 @@
 #include <glad/gl.h>
 
 #include <math/math.h>
+#include <math/util.hpp>
 #include <math/vec3.h>
 
 #include "engine.h"
@@ -141,10 +142,23 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     im::initialize_imgui(state->font, &state->permanent);
 
-    state->sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
-    state->is_initialized = true;
+    state->player_sprite = load_sprite("assets/sprites/player_1.png", &sprite_program);
+    state->player.transform = Transform();
+    state->player.transform.scale.x = state->player_sprite.width;
+    state->player.transform.scale.y = state->player_sprite.height;
+    state->player.transform.scale.z = 1;
+
+    state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
+    for (auto& p : state->projectiles) {
+      p.transform = Transform();
+      p.transform.scale.x = state->projectile_sprite.width;
+      p.transform.scale.y = state->projectile_sprite.height;
+      p.transform.scale.z = 1;
+    }
 
     init_audio_system(state->audio, state->permanent);
+
+    state->is_initialized = true;
   }
   // TODO: Gotta set this on hot reload
   clear_transient();
@@ -166,61 +180,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   time.dt = app_input->dt;
   time.t += time.dt;
   time.num_frames_this_second++;
-
-  if (app_input->input.space.is_pressed_this_frame()) {
-    play_sound(SoundType::Laser, state->audio);
-  }
-  {
-    auto& input = app_input->input;
-    auto& p_pos = state->sprite.transform.position;
-    auto& sprite = state->sprite;
-    const auto max_speed = 300.0;
-    const f32 acc = 60.0f;
-    vec2 accelaration = vec2(acc, acc);
-
-    vec2 direction = vec2();
-
-    auto speed = 1.0;
-    if (input.w.ended_down) {
-      direction.y = 1.0;
-    }
-    if (input.s.ended_down) {
-      direction.y = -1.0;
-    }
-    if (input.a.ended_down) {
-      direction.x = -1.0;
-    }
-    if (input.d.ended_down) {
-      direction.x = 1.0;
-    }
-    normalize(direction);
-    accelaration = accelaration * direction;
-
-    if (accelaration.x != 0.0) {
-      const auto new_speed_x = sprite.speed.x + accelaration.x;
-      sprite.speed.x = hm::min(hm::max(new_speed_x, -max_speed), max_speed);
-    } else {
-      if (sprite.speed.x < 0.0f) {
-        sprite.speed.x = fmax(sprite.speed.x + acc, 0.0f);
-      } else if (sprite.speed.x > 0.0f) {
-        sprite.speed.x = fmin(sprite.speed.x - acc, 0.0f);
-      }
-    }
-
-    if (accelaration.y != 0.0) {
-      const auto new_speed_y = sprite.speed.y + accelaration.y;
-      sprite.speed.y = hm::min(hm::max(new_speed_y, -max_speed), max_speed);
-    } else {
-      if (sprite.speed.y < 0.0f) {
-        sprite.speed.y = fmax(sprite.speed.y + acc, 0.0f);
-      } else if (sprite.speed.y > 0.0f) {
-        sprite.speed.y = fmin(sprite.speed.y - acc, 0.0f);
-      }
-    }
-
-    sprite.transform.position.x += (sprite.speed.x * time.dt);
-    sprite.transform.position.y += (sprite.speed.y * time.dt);
-  }
 
   auto ortho_projection = create_ortho(0, app_input->client_width, 0, app_input->client_height, 0.0f, 100.0f);
 
@@ -258,6 +217,96 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   }
 
   //////////////////////////////////
+  ///////  Update gameplay   ///////
+  //////////////////////////////////
+
+  {
+    auto& input = app_input->input;
+    auto& p_pos = state->player.transform.position;
+
+    if (input.space.is_pressed_this_frame()) {
+      play_sound(SoundType::Laser, state->audio);
+      const auto& pt = state->player.transform;
+      for (auto& p : state->projectiles) {
+        if (!p.is_active) {
+          p.transform.position.x = pt.position.x + pt.scale.x / 2;
+          p.transform.position.y = pt.position.y + pt.scale.y / 2;
+          p.is_active = true;
+          break;
+        }
+      }
+    }
+
+    const auto max_speed = 300.0;
+    const f32 acc = 60.0f;
+    vec2 accelaration = vec2(acc, acc);
+
+    vec2 direction = vec2();
+
+    auto speed = 1.0;
+    if (input.w.ended_down) {
+      direction.y = 1.0;
+    }
+    if (input.s.ended_down) {
+      direction.y = -1.0;
+    }
+    if (input.a.ended_down) {
+      direction.x = -1.0;
+    }
+    if (input.d.ended_down) {
+      direction.x = 1.0;
+    }
+    normalize(direction);
+    accelaration = accelaration * direction;
+
+    auto& player = state->player;
+    if (accelaration.x != 0.0) {
+      const auto new_speed_x = player.speed.x + accelaration.x;
+      player.speed.x = hm::min(hm::max(new_speed_x, -max_speed), max_speed);
+    } else {
+      if (player.speed.x < 0.0f) {
+        player.speed.x = fmax(player.speed.x + acc, 0.0f);
+      } else if (player.speed.x > 0.0f) {
+        player.speed.x = fmin(player.speed.x - acc, 0.0f);
+      }
+    }
+
+    if (accelaration.y != 0.0) {
+      const auto new_speed_y = player.speed.y + accelaration.y;
+      player.speed.y = hm::min(hm::max(new_speed_y, -max_speed), max_speed);
+    } else {
+      if (player.speed.y < 0.0f) {
+        player.speed.y = fmax(player.speed.y + acc, 0.0f);
+      } else if (player.speed.y > 0.0f) {
+        player.speed.y = fmin(player.speed.y - acc, 0.0f);
+      }
+    }
+
+    player.transform.position.x += (player.speed.x * time.dt);
+    if (player.transform.position.x < 0) {
+      player.transform.position.x = 0;
+    }
+    if ((player.transform.position.x + player.transform.scale.x) > app_input->client_width) {
+      player.transform.position.x = app_input->client_width - player.transform.scale.x;
+    }
+
+    player.transform.position.y += (player.speed.y * time.dt);
+    if (player.transform.position.y < 0) {
+      player.transform.position.y = 0;
+    }
+    if ((player.transform.position.y + player.transform.scale.y) > app_input->client_height) {
+      player.transform.position.y = app_input->client_height - player.transform.scale.y;
+    }
+
+    const auto projectile_speed = 1200.0;
+    for (auto& p : state->projectiles) {
+      if (p.is_active) {
+        p.transform.position.y += projectile_speed * time.dt;
+      }
+    }
+  }
+
+  //////////////////////////////////
   ///////       Render       ///////
   //////////////////////////////////
 
@@ -273,7 +322,12 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   gl->viewport(0, 0, app_input->client_width, app_input->client_height);
 
   // render sprite
-  render_sprite(state->sprite, ortho_projection);
+  render_sprite(state->player_sprite, state->player.transform, ortho_projection);
+  for (const auto& p : state->projectiles) {
+    if (p.is_active) {
+      render_sprite(state->projectile_sprite, p.transform, ortho_projection);
+    }
+  }
 
   // RenderGUI
   {
