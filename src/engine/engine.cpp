@@ -159,6 +159,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     init_audio_system(state->audio, state->permanent);
 
     state->is_initialized = true;
+    log_info("Initializing complete");
   }
   // TODO: Gotta set this on hot reload
   clear_transient();

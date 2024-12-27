@@ -16,7 +16,7 @@ TEST_CASE_FIXTURE(SingleArenaFixture, "filling the arena") {
 }
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "allocate more than size (due to arena guard)") {
-  CHECK_CRASH(arena.allocate(default_size), "Failed to allocate 1024 bytes. Only 1008 remaining.");
+  CHECK_CRASH(arena.allocate(default_size), "Failed to allocate 1024 bytes. Only 992 remaining.");
 }
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "integrity should work with no allocations made") {

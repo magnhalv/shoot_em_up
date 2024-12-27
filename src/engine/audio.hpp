@@ -1,4 +1,5 @@
 #include "engine/hm_assert.h"
+#include "engine/logger.h"
 #include <engine/array.h>
 #include <engine/globals.hpp>
 #include <engine/memory_arena.h>
@@ -94,41 +95,47 @@ auto inline init_audio_system(AudioSystemState& state, MemoryArena& init_arena) 
     auto file_size = g_platform->get_file_size(path);
 
     auto buffer = allocate<char>(*g_transient, file_size);
-    g_platform->read_file(path, buffer, file_size);
+    auto is_success = g_platform->read_file(path, buffer, file_size);
 
-    WavFile wav_file;
-    wav_file.riff_chunk = reinterpret_cast<WavRiffChunk*>(buffer);
-    u32 cursor = sizeof(WavRiffChunk);
-    u32 cursor_end = wav_file.riff_chunk->file_size + 8;
-    HM_ASSERT(cursor_end == file_size);
-    while (cursor < cursor_end) {
-      // TODO: memcopy the data into a WavFile struct, without pointers, so we can release the extra memory.
-      WavSubchunkDesc* desc = reinterpret_cast<WavSubchunkDesc*>(buffer + cursor);
-      if (std::memcmp("fmt", desc->chunk_id, 3) == 0) {
-        wav_file.fmt_chunk = reinterpret_cast<WavFmtChunk*>(buffer + cursor);
-      } else if (std::memcmp("data", desc->chunk_id, 4) == 0) {
-        wav_file.data_chunk = reinterpret_cast<WavDataChunk*>(buffer + cursor);
-        wav_file.data = reinterpret_cast<u8*>(buffer + cursor + sizeof(WavDataChunk));
+    if (!is_success) {
+      log_warning("Unable to read audio file: %s\n", path);
+      sound.type = type;
+      sound.samples.init(*state.arena, 0);
+    }
+    else {
+      WavFile wav_file;
+      wav_file.riff_chunk = reinterpret_cast<WavRiffChunk*>(buffer);
+      u32 cursor = sizeof(WavRiffChunk);
+      u32 cursor_end = wav_file.riff_chunk->file_size + 8;
+      HM_ASSERT(cursor_end == file_size);
+      while (cursor < cursor_end) {
+        // TODO: memcopy the data into a WavFile struct, without pointers, so we can release the extra memory.
+        WavSubchunkDesc* desc = reinterpret_cast<WavSubchunkDesc*>(buffer + cursor);
+        if (std::memcmp("fmt", desc->chunk_id, 3) == 0) {
+          wav_file.fmt_chunk = reinterpret_cast<WavFmtChunk*>(buffer + cursor);
+        } else if (std::memcmp("data", desc->chunk_id, 4) == 0) {
+          wav_file.data_chunk = reinterpret_cast<WavDataChunk*>(buffer + cursor);
+          wav_file.data = reinterpret_cast<u8*>(buffer + cursor + sizeof(WavDataChunk));
+        }
+        // Discard the rest, as we do not support them.
+        HM_ASSERT(desc->chunk_size > 0);
+        cursor += desc->chunk_size + sizeof(WavSubchunkDesc);
       }
-      // Discard the rest, as we do not support them.
-      HM_ASSERT(desc->chunk_size > 0);
-      cursor += desc->chunk_size + sizeof(WavSubchunkDesc);
+
+      auto bytes_per_sample = wav_file.fmt_chunk->bits_per_sample / 8;
+      sound.samples.init(*state.arena, wav_file.data_chunk->data_size / bytes_per_sample);
+      i32 src_idx = 0;
+      i32 target_idx = 0;
+      while (src_idx < wav_file.data_chunk->data_size) {
+        u16 sample = 0;
+        // we drop the least significant part
+        src_idx++;
+        sample |= wav_file.data[src_idx++] << 16;
+        sample |= wav_file.data[src_idx++] << 8;
+        sound.samples[target_idx++] = sample;
+      }
     }
 
-    print(&wav_file);
-
-    auto bytes_per_sample = wav_file.fmt_chunk->bits_per_sample / 8;
-    sound.samples.init(*state.arena, wav_file.data_chunk->data_size / bytes_per_sample);
-    i32 src_idx = 0;
-    i32 target_idx = 0;
-    while (src_idx < wav_file.data_chunk->data_size) {
-      u16 sample = 0;
-      // we drop the least significant part
-      src_idx++;
-      sample |= wav_file.data[src_idx++] << 16;
-      sample |= wav_file.data[src_idx++] << 8;
-      sound.samples[target_idx++] = sample;
-    }
   }
   state.is_initialized = true;
 }

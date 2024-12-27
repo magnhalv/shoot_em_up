@@ -109,7 +109,9 @@ auto font_load(const char* path, MemoryArena& permanent_arena) -> Font* {
     assert(y < atlas_height);
     max_height_in_row = height > max_height_in_row ? height : max_height_in_row;
 
-    gl->tex_sub_image_2d(GL_TEXTURE_2D, 0, x, y, width, height, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+    if (face->glyph->bitmap.buffer != nullptr) {
+      gl->tex_sub_image_2d(GL_TEXTURE_2D, 0, x, y, width, height, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+    }
     f32 u_start = static_cast<f32>(x) / atlas_width;
     f32 v_start = static_cast<f32>(y) / atlas_height;
 

@@ -9,6 +9,7 @@
 #include "math/vec3.h"
 #include "math/vec2.h"
 #include "memory_arena.h"
+#include <engine/hm_assert.h>
 
 template<typename T>
 struct Array {
@@ -35,7 +36,7 @@ struct Array {
     }
 
     T &operator[](size_t index) {
-        //HM_ASSERT(index < _size);
+        HM_ASSERT(index < _size);
         return _data[index];
     }
 

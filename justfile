@@ -9,3 +9,7 @@ env:
 
 build: env
   ./scripts/build.bat
+
+test: env
+  cmake --build cmake-build --target tests
+  ./cmake-build/tests/tests.exe

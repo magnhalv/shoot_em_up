@@ -45,7 +45,6 @@ struct GStr {
     } else {
       m_length -= num;
     }
-    printf("Length: %d\n", m_length);
     m_data[m_length] = '\0';
   }
 

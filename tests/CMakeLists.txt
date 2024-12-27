@@ -10,10 +10,13 @@ add_executable(tests
         fixed_string_test.cpp
         growable_string_text.cpp
         line_buffer_test.cpp
+
+        structs/test_swap_back_list.cpp
         )
 
 set(ENGINE_BUILD_SHARED_LIBS OFF)
 target_include_directories(tests PRIVATE ../src/engine)
+target_include_directories(tests PRIVATE ../src)
 
 target_compile_definitions(engine_static PUBLIC ENGINE_TEST=1 DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS=1)
 

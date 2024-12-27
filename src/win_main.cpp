@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include <cstdlib>
+#include <cwchar>
 #include <fileapi.h>
 #include <glad/gl.h>
 #include <glad/wgl.h>
@@ -274,6 +275,28 @@ const char Permanent_Memory_Block_Recording_File[] = "permanent_memory_block_rec
 const char Asset_Memory_Block_Recording_File[] = "asset_memory_block_recording.dat";
 const char User_Input_Recording_File[] = "user_input_recording.dat";
 
+void win32_print_last_error() {
+  DWORD error = ::GetLastError();
+  if (error == 0) {
+    return;
+  }
+
+  LPSTR buffer = nullptr;
+  size_t size = FormatMessageA(
+    FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+    NULL,
+    error,
+    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+    (LPSTR)&buffer,
+    0,
+    NULL
+  );
+
+  printf("  winapi: %s\n", buffer);
+
+  LocalFree(buffer);
+}
+
 bool win32_overwrite_file(const char* path, void* memory, size_t size) {
   HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
@@ -416,9 +439,9 @@ void win32_stop_playback(Playback& playback) {
   playback.current_playback_frame = 0;
 }
 
-LPCTSTR dll_path = R"(.\bin\app\engine_dyn.dll)";
-LPCTSTR pdb_path = R"(.\bin\app\engine_dyn.pdb)";
-LPCTSTR versioned_dll_path = R"(.\bin\versions\)";
+LPCTSTR DllPath = R"(.\bin\app\engine_dyn.dll)";
+LPCTSTR PdbPath = R"(.\bin\app\engine_dyn.pdb)";
+LPCTSTR VersionedDllPath = R"(.\bin\versions\)";
 
 bool win32_should_reload_dll(EngineFunctions* app_functions) {
   if (app_functions->update_and_render == nullptr) {
@@ -426,13 +449,22 @@ bool win32_should_reload_dll(EngineFunctions* app_functions) {
   }
 
   WIN32_FILE_ATTRIBUTE_DATA file_info;
-  if (GetFileAttributesEx(dll_path, GetFileExInfoStandard, &file_info)) {
+  if (GetFileAttributesEx(DllPath, GetFileExInfoStandard, &file_info)) {
     auto result = CompareFileTime(&file_info.ftLastWriteTime, &app_functions->last_loaded_dll_write_time);
     return result > 0;
   } else {
-    printf("Unable to open read time of '%s'.\n", dll_path);
+    printf("Unable to open read time of '%s'.\n", DllPath);
     return false;
   }
+}
+
+bool win32_is_directory(const char *path) {
+  DWORD ftyp = GetFileAttributesA(path);
+  if (ftyp == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+
+  return ftyp & FILE_ATTRIBUTE_DIRECTORY;
 }
 
 void win32_load_dll(EngineFunctions* functions) {
@@ -445,6 +477,15 @@ void win32_load_dll(EngineFunctions* functions) {
     functions->handle = nullptr;
   }
 
+  if (!win32_is_directory(VersionedDllPath)) {
+    if (!CreateDirectory(VersionedDllPath, nullptr)) {
+      DWORD error = GetLastError();
+      printf("[ERROR] Failed to create directory %s.\n", VersionedDllPath);
+      win32_print_last_error();
+      exit(1);
+    }
+  } 
+
   SYSTEMTIME curr_time;
   GetSystemTime(&curr_time);
   char timestamp[20];
@@ -452,31 +493,28 @@ void win32_load_dll(EngineFunctions* functions) {
       curr_time.wMinute, curr_time.wSecond);
 
   char dir_path[128];
-  sprintf(dir_path, "%s%s", versioned_dll_path, timestamp);
+  sprintf(dir_path, "%s%s", VersionedDllPath, timestamp);
 
   if (!CreateDirectory(dir_path, nullptr)) {
-    DWORD error = GetLastError();
-    printf("Failed to create directory %s. Error code: %lu\n", dir_path, error);
-    fprintf(stderr, "Test\n");
-    fflush(stderr);
-    fflush(stdout);
+    printf("[ERROR] Failed to create directory %s.\n", dir_path);
+    win32_print_last_error();
     exit(1);
   }
 
   char dll_to_load_path[128];
   sprintf(dll_to_load_path, "%s\\%s", dir_path, "engine_dyn.dll");
-  while (!CopyFile(dll_path, dll_to_load_path, FALSE)) {
+  while (!CopyFile(DllPath, dll_to_load_path, FALSE)) {
     DWORD error = GetLastError();
-    printf("Failed to copy %s to %s. Error code: %lu\n", dll_path, dll_to_load_path, error);
+    printf("Failed to copy %s to %s. Error code: %lu\n", DllPath, dll_to_load_path, error);
     // exit(1);
     // TODO: Make this more airtight
   }
 
   char pdb_to_load_path[128];
   sprintf(pdb_to_load_path, "%s\\%s", dir_path, "engine_dyn.pdb");
-  if (!CopyFile(pdb_path, pdb_to_load_path, FALSE)) {
+  if (!CopyFile(PdbPath, pdb_to_load_path, FALSE)) {
     DWORD error = GetLastError();
-    printf("Failed to copy %s to %s. Error code: %lu\n", pdb_path, pdb_to_load_path, error);
+    printf("Failed to copy %s to %s. Error code: %lu\n", PdbPath, pdb_to_load_path, error);
     exit(1);
   }
 
@@ -508,7 +546,7 @@ void win32_load_dll(EngineFunctions* functions) {
   }
 
   WIN32_FILE_ATTRIBUTE_DATA file_info;
-  if (GetFileAttributesEx(dll_path, GetFileExInfoStandard, &file_info)) {
+  if (GetFileAttributesEx(DllPath, GetFileExInfoStandard, &file_info)) {
     functions->last_loaded_dll_write_time = file_info.ftLastWriteTime;
   }
 }
@@ -829,6 +867,8 @@ void win32_bind_gl_funcs(GLFunctions* gl) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
   win32_check_ticks_frequency();
+  const auto tick_frequency = win32_get_ticks_per_second();
+  auto main_entry_tick = win32_get_tick();
   /* CREATE WINDOW */
   WNDCLASSEX wndclass;
   wndclass.cbSize = sizeof(WNDCLASSEX);
@@ -944,6 +984,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   memory.asset = (u8*)memory.permanent + Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
   // endregion
 
+  auto main_to_input= static_cast<f32>(win32_get_tick() - main_entry_tick)/tick_frequency;
+
+  printf("Startup before loop: %f seconds.\n", main_to_input);
   // region Setup Input
   EngineInput app_input = {};
   EngineFunctions app_functions = {};
@@ -956,6 +999,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   ShowCursor(FALSE);
 
   if (RegisterRawInputDevices(&mouse, 1, sizeof(mouse)) == FALSE) {
+    printf("Unable to register raw input device\n");
     exit(1);
   }
 
@@ -976,8 +1020,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
   Audio audio = {};
   win32_init_audio(audio);
-  printf("Buffer active idx: %d\n", audio.active_buffer_idx);
-  printf("Buffer curr size: %d\n", audio.buffer[audio.active_buffer_idx].size);
   /* MAIN LOOP */
   auto is_running = true;
   auto is_recording = false;
@@ -988,13 +1030,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   win32_load_dll(&app_functions);
   app_functions.load(&gl_funcs, &platform, &memory);
 
-  const f32 target_fps = 60;
-  const auto tick_frequency = win32_get_ticks_per_second();
+  const f32 target_fps = 60; 
   const f32 ticks_per_frame = tick_frequency / target_fps;
-  const f32 seconds_per_frame = 1.0 / 60;
+  const f32 seconds_per_frame = 1.0 / target_fps;
 
   i64 last_tick = win32_get_tick();
   bool is_first_frame = true;
+  
+  auto loop_started_tick = win32_get_tick();
+  auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick)/tick_frequency;
+
+  printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
   while (is_running) {
     const auto this_tick = win32_get_tick();
 
