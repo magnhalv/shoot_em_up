@@ -6,6 +6,7 @@
 #include <platform/types.h>
 
 #include "vec4.h"
+#include "vec2.h"
 
 struct vec3 {
 	union {
@@ -21,6 +22,10 @@ struct vec3 {
 		x(_x), y(_y), z(_z) { }
 	inline explicit vec3(f32* fv) :
 		x(fv[0]), y(fv[1]), z(fv[2]) { }
+
+  auto xy() -> vec2 {
+    return vec2(x, y);
+  }
 };
 
 vec3 operator+(const vec3& l, const vec3& r);

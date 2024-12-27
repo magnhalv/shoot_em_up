@@ -14,13 +14,7 @@ auto inline clamp(f32 val, f32 min, f32 max) -> f32 {
 }
 
 auto inline in_range(f32 val, f32 min, f32 max) -> bool {
-  if (val < min) {
-    return false;
-  }
-  if (val > max) {
-    return false;
-  }
-  return true;
+  return val >= min && val < max;
 }
 
 auto inline is_inside(f32 val, f32 min_x, f32 max_x, f32 min_y, f32 max_y) -> bool {
@@ -34,7 +28,9 @@ auto inline clamp_rect(vec2 val, f32 min_x, f32 max_x, f32 min_y, f32 max_y) -> 
   return result;
 }
 
-/*auto inline in_rect(vec2 val, f32 max_width, f32 max_height) -> bool {*/
-/*}*/
+auto inline in_rect(vec2 pos, vec2 bottom_left, vec2 top_right) -> bool {
+  return in_range(pos.x, bottom_left.x, top_right.x) 
+    && in_range(pos.y, bottom_left.y, top_right.y);
+}
 
 } // namespace hmath

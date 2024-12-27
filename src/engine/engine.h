@@ -15,6 +15,7 @@
 #include "sprite.hpp"
 #include "text_renderer.h"
 #include <engine/audio.hpp>
+#include <engine/structs/swap_back_list.h>
 
 /// Processed mouse input
 struct Pointer {
@@ -33,7 +34,6 @@ struct Pointer {
 };
 
 struct Projectile {
-  bool is_active;
   Transform transform;
 };
 
@@ -97,7 +97,7 @@ struct EngineState {
   Sprite projectile_sprite;
 
   Player player;
-  Projectile projectiles[100];
+  SwapBackList<Projectile> projectiles;
 };
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);

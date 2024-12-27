@@ -57,13 +57,13 @@ auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
 
     auto src_buffer = playing_sound.sound->samples;
     while (target_buf_idx < buffer.num_samples) {
-      buffer.samples[target_buf_idx++] = src_buffer[playing_sound.curr_sample++];
-
       if (playing_sound.curr_sample >= playing_sound.sound->samples.size()) {
         playing_sound.sound = nullptr;
         playing_sound.curr_sample = 0;
         break;
       }
+
+      buffer.samples[target_buf_idx++] = src_buffer[playing_sound.curr_sample++];
     }
   }
 
@@ -156,6 +156,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       p.transform.scale.z = 1;
     }
 
+    state->projectiles.init(state->permanent, 100);
+
     init_audio_system(state->audio, state->permanent);
 
     state->is_initialized = true;
@@ -228,14 +230,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     if (input.space.is_pressed_this_frame()) {
       play_sound(SoundType::Laser, state->audio);
       const auto& pt = state->player.transform;
-      for (auto& p : state->projectiles) {
-        if (!p.is_active) {
-          p.transform.position.x = pt.position.x + pt.scale.x / 2;
-          p.transform.position.y = pt.position.y + pt.scale.y / 2;
-          p.is_active = true;
-          break;
-        }
-      }
+      Projectile p{};
+      p.transform = Transform();
+      p.transform.scale.x = state->projectile_sprite.width;
+      p.transform.scale.y = state->projectile_sprite.height;
+      p.transform.position.x = pt.position.x + pt.scale.x / 2 - (p.transform.scale.x / 2);
+      p.transform.position.y = pt.position.y + pt.scale.y / 2;
+      state->projectiles.push(p);
     }
 
     const auto max_speed = 300.0;
@@ -301,8 +302,16 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     const auto projectile_speed = 1200.0;
     for (auto& p : state->projectiles) {
-      if (p.is_active) {
-        p.transform.position.y += projectile_speed * time.dt;
+      p.transform.position.y += projectile_speed * time.dt;
+    }
+    
+    for (auto i = 0; i < state->projectiles.size(); i++) {
+      vec2 bottom_left = vec2(0, 0);
+      vec2 top_right = vec2(app_input->client_width, app_input->client_height);
+      auto pos = state->projectiles[i].transform.position.xy();
+      if (!hmath::in_rect(pos, bottom_left, top_right)) {
+        state->projectiles.remove(i);
+        i--;
       }
     }
   }
@@ -325,9 +334,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   // render sprite
   render_sprite(state->player_sprite, state->player.transform, ortho_projection);
   for (const auto& p : state->projectiles) {
-    if (p.is_active) {
-      render_sprite(state->projectile_sprite, p.transform, ortho_projection);
-    }
+    render_sprite(state->projectile_sprite, p.transform, ortho_projection);
   }
 
   // RenderGUI

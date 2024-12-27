@@ -19,38 +19,38 @@ struct Array {
         return result;
     }
 
-    Array() : _size(0), _data(nullptr) {}
+    Array() : m_size(0), m_data(nullptr) {}
 
-    Array(T *values, size_t size) : _data{values}, _size{size} {}
+    Array(T *values, size_t size) : m_data{values}, m_size{size} {}
 
     ~Array() = default;
 
     auto init(T *values, size_t size) -> void {
-        _data = values;
-        _size = size;
+        m_data = values;
+        m_size = size;
     }
 
     auto init(MemoryArena &arena, size_t size) -> void {
-        _data = allocate<T>(arena, size);
-        _size = size;
+        m_data = allocate<T>(arena, size);
+        m_size = size;
     }
 
     T &operator[](size_t index) {
-        HM_ASSERT(index < _size);
-        return _data[index];
+        HM_ASSERT(index < m_size);
+        return m_data[index];
     }
 
     const T &operator[](size_t index) const {
-        assert(index < _size);
-        return _data[index];
+        assert(index < m_size);
+        return m_data[index];
     }
 
     [[nodiscard]] auto inline data() const -> T * {
-        return _data;
+        return m_data;
     }
 
     [[nodiscard]] auto inline size() const -> size_t {
-        return _size;
+        return m_size;
     }
 
     class ArrayIterator {
@@ -75,15 +75,15 @@ struct Array {
     };
 
     [[nodiscard]] ArrayIterator begin() const {
-        return ArrayIterator(_data);
+        return ArrayIterator(m_data);
     }
 
     [[nodiscard]] ArrayIterator end() const {
-        return ArrayIterator(_data + _size);
+        return ArrayIterator(m_data + m_size);
     }
 
-    size_t _size;
-    T *_data;
+    size_t m_size;
+    T *m_data;
 };
 
 template<typename T>
