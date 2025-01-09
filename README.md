@@ -13,6 +13,11 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 
 ## TODO 
 
+* Spawn enemies
+* Shoot enemies
+* Explode enemies (play animation)
+* Make enemies shoot
+
 ### GUI
 
 * Window

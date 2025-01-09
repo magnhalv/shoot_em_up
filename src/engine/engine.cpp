@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <cstdio>
 
-#include <cstring>
 #include <glad/gl.h>
 
 #include <math/math.h>
@@ -149,14 +148,31 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     state->player.transform.scale.z = 1;
 
     state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
-    for (auto& p : state->projectiles) {
-      p.transform = Transform();
-      p.transform.scale.x = state->projectile_sprite.width;
-      p.transform.scale.y = state->projectile_sprite.height;
-      p.transform.scale.z = 1;
-    }
-
     state->projectiles.init(state->permanent, 100);
+
+
+    state->enemy_sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
+    state->enemies.init(state->permanent, 30);
+
+    SpaceShip enemy;
+    enemy.transform = Transform();
+    enemy.transform.scale.x = state->enemy_sprite.width;
+    enemy.transform.scale.y = state->enemy_sprite.height;
+    enemy.transform.scale.z = 1;
+    enemy.transform.position.x = 200;
+    enemy.transform.position.y = 600;
+    state->enemies.push(enemy);
+    
+
+    state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
+    state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
+    state->explosion_sprites[2] = load_sprite("assets/sprites/explosion/explosion-3.png", &sprite_program);
+    state->explosion_sprites[3] = load_sprite("assets/sprites/explosion/explosion-4.png", &sprite_program);
+    state->explosion_sprites[4] = load_sprite("assets/sprites/explosion/explosion-5.png", &sprite_program);
+    state->explosion_sprites[5] = load_sprite("assets/sprites/explosion/explosion-6.png", &sprite_program);
+    state->explosion_sprites[6] = load_sprite("assets/sprites/explosion/explosion-7.png", &sprite_program);
+    state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
+    state->explosions.init(state->permanent, 30);
 
     init_audio_system(state->audio, state->permanent);
 
@@ -305,13 +321,53 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       p.transform.position.y += projectile_speed * time.dt;
     }
     
+    for (auto e = 0; e < state->explosions.size(); e++) {
+      auto &ex = state->explosions[e];
+      ex.curr_frame++;
+      if (ex.curr_frame > ex.frames_per_sprite) {
+        ex.curr_frame = 0;
+        ex.curr_sprite++;
+      }
+      if (ex.curr_sprite >= ex.num_sprites) {
+        state->explosions.remove(e);
+        e--;
+      }
+    }
+
     for (auto i = 0; i < state->projectiles.size(); i++) {
-      vec2 bottom_left = vec2(0, 0);
-      vec2 top_right = vec2(app_input->client_width, app_input->client_height);
       auto pos = state->projectiles[i].transform.position.xy();
-      if (!hmath::in_rect(pos, bottom_left, top_right)) {
-        state->projectiles.remove(i);
-        i--;
+      {
+        vec2 bottom_left = vec2(0, 0);
+        vec2 top_right = vec2(app_input->client_width, app_input->client_height);
+        if (!hmath::in_rect(pos, bottom_left, top_right)) {
+          state->projectiles.remove(i);
+          i--;
+          continue;
+        }
+      }
+
+      for (auto e = 0; e < state->enemies.size(); e++) {
+        auto &enemy = state->enemies[e];
+        vec2 bottom_left = enemy.transform.position.xy();
+        vec2 top_right = bottom_left + enemy.transform.scale.xy();
+        if (hmath::in_rect(pos, bottom_left, top_right)) {
+
+          Explosion ex{};
+          ex.transform = Transform();
+          ex.transform.scale.x = state->explosion_sprites[0].width;
+          ex.transform.scale.y = state->explosion_sprites[0].height;
+          ex.transform.position.x = enemy.transform.position.x;
+          ex.transform.position.y = enemy.transform.position.y;
+          ex.num_sprites = 8;
+          ex.frames_per_sprite = 5;
+          state->explosions.push(ex);
+
+          state->enemies.remove(e);
+          state->projectiles.remove(i);
+          i--;
+          break;
+        }
+
       }
     }
   }
@@ -335,6 +391,14 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   render_sprite(state->player_sprite, state->player.transform, ortho_projection);
   for (const auto& p : state->projectiles) {
     render_sprite(state->projectile_sprite, p.transform, ortho_projection);
+  }
+
+  for (const auto& enemy : state->enemies) {
+    render_sprite(state->enemy_sprite, enemy.transform, ortho_projection);
+  }
+
+  for (const auto& ex : state->explosions) {
+    render_sprite(state->explosion_sprites[ex.curr_sprite], ex.transform, ortho_projection);
   }
 
   // RenderGUI

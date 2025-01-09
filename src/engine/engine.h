@@ -37,9 +37,17 @@ struct Projectile {
   Transform transform;
 };
 
-struct Player {
+struct SpaceShip {
   Transform transform;
   vec2 speed;
+};
+
+struct Explosion {
+  i32 frames_per_sprite = 0;
+  i32 curr_frame = 0;
+  i32 num_sprites = 0;
+  i32 curr_sprite = 0;
+  Transform transform{};
 };
 
 struct Window {
@@ -95,8 +103,12 @@ struct EngineState {
 
   Sprite player_sprite;
   Sprite projectile_sprite;
+  Sprite enemy_sprite;
+  Sprite explosion_sprites[8];
 
-  Player player;
+  SpaceShip player;
+  SwapBackList<Explosion> explosions;
+  SwapBackList<SpaceShip> enemies;
   SwapBackList<Projectile> projectiles;
 };
 

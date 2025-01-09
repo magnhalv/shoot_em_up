@@ -28,6 +28,7 @@ inline ivec2 operator+(const ivec2& l, const ivec2& r) {
   return { l.x + r.x, l.y + r.y };
 }
 
+
 struct vec2 {
   union {
     struct {
@@ -46,7 +47,7 @@ struct vec2 {
   }
 };
 
-inline vec2 operator+(const vec2& l, const ivec2& r) {
+inline vec2 operator+(const vec2& l, const vec2& r) {
   return { l.x + r.x, l.y + r.y };
 }
 
