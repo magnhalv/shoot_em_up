@@ -19,6 +19,7 @@ set(SOURCE_FILES
         engine/gl/gl_shader.cpp
         engine/gl/gl_vao.cpp
 
+        engine/audio.cpp
         engine/logger.cpp
         engine/memory.cpp
         engine/memory_arena.cpp

@@ -9,6 +9,7 @@
 #include <math/vec3.h>
 
 #include "engine.h"
+#include "engine/audio.hpp"
 #include "engine/hm_assert.h"
 #include "gl/gl.h"
 #include "gl/gl_vao.h"
@@ -47,7 +48,6 @@ auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
   buffer.num_samples = num_samples * buffer.sample_size_in_bytes;
   buffer.samples = allocate<u16>(*g_transient, buffer.num_samples);
 
-  // Fill the buffer with a sine wave.
   uint32_t target_buf_idx = 0;
   for (auto& playing_sound : audio.playing_sounds) {
     if (playing_sound.sound == nullptr) {
@@ -57,11 +57,8 @@ auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
     auto src_buffer = playing_sound.sound->samples;
     while (target_buf_idx < buffer.num_samples) {
       if (playing_sound.curr_sample >= playing_sound.sound->samples.size()) {
-        playing_sound.sound = nullptr;
-        playing_sound.curr_sample = 0;
         break;
       }
-
       buffer.samples[target_buf_idx++] = src_buffer[playing_sound.curr_sample++];
     }
   }
@@ -150,7 +147,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
     state->projectiles.init(state->permanent, 100);
 
-
     state->enemy_sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
     state->enemies.init(state->permanent, 30);
 
@@ -162,7 +158,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     enemy.transform.position.x = 200;
     enemy.transform.position.y = 600;
     state->enemies.push(enemy);
-    
 
     state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
     state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
@@ -181,6 +176,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   }
   // TODO: Gotta set this on hot reload
   clear_transient();
+  remove_finished_sounds(state->audio);
 
   // endregion
 
@@ -320,9 +316,9 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     for (auto& p : state->projectiles) {
       p.transform.position.y += projectile_speed * time.dt;
     }
-    
+
     for (auto e = 0; e < state->explosions.size(); e++) {
-      auto &ex = state->explosions[e];
+      auto& ex = state->explosions[e];
       ex.curr_frame++;
       if (ex.curr_frame > ex.frames_per_sprite) {
         ex.curr_frame = 0;
@@ -347,7 +343,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       }
 
       for (auto e = 0; e < state->enemies.size(); e++) {
-        auto &enemy = state->enemies[e];
+        auto& enemy = state->enemies[e];
         vec2 bottom_left = enemy.transform.position.xy();
         vec2 top_right = bottom_left + enemy.transform.scale.xy();
         if (hmath::in_rect(pos, bottom_left, top_right)) {
@@ -361,13 +357,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
           ex.num_sprites = 8;
           ex.frames_per_sprite = 5;
           state->explosions.push(ex);
+          play_sound(SoundType::Explosion, state->audio);
 
           state->enemies.remove(e);
           state->projectiles.remove(i);
           i--;
           break;
         }
-
       }
     }
   }
