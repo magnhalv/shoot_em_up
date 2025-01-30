@@ -63,7 +63,7 @@ auto inline print(WavFile* file) -> void {
 
 struct Sound {
   SoundType type;
-  Array<u16> samples;
+  Array<i16> samples;
 };
 
 struct PlayingSound {

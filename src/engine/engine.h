@@ -40,6 +40,9 @@ struct Projectile {
 struct SpaceShip {
   Transform transform;
   vec2 speed;
+  f32 progress;
+  f32 original_x;
+  Sprite* sprite;
 };
 
 struct Explosion {
@@ -109,7 +112,9 @@ struct EngineState {
   SpaceShip player;
   SwapBackList<Explosion> explosions;
   SwapBackList<SpaceShip> enemies;
-  SwapBackList<Projectile> projectiles;
+  f32 enemy_timer;
+  SwapBackList<Projectile> player_projectiles;
+  SwapBackList<Projectile> enemy_projectiles;
 };
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);

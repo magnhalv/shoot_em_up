@@ -127,9 +127,9 @@ struct EngineInput {
   UserInput input;
 };
 
-constexpr i32 SoundSampleSize = sizeof(u16);
+constexpr i32 SoundSampleSize = sizeof(i16);
 struct SoundBuffer {
-  u16* samples;
+  i16* samples;
   i32 num_samples;
   i32 sample_size_in_bytes;
   i32 samples_per_second;

@@ -10,7 +10,9 @@
 
 #include "engine.h"
 #include "engine/audio.hpp"
+#include "engine/gameplay.h"
 #include "engine/hm_assert.h"
+#include "engine/structs/swap_back_list.h"
 #include "gl/gl.h"
 #include "gl/gl_vao.h"
 #include "globals.hpp"
@@ -20,20 +22,26 @@
 #include "math/transform.h"
 #include "memory_arena.h"
 #include "platform/platform.h"
+#include "platform/types.h"
 #include "text_renderer.h"
 #include <engine/renderer/asset_manager.h>
 #include <math/transform.h>
+
+struct EnemyBehaviour {
+  vec2 spawn_point;
+  vec2 center_point;
+};
 
 inline auto to_ndc(i32 pixels, i32 range) -> f32 {
   auto x = range / 2;
   return (static_cast<f32>(pixels) / static_cast<f32>(x)) - 1;
 }
 
-inline f32 new_x(f32 x, f32 y, f32 degree) {
+inline f32 rotate_x(f32 x, f32 y, f32 degree) {
   return cos(degree) * x - sin(degree) * y;
 }
 
-inline f32 new_y(f32 x, f32 y, f32 degree) {
+inline f32 rotate_y(f32 x, f32 y, f32 degree) {
   return sin(degree) * x + cos(degree) * y;
 }
 
@@ -45,30 +53,55 @@ auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
   buffer.tone_hz = 220;
   buffer.samples_per_second = 48000;
   buffer.sample_size_in_bytes = SoundSampleSize;
-  buffer.num_samples = num_samples * buffer.sample_size_in_bytes;
-  buffer.samples = allocate<u16>(*g_transient, buffer.num_samples);
-
-  uint32_t target_buf_idx = 0;
-  for (auto& playing_sound : audio.playing_sounds) {
-    if (playing_sound.sound == nullptr) {
-      continue;
-    }
-
-    auto src_buffer = playing_sound.sound->samples;
-    while (target_buf_idx < buffer.num_samples) {
-      if (playing_sound.curr_sample >= playing_sound.sound->samples.size()) {
-        break;
-      }
-      buffer.samples[target_buf_idx++] = src_buffer[playing_sound.curr_sample++];
-    }
+  // Shouldnt this be just num_samples??
+  buffer.num_samples = num_samples;
+  buffer.samples = allocate<i16>(*g_transient, buffer.num_samples);
+  for (auto i = 0; i < buffer.num_samples; i++) {
+    buffer.samples[i] = 0;
   }
 
-  // Fill remaining with zeros
-  while (target_buf_idx < buffer.num_samples) {
-    buffer.samples[target_buf_idx++] = 0;
+  for (auto& playing_sound : audio.playing_sounds) {
+
+    uint32_t target_buf_idx = 0;
+    auto src_buffer = playing_sound.sound->samples;
+    auto start_src_idx = playing_sound.curr_sample;
+    auto end_src_idx = playing_sound.sound->samples.size();
+    end_src_idx = hm::min(start_src_idx + buffer.num_samples, playing_sound.sound->samples.size());
+    while (start_src_idx < end_src_idx) {
+      // NOTE: We need to handle this better when we get more sounds
+      buffer.samples[target_buf_idx++] += (src_buffer[start_src_idx++] / 4);
+    }
+    playing_sound.curr_sample = end_src_idx;
   }
 
   return buffer;
+}
+
+auto create_spaceship(Sprite* sprite) -> SpaceShip {
+  SpaceShip result;
+  result.transform = Transform();
+  result.transform.scale.x = sprite->width;
+  result.transform.scale.y = sprite->height;
+  result.transform.scale.z = 1;
+  result.sprite = sprite;
+  return result;
+}
+
+auto sine_behaviour(f32 x) {
+  return sin(x);
+}
+
+auto noise(f32 x) {
+  return sin(2 * x) + sin(PI * x);
+}
+
+auto spawn_enemy(Sprite* sprite, SwapBackList<SpaceShip>& enemies, i32 max_width, i32 max_height) {
+  SpaceShip enemy = create_spaceship(sprite);
+  enemy.transform.position.x = 200;
+  enemy.transform.position.y = max_height;
+  enemy.original_x = 200;
+  enemy.progress = 0;
+  enemies.push(enemy);
 }
 
 // TODO: Handle change of screen width and height
@@ -139,22 +172,15 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     im::initialize_imgui(state->font, &state->permanent);
 
     state->player_sprite = load_sprite("assets/sprites/player_1.png", &sprite_program);
-    state->player.transform = Transform();
-    state->player.transform.scale.x = state->player_sprite.width;
-    state->player.transform.scale.y = state->player_sprite.height;
-    state->player.transform.scale.z = 1;
+    state->player = create_spaceship(&state->player_sprite);
 
     state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
-    state->projectiles.init(state->permanent, 100);
+    state->player_projectiles.init(state->permanent, 100);
 
     state->enemy_sprite = load_sprite("assets/sprites/enemy_1_1.png", &sprite_program);
     state->enemies.init(state->permanent, 30);
 
-    SpaceShip enemy;
-    enemy.transform = Transform();
-    enemy.transform.scale.x = state->enemy_sprite.width;
-    enemy.transform.scale.y = state->enemy_sprite.height;
-    enemy.transform.scale.z = 1;
+    SpaceShip enemy = create_spaceship(&state->enemy_sprite);
     enemy.transform.position.x = 200;
     enemy.transform.position.y = 600;
     state->enemies.push(enemy);
@@ -239,6 +265,12 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     auto& input = app_input->input;
     auto& p_pos = state->player.transform.position;
 
+    state->enemy_timer += app_input->dt;
+    if (state->enemy_timer > 0.3) {
+      state->enemy_timer = 0;
+      spawn_enemy(&state->enemy_sprite, state->enemies, app_input->client_width, app_input->client_height);
+    }
+
     if (input.space.is_pressed_this_frame()) {
       play_sound(SoundType::Laser, state->audio);
       const auto& pt = state->player.transform;
@@ -248,7 +280,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       p.transform.scale.y = state->projectile_sprite.height;
       p.transform.position.x = pt.position.x + pt.scale.x / 2 - (p.transform.scale.x / 2);
       p.transform.position.y = pt.position.y + pt.scale.y / 2;
-      state->projectiles.push(p);
+      state->player_projectiles.push(p);
     }
 
     const auto max_speed = 300.0;
@@ -296,24 +328,10 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       }
     }
 
-    player.transform.position.x += (player.speed.x * time.dt);
-    if (player.transform.position.x < 0) {
-      player.transform.position.x = 0;
-    }
-    if ((player.transform.position.x + player.transform.scale.x) > app_input->client_width) {
-      player.transform.position.x = app_input->client_width - player.transform.scale.x;
-    }
-
-    player.transform.position.y += (player.speed.y * time.dt);
-    if (player.transform.position.y < 0) {
-      player.transform.position.y = 0;
-    }
-    if ((player.transform.position.y + player.transform.scale.y) > app_input->client_height) {
-      player.transform.position.y = app_input->client_height - player.transform.scale.y;
-    }
+    player.transform = update_position(player.transform, player.speed, time.dt, app_input->client_width, app_input->client_height);
 
     const auto projectile_speed = 1200.0;
-    for (auto& p : state->projectiles) {
+    for (auto& p : state->player_projectiles) {
       p.transform.position.y += projectile_speed * time.dt;
     }
 
@@ -330,13 +348,22 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       }
     }
 
-    for (auto i = 0; i < state->projectiles.size(); i++) {
-      auto pos = state->projectiles[i].transform.position.xy();
+    // Update enemies
+    for (auto& enemy : state->enemies) {
+      enemy.progress += 0.04f;
+      enemy.speed.y = -300.0f;
+      enemy.speed.x = 250.0f * sine_behaviour(enemy.progress);
+      enemy.transform = update_position(enemy.transform, enemy.speed, time.dt);
+    }
+
+    // Update projectile
+    for (auto i = 0; i < state->player_projectiles.size(); i++) {
+      auto pos = state->player_projectiles[i].transform.position.xy();
       {
         vec2 bottom_left = vec2(0, 0);
         vec2 top_right = vec2(app_input->client_width, app_input->client_height);
         if (!hmath::in_rect(pos, bottom_left, top_right)) {
-          state->projectiles.remove(i);
+          state->player_projectiles.remove(i);
           i--;
           continue;
         }
@@ -360,7 +387,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
           play_sound(SoundType::Explosion, state->audio);
 
           state->enemies.remove(e);
-          state->projectiles.remove(i);
+          state->player_projectiles.remove(i);
           i--;
           break;
         }
@@ -385,7 +412,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
   // render sprite
   render_sprite(state->player_sprite, state->player.transform, ortho_projection);
-  for (const auto& p : state->projectiles) {
+  for (const auto& p : state->player_projectiles) {
     render_sprite(state->projectile_sprite, p.transform, ortho_projection);
   }
 
@@ -446,9 +473,9 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     f32 x = state->pointer.x;
     f32 y = state->pointer.y;
     f32 cursor_vertices[6] = {
-      x, y,                                                         //
-      x + new_x(-10.0f, -20.0f, 45.0f), y + new_y(-10, -20, 45.0f), //
-      x + new_x(10.0f, -20.0f, 45.0f), y + new_y(10, -20, 45.0f),   //
+      x, y,                                                               //
+      x + rotate_x(-10.0f, -20.0f, 45.0f), y + rotate_y(-10, -20, 45.0f), //
+      x + rotate_x(10.0f, -20.0f, 45.0f), y + rotate_y(10, -20, 45.0f),   //
     };
     GLVao cursor_vao{};
     cursor_vao.init();
