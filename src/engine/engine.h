@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef ENGINE_HPP
+
+#endif
+
 #include <math/mat4.h>
 #include <math/vec4.h>
 #include <platform/types.h>
@@ -51,6 +55,8 @@ struct Explosion {
   i32 num_sprites = 0;
   i32 curr_sprite = 0;
   Transform transform{};
+  vec2 speed;
+  vec2 acc;
 };
 
 struct Window {
@@ -111,7 +117,7 @@ struct EngineState {
 
   SpaceShip player;
   SwapBackList<Explosion> explosions;
-  SwapBackList<SpaceShip> enemies;
+  SwapBackList<SpaceShip> enemy_chargers;
   f32 enemy_timer;
   SwapBackList<Projectile> player_projectiles;
   SwapBackList<Projectile> enemy_projectiles;

@@ -93,10 +93,6 @@ auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
 
 auto render_sprite(const Sprite& sprite, const Transform& transform, const mat4& projection) -> void {
 
-  auto sprite_flags = GL_BLEND;
-  gl->enable(sprite_flags);
-
-  gl->blend_func(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   sprite.program->useProgram();
   sprite.program->set_uniform("projection", projection);
   mat4 model = identity();
@@ -105,6 +101,4 @@ auto render_sprite(const Sprite& sprite, const Transform& transform, const mat4&
   gl->bind_texture(GL_TEXTURE_2D, sprite.tex1);
   gl->draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
   gl->bind_vertex_array(0);
-
-  gl->disable(sprite_flags);
 }

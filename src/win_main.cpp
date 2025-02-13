@@ -41,6 +41,32 @@ struct Audio {
   /*audio.masteringVoice->DestroyVoice();*/
   /*audio.xAudio2->Release();*/
 };
+
+auto win32_init_opengl(HWND window) -> void {
+  HDC window_dc = GetDC(window);
+
+  PIXELFORMATDESCRIPTOR desired_pixel_format = {};
+  desired_pixel_format.nSize = sizeof(desired_pixel_format);
+  desired_pixel_format.nVersion = 1;
+  desired_pixel_format.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
+  desired_pixel_format.cColorBits = 32;
+  desired_pixel_format.cAlphaShift = 8;
+  desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
+
+  int suggested_pixel_forrmat_index = ChoosePixelFormat(window_dc, &desired_pixel_format);
+  PIXELFORMATDESCRIPTOR suggested_pixel_format;
+  DescribePixelFormat(window_dc, suggested_pixel_forrmat_index, sizeof(suggested_pixel_format), &suggested_pixel_format);
+  SetPixelFormat(window_dc, suggested_pixel_forrmat_index, &suggested_pixel_format);
+
+  HGLRC opengl_rc = wglCreateContext(window_dc);
+  if (wglMakeCurrent(window_dc, opengl_rc)) {
+    // success
+  } else {
+    // Fail
+  }
+  ReleaseDC(window, window_dc);
+}
+
 auto win32_print_error_msg(HRESULT hr) {
   char* errorMessage = nullptr;
 
@@ -282,15 +308,8 @@ void win32_print_last_error() {
   }
 
   LPSTR buffer = nullptr;
-  size_t size = FormatMessageA(
-    FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-    NULL,
-    error,
-    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-    (LPSTR)&buffer,
-    0,
-    NULL
-  );
+  size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+      NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&buffer, 0, NULL);
 
   printf("  winapi: %s\n", buffer);
 
@@ -458,7 +477,7 @@ bool win32_should_reload_dll(EngineFunctions* app_functions) {
   }
 }
 
-bool win32_is_directory(const char *path) {
+bool win32_is_directory(const char* path) {
   DWORD ftyp = GetFileAttributesA(path);
   if (ftyp == INVALID_FILE_ATTRIBUTES) {
     return false;
@@ -484,7 +503,7 @@ void win32_load_dll(EngineFunctions* functions) {
       win32_print_last_error();
       exit(1);
     }
-  } 
+  }
 
   SYSTEMTIME curr_time;
   GetSystemTime(&curr_time);
@@ -900,6 +919,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
   HDC hdc = GetDC(hwnd);
 
+  /*  CREATE OPEN_GL CONTEXT */
   PIXELFORMATDESCRIPTOR pfd;
   memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
   pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
@@ -907,13 +927,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   pfd.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
   pfd.iPixelType = PFD_TYPE_RGBA;
   pfd.cColorBits = 24;
+  pfd.cAlphaBits = 8;
   pfd.cDepthBits = 32;
   pfd.cStencilBits = 8;
   pfd.iLayerType = PFD_MAIN_PLANE;
   int pixelFormat = ChoosePixelFormat(hdc, &pfd);
   SetPixelFormat(hdc, pixelFormat, &pfd);
 
-  /*  CREATE OPEN_GL CONTEXT */
   HGLRC tempRC = wglCreateContext(hdc);
   wglMakeCurrent(hdc, tempRC);
   PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = nullptr;
@@ -984,7 +1004,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   memory.asset = (u8*)memory.permanent + Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
   // endregion
 
-  auto main_to_input= static_cast<f32>(win32_get_tick() - main_entry_tick)/tick_frequency;
+  auto main_to_input = static_cast<f32>(win32_get_tick() - main_entry_tick) / tick_frequency;
 
   printf("Startup before loop: %f seconds.\n", main_to_input);
   // region Setup Input
@@ -1030,15 +1050,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   win32_load_dll(&app_functions);
   app_functions.load(&gl_funcs, &platform, &memory);
 
-  const f32 target_fps = 60; 
+  const f32 target_fps = 60;
   const f32 ticks_per_frame = tick_frequency / target_fps;
   const f32 seconds_per_frame = 1.0 / target_fps;
 
   i64 last_tick = win32_get_tick();
   bool is_first_frame = true;
-  
+
   auto loop_started_tick = win32_get_tick();
-  auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick)/tick_frequency;
+  auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick) / tick_frequency;
 
   printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
   while (is_running) {
