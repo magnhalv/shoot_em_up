@@ -29,6 +29,55 @@
 #include <engine/renderer/asset_manager.h>
 #include <math/transform.h>
 
+typedef struct {
+  vec2 p;
+  vec2 dim;
+} Rect;
+
+
+auto rect_center(Rect *rect) -> vec2 {
+  return rect->p + 0.5*rect->dim; 
+}
+
+// Only works without rotation
+auto rect_to_quadrilateral(Rect *rect) -> Quadrilateral {
+  Quadrilateral result = {};
+  result.bl = rect->p;
+  result.tl = rect->p + vec2(0, rect->dim.y);
+  result.tr = rect->p + rect->dim;
+  result.br = rect->p + vec2(rect->dim.x, 0);
+  return result;
+}
+
+auto point_rotate(vec2 p, f32 theta) -> vec2 {
+  vec2 x_axis = {cos(theta), -sin(theta)};
+  vec2 y_axis = {sin(theta), cos(theta)};
+
+  return {
+    p.x * x_axis.x + p.y * x_axis.y, 
+    p.x * y_axis.x + p.y * y_axis.y
+  };
+}
+
+auto quadrilateral_rotate_around_point(Quadrilateral quad, f32 theta, vec2 p) -> Quadrilateral {
+  quad.bl = quad.bl - p;
+  quad.tl = quad.tl - p;
+  quad.tr = quad.tr - p;
+  quad.br = quad.br - p;
+
+  quad.bl = point_rotate(quad.bl, theta);
+  quad.tl = point_rotate(quad.tl, theta);
+  quad.tr = point_rotate(quad.tr, theta);
+  quad.br = point_rotate(quad.br, theta);
+
+  quad.bl = quad.bl + p;
+  quad.tl = quad.tl + p;
+  quad.tr = quad.tr + p;
+  quad.br = quad.br + p;
+
+  return quad;
+}
+
 struct EnemyBehaviour {
   vec2 spawn_point;
   vec2 center_point;
@@ -234,13 +283,14 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   asset_manager->update_if_changed();
 #endif
 
+  const vec2 screen_center = vec2(app_input->client_width / 2.0, app_input->client_height / 2.0);
+
   auto& time = state->time;
   auto is_new_second = static_cast<i32>(time.t) < static_cast<i32>(time.t + app_input->dt);
   if (is_new_second) {
     time.fps = time.num_frames_this_second;
     time.num_frames_this_second = 0;
   }
-
   time.dt = app_input->dt;
   time.t += time.dt;
   time.num_frames_this_second++;
@@ -257,6 +307,28 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
   auto* clear = PushRenderElement(&group, RenderEntryClear);
   clear->color = vec4(0.2, 0.4, 0.2, 0.2);
+
+  
+  // How to rotate around center
+  //  - Translate to center 
+  //  - Do rotation
+  //  - Translate back
+
+
+  Rect rect = {};
+  rect.dim = vec2(640, 480);
+  rect.p = screen_center - 0.5*rect.dim;
+
+  Quadrilateral quad = rect_to_quadrilateral(&rect);
+  quad = quadrilateral_rotate_around_point(quad, app_input->t, rect_center(&rect));
+  
+
+  auto* render_quad = PushRenderElement(&group, RenderEntryQuadrilateral);
+  render_quad->color = vec4(1.0, 0.4, 0.2, 0.2);
+  render_quad->quad = quad;
+  f32 theta = app_input->t;
+  render_quad->basis.x = vec2(cos(theta), -sin(theta));
+  render_quad->basis.y = vec2(sin(theta), cos(theta));
   render(&group, app_input->client_width, app_input->client_height);
 
 

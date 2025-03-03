@@ -111,6 +111,13 @@ const u64 Transient_Memory_Block_Size = MegaBytes(10);
 const u64 Assets_Memory_Block_Size = MegaBytes(1);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Assets_Memory_Block_Size;
 
+#define Assert(expr) \
+if (!(expr)) { \
+    std::cerr << "Assertion failed: " << #expr << ", file " << __FILE__ << ", line " << __LINE__ << std::endl; \
+    exit(1); \
+}
+#define InvalidCodePath assert(!"InvalidCodePath")
+
 struct EngineMemory {
   void* permanent = nullptr; // NOTE: Must be cleared to zero
   void* transient = nullptr; // NOTE: Must be cleared to zero

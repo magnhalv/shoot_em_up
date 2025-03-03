@@ -13,7 +13,7 @@
 // Function to print stack trace
 // TODO: Move this to platform layer
 inline void print_stack_trace() {
-    const int max_frames = 100;
+    const int max_frames = 10;
     void* addrlist[max_frames];
     unsigned short frames;
     SYMBOL_INFO* symbol;

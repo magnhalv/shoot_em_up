@@ -2,18 +2,21 @@
 
 #include <engine/engine.h>
 
-struct RenderBasis {
-  vec3 point;
-};
+
+typedef struct {
+  vec2 bl;
+  vec2 tl;
+  vec2 tr;
+  vec2 br;
+} Quadrilateral;
 
 struct RenderEntityBasis {
-  RenderBasis *basic;
   vec2 offset;
 };
 
 enum RenderGroupEntryType {
   RenderCommands_RenderEntryClear,
-  RenderCommands_RenderEntryDrawRectangle,
+  RenderCommands_RenderEntryQuadrilateral,
 };
 
 struct RenderGroupEntryHeader {
@@ -24,15 +27,20 @@ struct RenderEntryClear {
   vec4 color; // r,g,b,a
 };
 
-struct RenderEntryRectangle {
-  RenderEntityBasis basis;
-  f32 r, g, b, a;
-  vec2 dim;
+ 
+struct CoordSystem {
+  vec2 x;
+  vec2 y;
+};
+
+struct RenderEntryQuadrilateral {
+  RenderEntityBasis render_basis;
+  Quadrilateral quad;
+  vec4 color;
+  CoordSystem basis;
 };
 
 struct RenderGroup {
- 
-  RenderBasis *default_basis;
   f32 meters_to_pixels;
 
   u32 max_push_buffer_size;

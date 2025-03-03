@@ -51,8 +51,16 @@ inline vec2 operator+(const vec2& l, const vec2& r) {
   return { l.x + r.x, l.y + r.y };
 }
 
+inline vec2 operator-(const vec2& l, const vec2& r) {
+  return { l.x - r.x, l.y - r.y };
+}
+
 inline vec2 operator*(const vec2& l, const vec2& r) {
   return { l.x * r.x, l.y * r.y };
+}
+
+inline vec2 operator*(const f32& l, const vec2& r) {
+  return { l * r.x, l * r.y };
 }
 
 inline vec2 operator*(const vec2& l, u64 r) {

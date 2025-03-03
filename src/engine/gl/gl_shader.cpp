@@ -1,7 +1,6 @@
 #include <cassert>
 #include <cstdio>
 #include <glad/gl.h>
-#include <string>
 
 #include "../globals.hpp"
 #include "../logger.h"
