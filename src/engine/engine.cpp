@@ -42,10 +42,10 @@ auto rect_center(Rect *rect) -> vec2 {
 // Only works without rotation
 auto rect_to_quadrilateral(Rect *rect) -> Quadrilateral {
   Quadrilateral result = {};
-  result.bl = rect->p;
-  result.tl = rect->p + vec2(0, rect->dim.y);
-  result.tr = rect->p + rect->dim;
-  result.br = rect->p + vec2(rect->dim.x, 0);
+  result.bl = vec2(0,0);
+  result.tl = vec2(0, rect->dim.y);
+  result.tr = rect->dim;
+  result.br = vec2(rect->dim.x, 0);
   return result;
 }
 
@@ -304,28 +304,25 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   group.push_buffer_size = 0;
   group.max_push_buffer_size = MegaBytes(4);
   group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
+  group.screen_width = app_input->client_width;
+  group.screen_height = app_input->client_height;
 
   auto* clear = PushRenderElement(&group, RenderEntryClear);
   clear->color = vec4(0.2, 0.4, 0.2, 0.2);
 
   
-  // How to rotate around center
-  //  - Translate to center 
-  //  - Do rotation
-  //  - Translate back
-
-
   Rect rect = {};
-  rect.dim = vec2(640, 480);
+  rect.dim = screen_center;
   rect.p = screen_center - 0.5*rect.dim;
 
   Quadrilateral quad = rect_to_quadrilateral(&rect);
-  quad = quadrilateral_rotate_around_point(quad, app_input->t, rect_center(&rect));
-  
 
   auto* render_quad = PushRenderElement(&group, RenderEntryQuadrilateral);
   render_quad->color = vec4(1.0, 0.4, 0.2, 0.2);
   render_quad->quad = quad;
+  render_quad->local_origin = 0.5*rect.dim;
+  render_quad->offset = screen_center - 0.5*rect.dim;
+  render_quad->offset = screen_center - 0.5*rect.dim;
   f32 theta = app_input->t;
   render_quad->basis.x = vec2(cos(theta), -sin(theta));
   render_quad->basis.y = vec2(sin(theta), cos(theta));

@@ -37,11 +37,24 @@ struct RenderEntryQuadrilateral {
   RenderEntityBasis render_basis;
   Quadrilateral quad;
   vec4 color;
+  vec2 local_origin;
+  vec2 offset;
   CoordSystem basis;
 };
 
+typedef struct {
+  RenderEntityBasis render_basis;
+  Quadrilateral quad;
+  vec4 color;
+  vec2 local_origin;
+  vec2 offset;
+  CoordSystem basis;
+} RenderBitMap;
+
 struct RenderGroup {
   f32 meters_to_pixels;
+  i32 screen_width;
+  i32 screen_height;
 
   u32 max_push_buffer_size;
   u32 push_buffer_size;

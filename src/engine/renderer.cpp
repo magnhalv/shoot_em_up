@@ -9,8 +9,6 @@ auto clear(i32 client_width, i32 client_height, vec4 color) {
   gl->clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Remove depth buffer?
 }
 
-i32 screen_width = 1280;
-i32 screen_height = 960;
 
 auto to_gl_x(i32 screen_x_cord, i32 screen_width) -> f32 {
   return screen_x_cord / (screen_width/2.0) - 1.0f;
@@ -20,15 +18,35 @@ auto to_gl_y(i32 screen_y_cord, i32 screen_height) -> f32 {
   return screen_y_cord / (screen_height/2.0) - 1.0f;
 }
 
-auto draw_quad(Quadrilateral quad, vec4 color) {
-    float quad_verticies[] = {
-      to_gl_x(quad.bl.x, screen_width), to_gl_y(quad.bl.y, screen_height),
-      to_gl_x(quad.tl.x, screen_width), to_gl_y(quad.tl.y, screen_height),
-      to_gl_x(quad.tr.x, screen_width), to_gl_y(quad.tr.y, screen_height),
+auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color, i32 screen_width, i32 screen_height) {
+    vec2 bl = quad.bl - local_origin;
+    vec2 tl = quad.tl - local_origin;
+    vec2 tr = quad.tr - local_origin;
+    vec2 br = quad.br - local_origin;
 
-      to_gl_x(quad.bl.x, screen_width), to_gl_y(quad.bl.y, screen_height),
-      to_gl_x(quad.tr.x, screen_width), to_gl_y(quad.tr.y, screen_height),
-      to_gl_x(quad.br.x, screen_width), to_gl_y(quad.br.y, screen_height),
+    bl = bl.x*x_axis + bl.y*y_axis;
+    tl = tl.x*x_axis + tl.y*y_axis;
+    tr = tr.x*x_axis + tr.y*y_axis;
+    br = br.x*x_axis + br.y*y_axis;
+
+    bl = bl + local_origin;
+    tl = tl + local_origin;
+    tr = tr + local_origin;
+    br = br + local_origin;
+
+    bl = bl + offset;
+    tl = tl + offset;
+    tr = tr + offset;
+    br = br + offset;
+
+    float quad_verticies[] = {
+      to_gl_x(bl.x, screen_width), to_gl_y(bl.y, screen_height),
+      to_gl_x(tl.x, screen_width), to_gl_y(tl.y, screen_height),
+      to_gl_x(tr.x, screen_width), to_gl_y(tr.y, screen_height),
+
+      to_gl_x(bl.x, screen_width), to_gl_y(bl.y, screen_height),
+      to_gl_x(tr.x, screen_width), to_gl_y(tr.y, screen_height),
+      to_gl_x(br.x, screen_width), to_gl_y(br.y, screen_height),
     };
     
     GLVao vao;
@@ -66,18 +84,20 @@ auto render(RenderGroup *group, i32 client_width, i32 client_height) -> void {
     case RenderCommands_RenderEntryClear: 
       {
         RenderEntryClear *entry = (RenderEntryClear*)data;
-        clear(client_width, client_height, entry->color);
+        clear(group->screen_width, group->screen_height, entry->color);
         base_address += sizeof(*entry);
       } 
       break;
     case RenderCommands_RenderEntryQuadrilateral: 
       {
         auto *entry = (RenderEntryQuadrilateral*)data;
-        draw_quad(entry->quad, entry->color);
+        draw_quad(entry->quad, 
+                  entry->local_origin, 
+                  entry->offset, 
+                  entry->basis.x, entry->basis.y, 
+                  entry->color, 
+                  group->screen_width, group->screen_height);
 
-        /*draw_rectangle(origin, vec2(10, 10), x_axis, y_axis, vec4(0.5, 0, 0.5, 1.0));*/
-        /*draw_rectangle(origin + 100.0*x_axis, vec2(10, 10), x_axis, y_axis, vec4(1.0, 0, 0.0, 1.0));*/
-        /*draw_rectangle(origin + 100.0*y_axis, vec2(10, 10), x_axis, y_axis, vec4(0.0, 0, 1.0, 1.0));*/
         base_address += sizeof(*entry);
       } 
       break;

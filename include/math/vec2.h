@@ -43,7 +43,7 @@ struct vec2 {
   }
 
   auto print() -> void {
-    std::cout << "x: " << x << "y: " << y << std::endl;
+    std::cout << "(" << x  << ", " << y << ")"<< std::endl;
   }
 };
 
