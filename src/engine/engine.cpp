@@ -208,6 +208,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     single_color_program.initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
     sprite_program.initialize(R"(.\assets\shaders\sprite.vert)", R"(.\assets\shaders\sprite.frag)");
 
+    renderer_init();
     state->framebuffer.init(app_input->client_width, app_input->client_height);
     state->ms_framebuffer.init(app_input->client_width, app_input->client_height);
 

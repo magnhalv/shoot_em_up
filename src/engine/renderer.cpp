@@ -1,7 +1,119 @@
 #include <platform/platform.h>
 
 #include "renderer.h"
+#include "engine/gl/gl_vao.h"
+#include "engine/hm_assert.h"
 
+enum VaoIds {
+  ColoredQuad = 0,
+  BitmapQuad = 1, 
+};
+
+typedef struct {
+  GLShaderProgram shaders[5];
+  Bitmap bitmaps[5];
+  GLVao vaos[2];
+} GlRendererState;
+
+internal GlRendererState state;
+
+auto renderer_init() -> void {
+    f32 quad_verticies[12] = {
+      -1, -1,
+      -1, 1,
+      1, 1,
+      -1, -1,
+      1, 1,
+      1, -1
+    };
+    GLVao *vao = &state.vaos[ColoredQuad];
+    vao->init();
+    vao->bind();
+    vao->add_buffer(0, sizeof(quad_verticies), 2 * sizeof(f32));
+    vao->add_buffer_desc(0, 0, 2, 0, 2 * sizeof(f32));
+    vao->upload_buffer_desc();
+    vao->upload_buffer_data(0, quad_verticies, 0, sizeof(quad_verticies));
+    vao->unbind();
+
+
+
+    f32 vertices[] = {
+        // positions         // colors           // texture coords
+        1.0f, 1.0f, 0.0f,    0.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+        1.0f, 0.0f, 0.0f,   0.0f, 0.0f, 0.0f,   1.0f, 0.0f,  // bottom right
+        0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+        0.0f, 1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   0.0f, 1.0f   // top left
+    };
+    u32 indices[] = {
+      0, 1, 3, // first triangle
+      1, 2, 3  // second triangle
+    };
+    gl->create_vertex_arrays(1, &sprite.vao);
+    gl->create_buffers(1, &sprite.vbo);
+    gl->create_buffers(1, &sprite.ebo);
+
+    gl->bind_vertex_array(sprite.vao);
+
+    gl->named_buffer_storage(sprite.vbo, sizeof(vertices), vertices, GL_DYNAMIC_STORAGE_BIT);
+    gl->named_buffer_storage(sprite.ebo, sizeof(indices), indices, GL_DYNAMIC_STORAGE_BIT);
+    gl->vertex_array_element_buffer(sprite.vao, sprite.ebo);
+    u32 VBO_bi = 0;
+    gl->vertex_array_vertex_buffer(sprite.vao, VBO_bi, sprite.vbo, 0, 8 * sizeof(f32)); // 8 * sizeof(f32) is the stride
+
+    u32 vbo_binding_index = 0;
+    u32 attrib_index = 0;
+    // position attribute
+    gl->vertex_array_attrib_format(sprite.vao, attrib_index, 3, GL_FLOAT, GL_FALSE, 0);
+    gl->vertex_array_attrib_binding(sprite.vao, attrib_index, vbo_binding_index);
+    gl->enable_vertex_array_attrib(sprite.vao, attrib_index);
+    attrib_index++;
+
+    // color attribute
+    gl->vertex_array_attrib_format(sprite.vao, attrib_index, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(f32));
+    gl->vertex_array_attrib_binding(sprite.vao, attrib_index, vbo_binding_index);
+    gl->enable_vertex_array_attrib(sprite.vao, attrib_index);
+    attrib_index++;
+
+    // texture coord attribute
+    gl->vertex_array_attrib_format(sprite.vao, attrib_index, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(f32));
+    gl->vertex_array_attrib_binding(sprite.vao, attrib_index, vbo_binding_index);
+    gl->enable_vertex_array_attrib(sprite.vao, attrib_index);
+    attrib_index++;
+
+  // load and create a texture
+  // -------------------------
+  // texture 1
+  // ---------
+  gl->gen_textures(1, &sprite.tex1);
+  gl->bind_texture(GL_TEXTURE_2D, sprite.tex1);
+  // set the texture wrapping parameters
+  // set texture wrapping to GL_REPEAT (default wrapping method)
+  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  // set texture filtering parameters
+  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // load image, create texture and generate mipmaps
+  i32 width, height, nrChannels;
+  stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
+  unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+  if (data) {
+    if (nrChannels == 4) {
+      gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    } else if (nrChannels == 3) {
+      gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    } else {
+      crash_and_burn("Unsupported number of channels when loading texture: : %s", path);
+    }
+    gl->generate_mip_map(GL_TEXTURE_2D);
+  } else {
+    crash_and_burn("Failed to load texture: %s", path);
+  }
+  stbi_image_free(data);
+
+    GLShaderProgram *program = &state.shaders[ColoredQuad];
+    program->initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
+}
 
 auto clear(i32 client_width, i32 client_height, vec4 color) {
   gl->viewport(0, 0, client_width, client_height);
@@ -39,7 +151,7 @@ auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, 
     tr = tr + offset;
     br = br + offset;
 
-    float quad_verticies[] = {
+    f32 quad_verticies[12] = {
       to_gl_x(bl.x, screen_width), to_gl_y(bl.y, screen_height),
       to_gl_x(tl.x, screen_width), to_gl_y(tl.y, screen_height),
       to_gl_x(tr.x, screen_width), to_gl_y(tr.y, screen_height),
@@ -49,23 +161,20 @@ auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, 
       to_gl_x(br.x, screen_width), to_gl_y(br.y, screen_height),
     };
     
-    GLVao vao;
-    vao.init();
-    vao.bind();
-    vao.add_buffer(0, sizeof(quad_verticies), 2 * sizeof(f32));
-    vao.add_buffer_desc(0, 0, 2, 0, 2 * sizeof(f32));
-    vao.upload_buffer_desc();
-    vao.upload_buffer_data(0, quad_verticies, 0, sizeof(quad_verticies));
+    GLVao *vao = &state.vaos[ColoredQuad];
+    HM_ASSERT(vao->handle != 0);
+    vao->bind();
+    vao->upload_buffer_data(0, quad_verticies, 0, sizeof(quad_verticies));
 
-    GLShaderProgram program;
-    program.initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
-    program.useProgram();
-    program.set_uniform("color", color);
+    
+    GLShaderProgram *program = &state.shaders[ColoredQuad];
+    program->bind();
+    program->set_uniform("color", color);
 
     gl->draw_arrays(GL_TRIANGLES, 0, 6);
-    program.free();
-    vao.destroy();
-
+  
+    program->unbind();
+    vao->unbind();
 }
 
 auto rotate(vec2 p, f32 theta) -> vec2 {

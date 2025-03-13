@@ -3,6 +3,8 @@
 #include <cstring>
 
 #include <engine/gl/gl.h>
+
+#undef internal
 #include <ft2build.h>
 #include <libs/stb/stb_image_write.h>
 #include FT_FREETYPE_H
@@ -148,7 +150,7 @@ auto TextRenderer::render(const char* text, const Font& font, f32 x, f32 y, f32 
   assert(_program != nullptr);
 
   _vao.bind();
-  _program->useProgram();
+  _program->bind();
   _program->set_uniform("projection", ortho_projection);
   _program->set_uniform("text_color", vec3(0.8, 0.8, 0.8));
   gl->active_texture(GL_TEXTURE0);

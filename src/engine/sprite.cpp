@@ -93,7 +93,7 @@ auto load_sprite(const char* path, GLShaderProgram* program) -> Sprite {
 
 auto render_sprite(const Sprite& sprite, const Transform& transform, const mat4& projection) -> void {
 
-  sprite.program->useProgram();
+  sprite.program->bind();
   sprite.program->set_uniform("projection", projection);
   mat4 model = identity();
   sprite.program->set_uniform("model", transform.to_mat4());

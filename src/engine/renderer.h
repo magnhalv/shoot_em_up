@@ -45,11 +45,12 @@ struct RenderEntryQuadrilateral {
 typedef struct {
   RenderEntityBasis render_basis;
   Quadrilateral quad;
+  Quadrilateral uv;
   vec4 color;
   vec2 local_origin;
   vec2 offset;
   CoordSystem basis;
-} RenderBitMap;
+} RenderSprite;
 
 struct RenderGroup {
   f32 meters_to_pixels;
@@ -61,7 +62,14 @@ struct RenderGroup {
   u8 *push_buffer;
 };
 
+typedef struct {
+  i32 width;
+  i32 height;
+  u8 *data;
+} Bitmap;
 
+
+auto renderer_init() -> void;
 auto render(RenderGroup *group, i32 client_width, i32 client_height) -> void;
 
 

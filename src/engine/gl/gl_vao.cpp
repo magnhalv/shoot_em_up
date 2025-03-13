@@ -18,6 +18,10 @@ auto GLVao::bind() const -> void {
   gl->bind_vertex_array(handle);
 }
 
+auto GLVao::unbind() const -> void {
+  gl->bind_vertex_array(0);
+}
+
 auto GLVao::add_buffer(i32 binding_index, GLsizeiptr size, GLsizeiptr stride_in_bytes, GLsizeiptr offset_in_bytes,
     GLbitfield flags) -> void {
   assert(num_buffers < Max_Buffers);

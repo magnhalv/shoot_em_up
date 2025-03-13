@@ -222,14 +222,13 @@ GLenum GLShaderType_from_file_name(const char* file_name) {
   return 0;
 }
 
-void GLShaderProgram::useProgram() const {
+void GLShaderProgram::bind() const {
   assert(_handle != 0);
   gl->use_program(_handle);
-  auto err = gl->get_error();
-  if (err != GL_NO_ERROR) {
-    printf("Found an error!\n");
-    exit(1);
-  }
+}
+
+void GLShaderProgram::unbind() const {
+  gl->use_program(0);
 }
 
 auto GLGlobalUniformBufferContainer::init(UniformBuffer index, void* data, GLsizeiptr size, GLbitfield flags) -> bool {

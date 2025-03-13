@@ -111,6 +111,13 @@ const u64 Transient_Memory_Block_Size = MegaBytes(10);
 const u64 Assets_Memory_Block_Size = MegaBytes(1);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Assets_Memory_Block_Size;
 
+
+#if !defined(internal)
+#define internal static // rename to internal and fix problem with freetype
+#endif
+#define local_persist static
+#define global_variable static
+
 #define Assert(expr) \
 if (!(expr)) { \
     std::cerr << "Assertion failed: " << #expr << ", file " << __FILE__ << ", line " << __LINE__ << std::endl; \

@@ -29,7 +29,8 @@ struct GLShaderProgram {
 public:
     auto initialize(const char *vertex_path, const char *fragment_path) -> bool;
 
-    auto useProgram() const -> void;
+    auto bind() const -> void;
+    auto unbind() const -> void;
 
     auto free() -> void;
 
