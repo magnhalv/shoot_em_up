@@ -59,25 +59,6 @@ auto point_rotate(vec2 p, f32 theta) -> vec2 {
   };
 }
 
-auto quadrilateral_rotate_around_point(Quadrilateral quad, f32 theta, vec2 p) -> Quadrilateral {
-  quad.bl = quad.bl - p;
-  quad.tl = quad.tl - p;
-  quad.tr = quad.tr - p;
-  quad.br = quad.br - p;
-
-  quad.bl = point_rotate(quad.bl, theta);
-  quad.tl = point_rotate(quad.tl, theta);
-  quad.tr = point_rotate(quad.tr, theta);
-  quad.br = point_rotate(quad.br, theta);
-
-  quad.bl = quad.bl + p;
-  quad.tl = quad.tl + p;
-  quad.tr = quad.tr + p;
-  quad.br = quad.br + p;
-
-  return quad;
-}
-
 struct EnemyBehaviour {
   vec2 spawn_point;
   vec2 center_point;
@@ -176,7 +157,6 @@ auto push_render_element_(RenderGroup *render_group, u32 size, RenderGroupEntryT
   return result;
 }
 
-// TODO: Handle change of screen width and height
 void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   auto* state = (EngineState*)memory->permanent;
   const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
