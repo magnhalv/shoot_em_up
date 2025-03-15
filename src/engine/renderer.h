@@ -2,6 +2,12 @@
 
 #include <engine/engine.h>
 
+// Move somewhere else
+typedef struct {
+  u32 width;
+  u32 height;
+  u8 *data;
+} Bitmap;
 
 typedef struct {
   vec2 bl;
@@ -17,6 +23,7 @@ struct RenderEntityBasis {
 enum RenderGroupEntryType {
   RenderCommands_RenderEntryClear,
   RenderCommands_RenderEntryQuadrilateral,
+  RenderCommands_RenderEntryBitmap,
 };
 
 struct RenderGroupEntryHeader {
@@ -50,7 +57,8 @@ typedef struct {
   vec2 local_origin;
   vec2 offset;
   CoordSystem basis;
-} RenderSprite;
+  u32 bitmap_id;
+} RenderBitmap;
 
 struct RenderGroup {
   f32 meters_to_pixels;
@@ -62,14 +70,8 @@ struct RenderGroup {
   u8 *push_buffer;
 };
 
-typedef struct {
-  i32 width;
-  i32 height;
-  u8 *data;
-} Bitmap;
-
-
 auto renderer_init() -> void;
+auto renderer_add_texture(Bitmap *bitmap) -> u32;
 auto render(RenderGroup *group, i32 client_width, i32 client_height) -> void;
 
 
