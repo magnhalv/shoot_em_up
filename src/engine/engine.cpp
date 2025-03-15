@@ -166,8 +166,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   auto& font_program = asset_manager->shader_programs[1];
   auto& imgui_program = asset_manager->shader_programs[2];
   auto& single_color_program = asset_manager->shader_programs[3];
-  auto& sprite_program = asset_manager->shader_programs[4];
-  asset_manager->num_shader_programs = 5;
+  ////auto& sprite_program = asset_manager->shader_programs[4];
+  asset_manager->num_shader_programs = 4;
 
   // region Initialize
   [[unlikely]] if (!state->is_initialized) {
@@ -186,7 +186,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     font_program.initialize(R"(.\assets\shaders\font.vert)", R"(.\assets\shaders\font.frag)");
     imgui_program.initialize(R"(.\assets\shaders\imgui.vert)", R"(.\assets\shaders\imgui.frag)");
     single_color_program.initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
-    sprite_program.initialize(R"(.\assets\shaders\sprite.vert)", R"(.\assets\shaders\sprite.frag)");
+    //sprite_program.initialize(R"(.\assets\shaders\sprite.vert)", R"(.\assets\shaders\sprite.frag)");
 
     renderer_init();
     state->framebuffer.init(app_input->client_width, app_input->client_height);
@@ -224,13 +224,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     im::initialize_imgui(state->font, &state->permanent);
 
-    state->player_sprite = load_sprite("assets/sprites/player_1.png", &sprite_program);
+    //state->player_sprite = load_sprite("assets/sprites/player_1.png", &sprite_program);
     state->player = create_spaceship(&state->player_sprite);
 
-    state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
+    //state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
     state->player_projectiles.init(state->permanent, 100);
 
-    state->enemy_sprite = load_sprite("assets/sprites/blue_01.png", &sprite_program);
+    //state->enemy_sprite = load_sprite("assets/sprites/blue_01.png", &sprite_program);
     state->enemy_chargers.init(state->permanent, 30);
 
     SpaceShip enemy = create_spaceship(&state->enemy_sprite);
@@ -238,15 +238,15 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     enemy.transform.position.y = 600;
     state->enemy_chargers.push(enemy);
 
-    state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
-    state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
-    state->explosion_sprites[2] = load_sprite("assets/sprites/explosion/explosion-3.png", &sprite_program);
-    state->explosion_sprites[3] = load_sprite("assets/sprites/explosion/explosion-4.png", &sprite_program);
-    state->explosion_sprites[4] = load_sprite("assets/sprites/explosion/explosion-5.png", &sprite_program);
-    state->explosion_sprites[5] = load_sprite("assets/sprites/explosion/explosion-6.png", &sprite_program);
-    state->explosion_sprites[6] = load_sprite("assets/sprites/explosion/explosion-7.png", &sprite_program);
-    state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
-    state->explosions.init(state->permanent, 30);
+    //state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
+    //state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
+    //state->explosion_sprites[2] = load_sprite("assets/sprites/explosion/explosion-3.png", &sprite_program);
+    //state->explosion_sprites[3] = load_sprite("assets/sprites/explosion/explosion-4.png", &sprite_program);
+    //state->explosion_sprites[4] = load_sprite("assets/sprites/explosion/explosion-5.png", &sprite_program);
+    //state->explosion_sprites[5] = load_sprite("assets/sprites/explosion/explosion-6.png", &sprite_program);
+    //state->explosion_sprites[6] = load_sprite("assets/sprites/explosion/explosion-7.png", &sprite_program);
+    //state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
+    //state->explosions.init(state->permanent, 30);
 
     init_audio_system(state->audio, state->permanent);
 
