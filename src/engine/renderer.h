@@ -1,13 +1,9 @@
 #pragma once
 
 #include <engine/engine.h>
+#include <engine/assets.h>
 
 // Move somewhere else
-typedef struct {
-  u32 width;
-  u32 height;
-  u8 *data;
-} Bitmap;
 
 typedef struct {
   vec2 bl;
@@ -23,7 +19,7 @@ struct RenderEntityBasis {
 enum RenderGroupEntryType {
   RenderCommands_RenderEntryClear,
   RenderCommands_RenderEntryQuadrilateral,
-  RenderCommands_RenderEntryBitmap,
+  RenderCommands_RenderEntryBitmap
 };
 
 struct RenderGroupEntryHeader {
@@ -57,8 +53,8 @@ typedef struct {
   vec2 local_origin;
   vec2 offset;
   CoordSystem basis;
-  u32 bitmap_id;
-} RenderBitmap;
+  u32 bitmap_handle;
+} RenderEntryBitmap;
 
 struct RenderGroup {
   f32 meters_to_pixels;

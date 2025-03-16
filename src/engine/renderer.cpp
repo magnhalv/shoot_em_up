@@ -1,16 +1,12 @@
 #include <platform/platform.h>
 
-#include <libs/stb/stb_image.h>
 
 #include "renderer.h"
 #include "engine/gl/gl_shader.h"
-#include "engine/gl/gl_vao.h"
 #include "engine/hm_assert.h"
 
-enum VaoIds {
-  ColoredQuad = 0,
-  BitmapQuad = 1, 
-};
+
+const u32 MaxNumTextures = 5;
 
 typedef struct {
   u32 quad_vao;
@@ -20,7 +16,6 @@ typedef struct {
   u32 texture_vao;
   u32 texture_vbo;
   u32 texture_ebo;
-  u32 texture;
   GLShaderProgram texture_shader;
 
   u32 textures[5];
@@ -28,7 +23,7 @@ typedef struct {
 
 } GlRendererState;
 
-internal GlRendererState state;
+internal GlRendererState state = {};
 
 internal auto clear(i32 client_width, i32 client_height, vec4 color) {
   gl->viewport(0, 0, client_width, client_height);
@@ -91,7 +86,7 @@ internal auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
 }
 
 
-internal auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color, i32 screen_width, i32 screen_height) {
+internal auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color, u32 bitmap_handle, i32 screen_width, i32 screen_height) {
     vec2 bl = quad.bl - local_origin;
     vec2 tl = quad.tl - local_origin;
     vec2 tr = quad.tr - local_origin;
@@ -125,10 +120,11 @@ internal auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, ve
       // clang-format on
     };
     
+    u32* texture = &state.textures[bitmap_handle];
     HM_ASSERT(state.quad_vao != 0);
     gl->bind_vertex_array(state.texture_vao);
     gl->named_buffer_sub_data(state.texture_vbo, 0, sizeof(vertices), vertices);
-    gl->bind_texture(GL_TEXTURE_2D, state.texture);
+    gl->bind_texture(GL_TEXTURE_2D, *texture);
     state.texture_shader.bind();
     gl->draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     gl->bind_vertex_array(0);
@@ -174,7 +170,6 @@ auto renderer_init() -> void {
     u32 *vao = &state.texture_vao;
     u32 *vbo = &state.texture_vbo;
     u32 *ebo = &state.texture_ebo;
-    u32 *texture = &state.texture;
     f32 vertices[] = {
       // clang-format off
         // positions         // colors           // texture coords
@@ -227,45 +222,19 @@ auto renderer_init() -> void {
     gl->enable_vertex_array_attrib(*vao, attrib_index);
     attrib_index++;
 
-    // load and create a texture
-    // -------------------------
-    // texture 1
-    // ---------
-    gl->gen_textures(1, texture);
-    gl->bind_texture(GL_TEXTURE_2D, *texture);
-    // set the texture wrapping parameters
-    // set texture wrapping to GL_REPEAT (default wrapping method)
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // load image, create texture and generate mipmaps
-    const char* path = "assets/sprites/player_1.png";
-    i32 width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
-    if (data) {
-      if (nrChannels == 4) {
-        gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-      } else if (nrChannels == 3) {
-        gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-      } else {
-        crash_and_burn("Unsupported number of channels when loading texture: : %s", path);
-      }
-      gl->generate_mip_map(GL_TEXTURE_2D);
-    } else {
-      crash_and_burn("Failed to load texture: %s", path);
-    }
-    stbi_image_free(data);
-
-    gl->bind_texture(GL_TEXTURE_2D, 0);
-
     state.texture_shader.initialize(R"(.\assets\shaders\texture_2d.vert)", R"(.\assets\shaders\texture_2d.frag)");
   }
 }
 
 auto renderer_add_texture(Bitmap *bitmap) -> u32 {
+    if (state.num_textures >= MaxNumTextures) {
+      InvalidCodePath;
+    }
+    
+    auto *texture = &state.textures[state.num_textures];
+    auto handle = state.num_textures;
+    state.num_textures++;
+    
     gl->gen_textures(1, texture);
     gl->bind_texture(GL_TEXTURE_2D, *texture);
     // set the texture wrapping parameters
@@ -276,26 +245,11 @@ auto renderer_add_texture(Bitmap *bitmap) -> u32 {
     gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // load image, create texture and generate mipmaps
-    const char* path = "assets/sprites/player_1.png";
-    i32 width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
-    if (data) {
-      if (nrChannels == 4) {
-        gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-      } else if (nrChannels == 3) {
-        gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-      } else {
-        crash_and_burn("Unsupported number of channels when loading texture: : %s", path);
-      }
-      gl->generate_mip_map(GL_TEXTURE_2D);
-    } else {
-      crash_and_burn("Failed to load texture: %s", path);
-    }
-    stbi_image_free(data);
+    gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, bitmap->width, bitmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bitmap->data);
+    gl->generate_mip_map(GL_TEXTURE_2D);
 
     gl->bind_texture(GL_TEXTURE_2D, 0);
-  return 0;
+    return handle;
 }
 
 auto render(RenderGroup *group, i32 client_width, i32 client_height) -> void {
@@ -316,11 +270,25 @@ auto render(RenderGroup *group, i32 client_width, i32 client_height) -> void {
     case RenderCommands_RenderEntryQuadrilateral: 
       {
         auto *entry = (RenderEntryQuadrilateral*)data;
+        draw_quad(entry->quad, 
+                  entry->local_origin, 
+                  entry->offset, 
+                  entry->basis.x, entry->basis.y, 
+                  entry->color, 
+                  group->screen_width, group->screen_height);
+
+        base_address += sizeof(*entry);
+      } 
+      break;
+      case RenderCommands_RenderEntryBitmap:
+      {
+        auto *entry = (RenderEntryBitmap*)data;
         draw_bitmap(entry->quad, 
                   entry->local_origin, 
                   entry->offset, 
                   entry->basis.x, entry->basis.y, 
                   entry->color, 
+                  entry->bitmap_handle,
                   group->screen_width, group->screen_height);
 
         base_address += sizeof(*entry);
