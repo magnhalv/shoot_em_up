@@ -20,6 +20,7 @@ set(SOURCE_FILES
         engine/gl/gl_vao.cpp
 
         engine/audio.cpp
+        engine/assets.cpp
         engine/logger.cpp
         engine/memory.cpp
         engine/memory_arena.cpp

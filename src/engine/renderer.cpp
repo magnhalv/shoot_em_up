@@ -121,7 +121,11 @@ internal auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, ve
     };
     
     u32* texture = &state.textures[bitmap_handle];
-    HM_ASSERT(state.quad_vao != 0);
+    HM_ASSERT(state.texture_vao != 0);
+    HM_ASSERT(*texture != 0);
+
+    gl->enable(GL_BLEND);
+    gl->blend_func(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
     gl->bind_vertex_array(state.texture_vao);
     gl->named_buffer_sub_data(state.texture_vbo, 0, sizeof(vertices), vertices);
     gl->bind_texture(GL_TEXTURE_2D, *texture);
@@ -132,6 +136,7 @@ internal auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, ve
     
     state.texture_shader.unbind();
     gl->bind_vertex_array(0);
+    gl->disable(GL_BLEND);
 }
 
 auto renderer_init() -> void {

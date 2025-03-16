@@ -224,20 +224,15 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     im::initialize_imgui(state->font, &state->permanent);
 
-    //state->player_sprite = load_sprite("assets/sprites/player_1.png", &sprite_program);
-    state->player = create_spaceship(&state->player_sprite);
+    state->player_bitmap = load_bitmap("assets/sprites/player_1.png", &state->permanent);
+    state->player_bitmap_handle = renderer_add_texture(state->player_bitmap);
 
     //state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
-    state->player_projectiles.init(state->permanent, 100);
 
     //state->enemy_sprite = load_sprite("assets/sprites/blue_01.png", &sprite_program);
-    state->enemy_chargers.init(state->permanent, 30);
 
-    SpaceShip enemy = create_spaceship(&state->enemy_sprite);
-    enemy.transform.position.x = 200;
-    enemy.transform.position.y = 600;
-    state->enemy_chargers.push(enemy);
 
+    
     //state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
     //state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
     //state->explosion_sprites[2] = load_sprite("assets/sprites/explosion/explosion-3.png", &sprite_program);
@@ -293,20 +288,20 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
   
   Rect rect = {};
-  rect.dim = screen_center;
-  rect.p = screen_center - 0.5*rect.dim;
+  rect.dim = vec2(state->player_bitmap->width, state->player_bitmap->height);
+  rect.p = vec2(100, 100);
 
   Quadrilateral quad = rect_to_quadrilateral(&rect);
 
-  auto* render_quad = PushRenderElement(&group, RenderEntryQuadrilateral);
-  render_quad->color = vec4(1.0, 0.4, 0.2, 0.2);
-  render_quad->quad = quad;
-  render_quad->local_origin = 0.5*rect.dim;
-  render_quad->offset = screen_center - 0.5*rect.dim;
-  render_quad->offset = screen_center - 0.5*rect.dim;
+  auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
+  render_bm->color = vec4(1.0, 0.4, 0.2, 0.2);
+  render_bm->quad = quad;
+  render_bm->local_origin = 0.5*rect.dim;
+  render_bm->offset = rect.p;
   f32 theta = app_input->t;
-  render_quad->basis.x = vec2(cos(theta), -sin(theta));
-  render_quad->basis.y = vec2(sin(theta), cos(theta));
+  render_bm->basis.x = vec2(cos(theta), -sin(theta));
+  render_bm->basis.y = vec2(sin(theta), cos(theta));
+  render_bm->bitmap_handle = state->player_bitmap_handle;
   render(&group, app_input->client_width, app_input->client_height);
 
 

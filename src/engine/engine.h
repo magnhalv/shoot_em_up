@@ -110,10 +110,8 @@ struct EngineState {
   TextRenderer text_renderer;
   Font* font;
 
-  Sprite player_sprite;
-  Sprite projectile_sprite;
-  Sprite enemy_sprite;
-  Sprite explosion_sprites[8];
+  Bitmap* player_bitmap;
+  u32 player_bitmap_handle;
 
   SpaceShip player;
   SwapBackList<Explosion> explosions;
