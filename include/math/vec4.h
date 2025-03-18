@@ -8,6 +8,12 @@ template<typename T>
 struct TVec4 {
 	union {
 		struct {
+			T r;
+			T g;
+			T b;
+			T a;
+		};
+		struct {
 			T x;
 			T y;
 			T z;

@@ -271,8 +271,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   time.t += time.dt;
   time.num_frames_this_second++;
 
-  auto ortho_projection = create_ortho(0, app_input->client_width, 0, app_input->client_height, 0.0f, 100.0f);
-
   Pointer* pointer = &state->pointer;
   const MouseRaw* mouse = &app_input->input.mouse_raw;
 
@@ -293,15 +291,33 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
   Quadrilateral quad = rect_to_quadrilateral(&rect);
 
+  f32 theta = app_input->t;
+  // Sprite should perhaps have a a set of points that construct it, and
+  // support scaling from that.
+  // Also test scaling here!!
   auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
   render_bm->color = vec4(1.0, 0.4, 0.2, 0.2);
   render_bm->quad = quad;
   render_bm->local_origin = 0.5*rect.dim;
   render_bm->offset = rect.p;
-  f32 theta = app_input->t;
-  render_bm->basis.x = vec2(cos(theta), -sin(theta));
+  render_bm->basis.x = vec2(cos(theta), (-sin(theta)));
   render_bm->basis.y = vec2(sin(theta), cos(theta));
   render_bm->bitmap_handle = state->player_bitmap_handle;
+
+  Quadrilateral result = {};
+  result.bl = vec2(0,0);
+  result.tl = vec2(0, 1.0);
+  result.tr = vec2(1.0, 1.0);
+  result.br = vec2(1.0, 0);
+  auto* render_bm2 = PushRenderElement(&group, RenderEntryBitmap);
+  render_bm2->color = vec4(0.0, 0.0, 0.0, 0.0);
+  render_bm2->quad = result;
+  render_bm2->local_origin = vec2(0.5f, 0.5f);
+  render_bm2->offset = vec2(0, 0); // TODO: This should work with 0.5, 0.5!
+  render_bm2->basis.x = vec2(rect.dim.x*cos(theta), rect.dim.y*(-sin(theta)));
+  render_bm2->basis.y = vec2(rect.dim.x*sin(theta), rect.dim.y*cos(theta));
+  render_bm2->bitmap_handle = state->player_bitmap_handle;
+
   render(&group, app_input->client_width, app_input->client_height);
 
 

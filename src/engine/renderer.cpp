@@ -87,36 +87,52 @@ internal auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
 
 
 internal auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color, u32 bitmap_handle, i32 screen_width, i32 screen_height) {
+    quad.bl.print();
     vec2 bl = quad.bl - local_origin;
     vec2 tl = quad.tl - local_origin;
     vec2 tr = quad.tr - local_origin;
     vec2 br = quad.br - local_origin;
+    
+    bl.print();
+    tr.print();
 
     bl = bl.x*x_axis + bl.y*y_axis;
     tl = tl.x*x_axis + tl.y*y_axis;
     tr = tr.x*x_axis + tr.y*y_axis;
     br = br.x*x_axis + br.y*y_axis;
 
+    local_origin = local_origin.x*x_axis + local_origin.y*y_axis;
+
+    bl.print();
+    tr.print();
+
     bl = bl + local_origin;
     tl = tl + local_origin;
     tr = tr + local_origin;
     br = br + local_origin;
+
+    bl.print();
+    tr.print();
 
     bl = bl + offset;
     tl = tl + offset;
     tr = tr + offset;
     br = br + offset;
 
+    bl.print();
+    tr.print();
+    printf("------------\n");
+
     f32 vertices[] = {
       // clang-format off
         // positions                                                    // colors           // texture coords
-      to_gl_x(tr.x, screen_width), to_gl_y(tr.y, screen_height), 0.0f,  0.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+      to_gl_x(tr.x, screen_width), to_gl_y(tr.y, screen_height), 0.0f,  color.r, color.g, color.b, color.a,   1.0f, 1.0f,   // top right
         
-      to_gl_x(br.x, screen_width), to_gl_y(br.y, screen_height), 0.0f,  0.0f, 0.0f, 0.0f,   1.0f, 0.0f,  // bottom right
+      to_gl_x(br.x, screen_width), to_gl_y(br.y, screen_height), 0.0f,  color.r, color.g, color.b, color.a,  1.0f, 0.0f,  // bottom right
         
-      to_gl_x(bl.x, screen_width), to_gl_y(bl.y, screen_height), 0.0f,  0.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+      to_gl_x(bl.x, screen_width), to_gl_y(bl.y, screen_height), 0.0f,  color.r, color.g, color.b, color.a,   0.0f, 0.0f, // bottom left
 
-      to_gl_x(tl.x, screen_width), to_gl_y(tl.y, screen_height), 0.0f,   0.0f, 0.0f, 0.0f,   0.0f, 1.0f   // top left
+      to_gl_x(tl.x, screen_width), to_gl_y(tl.y, screen_height), 0.0f,   color.r, color.g, color.b, color.a,  0.0f, 1.0f   // top left
       // clang-format on
     };
     
@@ -177,18 +193,18 @@ auto renderer_init() -> void {
     u32 *ebo = &state.texture_ebo;
     f32 vertices[] = {
       // clang-format off
-        // positions         // colors           // texture coords
-        1.0f, 1.0f, 0.0f,    0.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-        1.0f, 0.0f, 0.0f,   0.0f, 0.0f, 0.0f,   1.0f, 0.0f,  // bottom right
-        0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
-        0.0f, 1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   0.0f, 1.0f   // top left
+        // positions       // colors                 // texture coords
+        1.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+        1.0f, 0.0f, 0.0f,  0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 0.0f,  // bottom right
+        0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+        0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f   // top left
       // clang-format on
     };
-    const u32 vbo_stride = 8 * sizeof(f32);
     const u32 vbo_offset = 0;
     const u32 num_pos = 3;
-    const u32 num_colors = 3;
+    const u32 num_colors = 4;
     const u32 num_uv = 2;
+    const u32 vbo_stride = (num_pos+num_colors+num_uv) * sizeof(f32);
 
     u32 indices[] = {
       0, 1, 3, // first triangle
@@ -216,13 +232,13 @@ auto renderer_init() -> void {
     attrib_index++;
 
     // color attribute
-    gl->vertex_array_attrib_format(*vao, attrib_index, num_colors, GL_FLOAT, GL_FALSE, 3 * sizeof(f32));
+    gl->vertex_array_attrib_format(*vao, attrib_index, num_colors, GL_FLOAT, GL_FALSE, num_pos * sizeof(f32));
     gl->vertex_array_attrib_binding(*vao, attrib_index, vbo_binding_index);
     gl->enable_vertex_array_attrib(*vao, attrib_index);
     attrib_index++;
 
     // texture coord attribute
-    gl->vertex_array_attrib_format(*vao, attrib_index, num_uv, GL_FLOAT, GL_FALSE, 6 * sizeof(f32));
+    gl->vertex_array_attrib_format(*vao, attrib_index, num_uv, GL_FLOAT, GL_FALSE, (num_pos+num_colors) * sizeof(f32));
     gl->vertex_array_attrib_binding(*vao, attrib_index, vbo_binding_index);
     gl->enable_vertex_array_attrib(*vao, attrib_index);
     attrib_index++;
