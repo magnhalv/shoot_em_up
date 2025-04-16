@@ -8,15 +8,10 @@
 #include <math/vec4.h>
 #include <platform/types.h>
 
-#include "camera.h"
 #include "cli/cli.h"
-#include "framebuffer.h"
-#include "gl/gl_shader.h"
-#include "gl/gl_vao.h"
 #include "memory_arena.h"
 #include "options.hpp"
 #include "platform/platform.h"
-#include "sprite.hpp"
 #include "text_renderer.h"
 #include <engine/audio.hpp>
 #include <engine/structs/swap_back_list.h>
@@ -37,16 +32,18 @@ struct Pointer {
   }
 };
 
-struct Projectile {
-  Transform transform;
-};
+typedef struct {
+  vec2 p;
+  vec2 dim;
+  u32 deg; // rotation
+  u32 sprite_handle;
 
-struct SpaceShip {
-  Transform transform;
   vec2 speed;
-  f32 progress;
-  f32 original_x;
-  Sprite* sprite;
+} Sprite;
+
+
+struct Projectile {
+  vec2 p;
 };
 
 struct Explosion {
@@ -54,7 +51,7 @@ struct Explosion {
   i32 curr_frame = 0;
   i32 num_sprites = 0;
   i32 curr_sprite = 0;
-  Transform transform{};
+  vec2 p;
   vec2 speed;
   vec2 acc;
 };
@@ -87,19 +84,17 @@ struct Entity {
   int id;
 };
 
+struct GameState {
+  Sprite player;
+};
+
 struct EngineState {
-  Pointer pointer;
   bool is_initialized = false;
-  Camera camera;
+  Pointer pointer;
   MemoryArena transient;
   MemoryArena permanent;
 
   AudioSystemState audio;
-
-  GLGlobalUniformBufferContainer uniform_buffer_container;
-  Framebuffer framebuffer;
-  MultiSampleFramebuffer ms_framebuffer;
-  GLVao quad_vao{};
 
   Cli cli;
   bool is_cli_active;
@@ -110,12 +105,15 @@ struct EngineState {
   TextRenderer text_renderer;
   Font* font;
 
+  // Bitmaps
   Bitmap* player_bitmap;
-  u32 player_bitmap_handle;
+  Bitmap* projectile_bitmap;
+  u32 projectile_bitmap_handle;
 
-  SpaceShip player;
+
+  Sprite player;
   SwapBackList<Explosion> explosions;
-  SwapBackList<SpaceShip> enemy_chargers;
+  //SwapBackList<SpaceShip> enemy_chargers;
   f32 enemy_timer;
   SwapBackList<Projectile> player_projectiles;
   SwapBackList<Projectile> enemy_projectiles;

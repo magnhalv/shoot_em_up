@@ -2,8 +2,10 @@
 
 
 #include "renderer.h"
-#include "engine/gl/gl_shader.h"
 #include "engine/hm_assert.h"
+
+#include "engine/gl/gl.h"
+#include "engine/gl/gl_shader.h"
 
 
 const u32 MaxNumTextures = 5;
@@ -87,41 +89,25 @@ internal auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
 
 
 internal auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color, u32 bitmap_handle, i32 screen_width, i32 screen_height) {
-    quad.bl.print();
     vec2 bl = quad.bl - local_origin;
     vec2 tl = quad.tl - local_origin;
     vec2 tr = quad.tr - local_origin;
     vec2 br = quad.br - local_origin;
     
-    bl.print();
-    tr.print();
-
     bl = bl.x*x_axis + bl.y*y_axis;
     tl = tl.x*x_axis + tl.y*y_axis;
     tr = tr.x*x_axis + tr.y*y_axis;
     br = br.x*x_axis + br.y*y_axis;
-
-    local_origin = local_origin.x*x_axis + local_origin.y*y_axis;
-
-    bl.print();
-    tr.print();
 
     bl = bl + local_origin;
     tl = tl + local_origin;
     tr = tr + local_origin;
     br = br + local_origin;
 
-    bl.print();
-    tr.print();
-
     bl = bl + offset;
     tl = tl + offset;
     tr = tr + offset;
     br = br + offset;
-
-    bl.print();
-    tr.print();
-    printf("------------\n");
 
     f32 vertices[] = {
       // clang-format off

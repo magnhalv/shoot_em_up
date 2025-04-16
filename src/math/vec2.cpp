@@ -1,3 +1,4 @@
+#include <cmath>
 #include <math/vec2.h>
 
 auto normalize(vec2& v) -> void {
@@ -22,4 +23,8 @@ auto normalized(const vec2& v) -> vec2 {
     v.x * invLen,
     v.y * invLen,
   };
+}
+
+auto mag(const vec2 &v) -> f32 {
+  return sqrtf((v.x * v.x) + (v.y * v.y));
 }

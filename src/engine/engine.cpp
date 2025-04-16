@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstddef>
 #include <cstdio>
 
 #include <glad/gl.h>
@@ -13,15 +12,11 @@
 #include "engine/gameplay.h"
 #include "engine/hm_assert.h"
 #include <engine/renderer.h>
-#include "engine/structs/swap_back_list.h"
 #include "gl/gl.h"
-#include "gl/gl_vao.h"
 #include "globals.hpp"
 #include "gui.hpp"
 #include "logger.h"
-#include "math/mat4.h"
-#include "math/quat.h"
-#include "math/transform.h"
+#include "math/vec2.h"
 #include "memory_arena.h"
 #include "platform/platform.h"
 #include "platform/types.h"
@@ -29,23 +24,14 @@
 #include <engine/renderer/asset_manager.h>
 #include <math/transform.h>
 
-typedef struct {
-  vec2 p;
-  vec2 dim;
-} Rect;
-
-
-auto rect_center(Rect *rect) -> vec2 {
-  return rect->p + 0.5*rect->dim; 
-}
 
 // Only works without rotation
-auto rect_to_quadrilateral(Rect *rect) -> Quadrilateral {
+auto rect_to_quadrilateral(const vec2 &p, const vec2 &dim) -> Quadrilateral {
   Quadrilateral result = {};
   result.bl = vec2(0,0);
-  result.tl = vec2(0, rect->dim.y);
-  result.tr = rect->dim;
-  result.br = vec2(rect->dim.x, 0);
+  result.tl = vec2(0, dim.y);
+  result.tr = dim;
+  result.br = vec2(dim.x, 0);
   return result;
 }
 
@@ -109,16 +95,6 @@ auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
   return buffer;
 }
 
-auto create_spaceship(Sprite* sprite) -> SpaceShip {
-  SpaceShip result;
-  result.transform = Transform();
-  result.transform.scale.x = sprite->width;
-  result.transform.scale.y = sprite->height;
-  result.transform.scale.z = 1;
-  result.sprite = sprite;
-  return result;
-}
-
 auto sine_behaviour(f32 x) {
   return sin(x);
 }
@@ -127,17 +103,6 @@ auto noise(f32 x) {
   return sin(2 * x) + sin(PI * x);
 }
 
-auto spawn_enemy(Sprite* sprite, SwapBackList<SpaceShip>& enemies, i32 max_width, i32 max_height) {
-  SpaceShip enemy = create_spaceship(sprite);
-  enemy.transform.position.x = 200;
-  enemy.transform.position.y = max_height + sprite->height;
-  enemy.transform.scale.x = sprite->width;
-  enemy.transform.scale.y = sprite->height;
-  enemy.original_x = 200;
-  enemy.progress = 0;
-  enemy.transform.rotation = fromTo(vec3(0, 1, 0), vec3(0, -1, 0));
-  enemies.push(enemy);
-}
 
 #define PushRenderElement(group, type) (type*) push_render_element_(group, sizeof(type), RenderCommands_##type)
 auto push_render_element_(RenderGroup *render_group, u32 size, RenderGroupEntryType type) {
@@ -161,13 +126,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   auto* state = (EngineState*)memory->permanent;
   const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
-  // TODO: Move to renderer
-  auto& quad_program = asset_manager->shader_programs[0];
-  auto& font_program = asset_manager->shader_programs[1];
-  auto& imgui_program = asset_manager->shader_programs[2];
-  auto& single_color_program = asset_manager->shader_programs[3];
-  ////auto& sprite_program = asset_manager->shader_programs[4];
-  asset_manager->num_shader_programs = 4;
 
   // region Initialize
   [[unlikely]] if (!state->is_initialized) {
@@ -176,58 +134,28 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     state->permanent.init(
         static_cast<u8*>(memory->permanent) + sizeof(EngineState), Permanent_Memory_Block_Size - sizeof(EngineState));
 
-    state->camera.init(-90.0f, -27.0f, vec3(0.0f, 5.0f, 10.0f));
 
     state->pointer.x = 200;
     state->pointer.y = 200;
 
-    // region Compile shaders
-    quad_program.initialize(R"(.\assets\shaders\quad.vert)", R"(.\assets\shaders\quad.frag)");
-    font_program.initialize(R"(.\assets\shaders\font.vert)", R"(.\assets\shaders\font.frag)");
-    imgui_program.initialize(R"(.\assets\shaders\imgui.vert)", R"(.\assets\shaders\imgui.frag)");
-    single_color_program.initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
-    //sprite_program.initialize(R"(.\assets\shaders\sprite.vert)", R"(.\assets\shaders\sprite.frag)");
-
     renderer_init();
-    state->framebuffer.init(app_input->client_width, app_input->client_height);
-    state->ms_framebuffer.init(app_input->client_width, app_input->client_height);
 
     // endregion
-
-    float quad_verticies[] = {
-      // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
-      // clang-format off
-      // positions     // texCoords
-      -1.0f, 1.0f,     0.0f, 1.0f,  
-      -1.0f, -1.0f,    0.0f, 0.0f, 
-      1.0f, -1.0f,     1.0f, 0.0f,  
-      -1.0f, 1.0f,     0.0f, 1.0f,  
-      1.0f, -1.0f,     1.0f, 0.0f,  
-      1.0f, 1.0f,      1.0f, 1.0f,
-      // clang-format on
-    };
-
-    state->quad_vao.init();
-    state->quad_vao.bind();
-    state->quad_vao.add_buffer(0, sizeof(quad_verticies), 4 * sizeof(f32));
-    state->quad_vao.add_buffer_desc(0, 0, 2, 0, 4 * sizeof(f32));
-    state->quad_vao.add_buffer_desc(0, 1, 2, 2 * sizeof(f32), 4 * sizeof(f32));
-    state->quad_vao.upload_buffer_desc();
-    state->quad_vao.upload_buffer_data(0, quad_verticies, 0, sizeof(quad_verticies));
-
-    state->camera.update_cursor(0, 0);
-
     auto cli_memory_arena = state->permanent.allocate_arena(MegaBytes(1));
     state->font = font_load("assets/fonts/ubuntu/Ubuntu-Regular.ttf", state->permanent);
-    state->text_renderer.init(&font_program);
     state->cli.init(cli_memory_arena);
 
     im::initialize_imgui(state->font, &state->permanent);
 
     state->player_bitmap = load_bitmap("assets/sprites/player_1.png", &state->permanent);
-    state->player_bitmap_handle = renderer_add_texture(state->player_bitmap);
+    state->player.sprite_handle = renderer_add_texture(state->player_bitmap);
+    state->player.dim = vec2(state->player_bitmap->width, state->player_bitmap->height);
+    state->player.p = vec2(100, 100);
+    state->player.deg = 0.0f;
 
-    //state->projectile_sprite = load_sprite("assets/sprites/projectile_1.png", &sprite_program);
+    state->projectile_bitmap = load_bitmap("assets/sprites/projectile_1.png", &state->permanent);
+    state->projectile_bitmap_handle = renderer_add_texture(state->projectile_bitmap);
+    state->player_projectiles.init(state->permanent, 100);
 
     //state->enemy_sprite = load_sprite("assets/sprites/blue_01.png", &sprite_program);
 
@@ -271,9 +199,151 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   time.t += time.dt;
   time.num_frames_this_second++;
 
-  Pointer* pointer = &state->pointer;
-  const MouseRaw* mouse = &app_input->input.mouse_raw;
+ {
+    auto& input = app_input->input;
+    auto& p_pos = state->player.p;
 
+    state->enemy_timer += app_input->dt;
+//    if (state->enemy_timer > 0.3) {
+//      state->enemy_timer = 0;
+//      spawn_enemy(&state->enemy_sprite, state->enemies, app_input->client_width, app_input->client_height);
+//    }
+
+    if (input.space.is_pressed_this_frame()) {
+      play_sound(SoundType::Laser, state->audio);
+      auto pos = state->player.p;
+      pos.y = pos.y + state->player.dim.y;
+      pos.x = pos.x + 0.5*state->player.dim.x - 0.5*state->projectile_bitmap->width;
+      Projectile p{.p = pos };
+      state->player_projectiles.push(p);
+    }
+
+    const auto max_speed = 300.0;
+    const f32 acc = 60.0f;
+
+    vec2 direction = {};
+
+    auto speed = 1.0;
+    if (input.w.ended_down) {
+      direction.y = 1.0;
+    }
+    if (input.s.ended_down) {
+      direction.y = -1.0;
+    }
+    if (input.a.ended_down) {
+      direction.x = -1.0;
+    }
+    if (input.d.ended_down) {
+      direction.x = 1.0;
+    }
+    normalize(direction);
+    vec2 accelaration = direction * acc;
+
+    auto& player = state->player;
+    if (accelaration.x != 0.0) {
+      const auto new_speed_x = player.speed.x + accelaration.x;
+      player.speed.x = hm::min(hm::max(new_speed_x, -max_speed), max_speed);
+    } else {
+      if (player.speed.x < 0.0f) {
+        player.speed.x = fmax(player.speed.x + acc, 0.0f);
+      } else if (player.speed.x > 0.0f) {
+        player.speed.x = fmin(player.speed.x - acc, 0.0f);
+      }
+    }
+
+    if (accelaration.y != 0.0) {
+      const auto new_speed_y = player.speed.y + accelaration.y;
+      player.speed.y = hm::min(hm::max(new_speed_y, -max_speed), max_speed);
+    } else {
+      if (player.speed.y < 0.0f) {
+        player.speed.y = fmax(player.speed.y + acc, 0.0f);
+      } else if (player.speed.y > 0.0f) {
+        player.speed.y = fmin(player.speed.y - acc, 0.0f);
+      }
+    }
+
+    if (mag(player.speed) > max_speed) {
+      player.speed = normalized(player.speed) * max_speed;
+    }
+
+    player.p = update_position(player.p, player.speed, player.dim, time.dt, app_input->client_width, app_input->client_height);
+
+    
+    const auto projectile_speed = 1200.0;
+    for (auto& proj : state->player_projectiles) {
+      proj.p.y += projectile_speed * time.dt;
+    }
+
+    /*
+    for (auto e = 0; e < state->explosions.size(); e++) {
+      auto& ex = state->explosions[e];
+      ex.curr_frame++;
+      if (ex.curr_frame > ex.frames_per_sprite) {
+        ex.curr_frame = 0;
+        ex.curr_sprite++;
+      }
+      if (ex.curr_sprite >= ex.num_sprites) {
+        state->explosions.remove(e);
+        e--;
+      }
+    }
+
+    */
+    /*
+    // Update enemies
+    for (auto& enemy : state->enemies) {
+      enemy.progress += 0.04f;
+      enemy.speed.y = -300.0f;
+      enemy.speed.x = 250.0f * sine_behaviour(enemy.progress);
+      enemy.transform = update_position(enemy.transform, enemy.speed, time.dt);
+    }
+
+    */
+    // Update projectile
+    for (auto i = 0; i < state->player_projectiles.size(); i++) {
+      auto pos = state->player_projectiles[i].p;
+      {
+        vec2 bottom_left = vec2(0, 0);
+        vec2 top_right = vec2(app_input->client_width, app_input->client_height);
+        if (!hmath::in_rect(pos, bottom_left, top_right)) {
+          state->player_projectiles.remove(i);
+          i--;
+          continue;
+        }
+      }
+    }
+
+    /*
+      for (auto e = 0; e < state->enemies.size(); e++) {
+        auto& enemy = state->enemies[e];
+        vec2 bottom_left = enemy.transform.position.xy();
+        vec2 top_right = bottom_left + enemy.transform.scale.xy();
+        if (hmath::in_rect(pos, bottom_left, top_right)) {
+
+          Explosion ex{};
+          ex.transform = Transform();
+          ex.transform.scale.x = state->explosion_sprites[0].width;
+          ex.transform.scale.y = state->explosion_sprites[0].height;
+          ex.transform.position.x = enemy.transform.position.x;
+          ex.transform.position.y = enemy.transform.position.y;
+          ex.num_sprites = 8;
+          ex.frames_per_sprite = 5;
+          state->explosions.push(ex);
+          play_sound(SoundType::Explosion, state->audio);
+
+          state->enemies.remove(e);
+          state->player_projectiles.remove(i);
+          i--;
+          break;
+        }
+      }
+    }
+    */
+  }
+
+  ///////////////////////////
+  //// Rendering ////////////
+  ///////////////////////////
   RenderGroup group {};
   group.push_buffer_size = 0;
   group.max_push_buffer_size = MegaBytes(4);
@@ -282,54 +352,35 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   group.screen_height = app_input->client_height;
 
   auto* clear = PushRenderElement(&group, RenderEntryClear);
-  clear->color = vec4(0.2, 0.4, 0.2, 0.2);
+  clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
-  
-  Rect rect = {};
-  rect.dim = vec2(state->player_bitmap->width, state->player_bitmap->height);
-  rect.p = vec2(100, 100);
+  {
+    const auto &player = state->player;
+    auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
+    render_bm->quad = rect_to_quadrilateral(player.p, player.dim);
+    render_bm->local_origin = 0.5*player.dim;
+    render_bm->offset = player.p;
+    render_bm->basis.x = vec2(cos(player.deg), -sin(player.deg));
+    render_bm->basis.y = vec2(sin(player.deg), cos(player.deg));
+    render_bm->bitmap_handle = state->player.sprite_handle;
+  }
 
-  Quadrilateral quad = rect_to_quadrilateral(&rect);
+  for (auto &proj : state->player_projectiles) {
+    auto &sprite = state->projectile_bitmap;
+    const vec2 dim = vec2(sprite->width, sprite->height);
+    const f32 deg = 0.0f;
+    auto &handle = state->projectile_bitmap_handle;
 
-  f32 theta = app_input->t;
-  // Sprite should perhaps have a a set of points that construct it, and
-  // support scaling from that.
-  // Also test scaling here!!
-  auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
-  render_bm->color = vec4(1.0, 0.4, 0.2, 0.2);
-  render_bm->quad = quad;
-  render_bm->local_origin = 0.5*rect.dim;
-  render_bm->offset = rect.p;
-  render_bm->basis.x = vec2(cos(theta), (-sin(theta)));
-  render_bm->basis.y = vec2(sin(theta), cos(theta));
-  render_bm->bitmap_handle = state->player_bitmap_handle;
-
-  Quadrilateral result = {};
-  result.bl = vec2(0,0);
-  result.tl = vec2(0, 1.0);
-  result.tr = vec2(1.0, 1.0);
-  result.br = vec2(1.0, 0);
-  auto* render_bm2 = PushRenderElement(&group, RenderEntryBitmap);
-  render_bm2->color = vec4(0.0, 0.0, 0.0, 0.0);
-  render_bm2->quad = result;
-  render_bm2->local_origin = vec2(0.5f, 0.5f);
-  render_bm2->offset = vec2(0, 0); // TODO: This should work with 0.5, 0.5!
-  render_bm2->basis.x = vec2(rect.dim.x*cos(theta), rect.dim.y*(-sin(theta)));
-  render_bm2->basis.y = vec2(rect.dim.x*sin(theta), rect.dim.y*cos(theta));
-  render_bm2->bitmap_handle = state->player_bitmap_handle;
+    auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
+    rendel_el->quad = rect_to_quadrilateral(proj.p, dim);
+    rendel_el->local_origin = 0.5*dim;
+    rendel_el->offset = proj.p;
+    rendel_el->basis.x = vec2(cos(deg), -sin(deg));
+    rendel_el->basis.y = vec2(sin(deg), cos(deg));
+    rendel_el->bitmap_handle = handle;
+  }
 
   render(&group, app_input->client_width, app_input->client_height);
-
-
-  GLenum err;
-  bool found_error = false;
-  while ((err = gl->get_error()) != GL_NO_ERROR) {
-    printf("OpenGL Error %d\n", err);
-    found_error = true;
-  }
-  if (found_error) {
-    exit(1);
-  }
 }
 
 void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory) {
