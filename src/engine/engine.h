@@ -35,9 +35,10 @@ struct Pointer {
 typedef struct {
   vec2 p;
   vec2 dim;
-  u32 deg; // rotation
+  f32 deg; // rotation
   u32 sprite_handle;
 
+  f32 progress;
   vec2 speed;
 } Sprite;
 
@@ -108,12 +109,14 @@ struct EngineState {
   // Bitmaps
   Bitmap* player_bitmap;
   Bitmap* projectile_bitmap;
+  Bitmap* enemy_bitmap;
+  u32 enemy_bitmap_handle;
   u32 projectile_bitmap_handle;
 
 
   Sprite player;
   SwapBackList<Explosion> explosions;
-  //SwapBackList<SpaceShip> enemy_chargers;
+  SwapBackList<Sprite> enemy_chargers;
   f32 enemy_timer;
   SwapBackList<Projectile> player_projectiles;
   SwapBackList<Projectile> enemy_projectiles;

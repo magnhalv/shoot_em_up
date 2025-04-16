@@ -99,6 +99,9 @@ auto sine_behaviour(f32 x) {
   return sin(x);
 }
 
+auto sine_movement(f32 base, f32 amp, f32 frequency, f32 time) {
+  return  base + amp * sin(frequency * time);
+}
 auto noise(f32 x) {
   return sin(2 * x) + sin(PI * x);
 }
@@ -157,8 +160,9 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     state->projectile_bitmap_handle = renderer_add_texture(state->projectile_bitmap);
     state->player_projectiles.init(state->permanent, 100);
 
-    //state->enemy_sprite = load_sprite("assets/sprites/blue_01.png", &sprite_program);
-
+    state->enemy_bitmap = load_bitmap("assets/sprites/blue_01.png", &state->permanent);
+    state->enemy_bitmap_handle = renderer_add_texture(state->enemy_bitmap);
+    state->enemy_chargers.init(state->permanent, 100);
 
     
     //state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
@@ -204,10 +208,17 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     auto& p_pos = state->player.p;
 
     state->enemy_timer += app_input->dt;
-//    if (state->enemy_timer > 0.3) {
-//      state->enemy_timer = 0;
-//      spawn_enemy(&state->enemy_sprite, state->enemies, app_input->client_width, app_input->client_height);
-//    }
+    if (state->enemy_timer > 0.3) {
+      state->enemy_timer = 0;
+
+      Sprite enemy = {};
+      enemy.p = vec2(100.0, app_input->client_height); 
+      enemy.dim = vec2(state->enemy_bitmap->width, state->enemy_bitmap->height);
+      enemy.sprite_handle = state->enemy_bitmap_handle;
+      enemy.deg = PI;
+
+      state->enemy_chargers.push(enemy);
+    }
 
     if (input.space.is_pressed_this_frame()) {
       play_sound(SoundType::Laser, state->audio);
@@ -289,27 +300,34 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     }
 
     */
-    /*
+    
     // Update enemies
-    for (auto& enemy : state->enemies) {
-      enemy.progress += 0.04f;
-      enemy.speed.y = -300.0f;
-      enemy.speed.x = 250.0f * sine_behaviour(enemy.progress);
-      enemy.transform = update_position(enemy.transform, enemy.speed, time.dt);
+    for (auto i = 0; i < state->enemy_chargers.size();) {
+      auto &enemy = state->enemy_chargers[i];
+      enemy.p.y += -400.0f*time.dt; 
+      enemy.progress += time.dt;
+      enemy.p.x = sine_movement(100.0, 100.0, 3.0, enemy.progress);
+
+      if (enemy.p.y + enemy.dim.y <= 0.0) {
+        state->enemy_chargers.remove(i);
+      }
+      else {
+        i++;
+      }
     }
 
-    */
+   
     // Update projectile
-    for (auto i = 0; i < state->player_projectiles.size(); i++) {
+    for (auto i = 0; i < state->player_projectiles.size();) {
       auto pos = state->player_projectiles[i].p;
-      {
-        vec2 bottom_left = vec2(0, 0);
-        vec2 top_right = vec2(app_input->client_width, app_input->client_height);
-        if (!hmath::in_rect(pos, bottom_left, top_right)) {
-          state->player_projectiles.remove(i);
-          i--;
-          continue;
-        }
+      vec2 bottom_left = vec2(0, 0);
+      vec2 top_right = vec2(app_input->client_width, app_input->client_height);
+      if (!hmath::in_rect(pos, bottom_left, top_right)) {
+        state->player_projectiles.remove(i);
+        continue;
+      }
+      else {
+        i++;
       }
     }
 
@@ -362,7 +380,18 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     render_bm->offset = player.p;
     render_bm->basis.x = vec2(cos(player.deg), -sin(player.deg));
     render_bm->basis.y = vec2(sin(player.deg), cos(player.deg));
-    render_bm->bitmap_handle = state->player.sprite_handle;
+    render_bm->bitmap_handle = player.sprite_handle;
+  }
+
+
+  for (auto &enemy : state->enemy_chargers) {
+    auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
+    render_el->quad = rect_to_quadrilateral(enemy.p, enemy.dim);
+    render_el->local_origin = 0.5*enemy.dim;
+    render_el->offset = enemy.p;
+    render_el->basis.x = vec2(cos(enemy.deg), -sin(enemy.deg));
+    render_el->basis.y = vec2(sin(enemy.deg), cos(enemy.deg));
+    render_el->bitmap_handle = enemy.sprite_handle;
   }
 
   for (auto &proj : state->player_projectiles) {
