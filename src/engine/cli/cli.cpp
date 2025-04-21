@@ -1,12 +1,11 @@
 #include <cstdio>
 
 #include "cli.h"
-#include <math/math.h>
-#include <math/vec2.h>
 
 #include "echo.h"
 #include "options.h"
 #include <engine/gui.hpp>
+#include <math/math.h>
 
 const size_t RawBufferSize = KiloBytes(512);
 const size_t num_start_characters = 2;

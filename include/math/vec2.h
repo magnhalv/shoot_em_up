@@ -1,7 +1,6 @@
 #ifndef VEC2_H
 #define VEC2_H
 
-#include <iostream>
 #include <platform/types.h>
 
 #define VEC2_EPSILON 0.000001f
@@ -20,14 +19,13 @@ struct ivec2 {
   }
 
   auto print() -> void {
-    std::cout << "x: " << x << "y: " << y << std::endl;
+    printf("x: %d, y: %d\n", x, y);
   }
 };
 
 inline ivec2 operator+(const ivec2& l, const ivec2& r) {
   return { l.x + r.x, l.y + r.y };
 }
-
 
 struct vec2 {
   union {
@@ -43,7 +41,7 @@ struct vec2 {
   }
 
   auto print() -> void {
-    std::cout << "(" << x  << ", " << y << ")"<< std::endl;
+    printf("(x: %f, y: %f)\n", x, y);
   }
 };
 
@@ -69,7 +67,7 @@ inline vec2 operator*(const vec2& l, u64 r) {
 
 auto normalize(vec2& v) -> void;
 auto normalized(const vec2& v) -> vec2;
-auto mag(const vec2 &v) -> f32;
+auto mag(const vec2& v) -> f32;
 
 inline auto ivec2_to_vec2(ivec2 iv) -> vec2 {
   return vec2(static_cast<f32>(iv.x), static_cast<f32>(iv.y));

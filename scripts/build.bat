@@ -1,1 +1,1 @@
-cmake --build cmake-build -- -j6
+cmake --build cmake-build -- -j12

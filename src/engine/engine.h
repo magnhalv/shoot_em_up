@@ -4,6 +4,8 @@
 
 #endif
 
+#include <iostream>
+
 #include <math/mat4.h>
 #include <math/vec4.h>
 #include <platform/types.h>
@@ -41,7 +43,6 @@ typedef struct {
   f32 progress;
   vec2 speed;
 } Sprite;
-
 
 struct Projectile {
   vec2 p;
@@ -112,7 +113,6 @@ struct EngineState {
   Bitmap* enemy_bitmap;
   u32 enemy_bitmap_handle;
   u32 projectile_bitmap_handle;
-
 
   Sprite player;
   SwapBackList<Explosion> explosions;

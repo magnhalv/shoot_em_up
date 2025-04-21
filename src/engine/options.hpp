@@ -3,7 +3,6 @@
 #include "fixed_string.h"
 #include "list.h"
 #include "memory_arena.h"
-#include <cstring>
 
 struct Options {
   bool anti_aliasing;

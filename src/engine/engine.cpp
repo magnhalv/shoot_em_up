@@ -1,7 +1,8 @@
+
 #include <cmath>
 #include <cstdio>
 
-#include <glad/gl.h>
+#include "platform/platform.h"
 
 #include <math/math.h>
 #include <math/util.hpp>
@@ -11,24 +12,21 @@
 #include "engine/audio.hpp"
 #include "engine/gameplay.h"
 #include "engine/hm_assert.h"
-#include <engine/renderer.h>
 #include "gl/gl.h"
 #include "globals.hpp"
 #include "gui.hpp"
 #include "logger.h"
 #include "math/vec2.h"
 #include "memory_arena.h"
-#include "platform/platform.h"
-#include "platform/types.h"
 #include "text_renderer.h"
+#include <engine/renderer.h>
 #include <engine/renderer/asset_manager.h>
 #include <math/transform.h>
 
-
 // Only works without rotation
-auto rect_to_quadrilateral(const vec2 &p, const vec2 &dim) -> Quadrilateral {
+auto rect_to_quadrilateral(const vec2& p, const vec2& dim) -> Quadrilateral {
   Quadrilateral result = {};
-  result.bl = vec2(0,0);
+  result.bl = vec2(0, 0);
   result.tl = vec2(0, dim.y);
   result.tr = dim;
   result.br = vec2(dim.x, 0);
@@ -36,13 +34,10 @@ auto rect_to_quadrilateral(const vec2 &p, const vec2 &dim) -> Quadrilateral {
 }
 
 auto point_rotate(vec2 p, f32 theta) -> vec2 {
-  vec2 x_axis = {cos(theta), -sin(theta)};
-  vec2 y_axis = {sin(theta), cos(theta)};
+  vec2 x_axis = { cos(theta), -sin(theta) };
+  vec2 y_axis = { sin(theta), cos(theta) };
 
-  return {
-    p.x * x_axis.x + p.y * x_axis.y, 
-    p.x * y_axis.x + p.y * y_axis.y
-  };
+  return { p.x * x_axis.x + p.y * x_axis.y, p.x * y_axis.x + p.y * y_axis.y };
 }
 
 struct EnemyBehaviour {
@@ -100,25 +95,23 @@ auto sine_behaviour(f32 x) {
 }
 
 auto sine_movement(f32 base, f32 amp, f32 frequency, f32 time) {
-  return  base + amp * sin(frequency * time);
+  return base + amp * sin(frequency * time);
 }
 auto noise(f32 x) {
   return sin(2 * x) + sin(PI * x);
 }
 
-
-#define PushRenderElement(group, type) (type*) push_render_element_(group, sizeof(type), RenderCommands_##type)
-auto push_render_element_(RenderGroup *render_group, u32 size, RenderGroupEntryType type) {
-  void *result = 0;
+#define PushRenderElement(group, type) (type*)push_render_element_(group, sizeof(type), RenderCommands_##type)
+auto push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type) {
+  void* result = 0;
 
   size += sizeof(RenderGroupEntryHeader);
   if ((render_group->push_buffer_size + size) < render_group->max_push_buffer_size) {
-    RenderGroupEntryHeader *header = (RenderGroupEntryHeader*)(render_group->push_buffer + render_group->push_buffer_size);
+    RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(render_group->push_buffer + render_group->push_buffer_size);
     header->type = type;
     result = (u8*)(header) + sizeof(*header);
     render_group->push_buffer_size += size;
-  }
-  else {
+  } else {
     printf("Invalid\n");
     // invalid code path
   }
@@ -129,14 +122,12 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   auto* state = (EngineState*)memory->permanent;
   const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
-
   // region Initialize
   [[unlikely]] if (!state->is_initialized) {
     log_info("Initializing...");
 
     state->permanent.init(
         static_cast<u8*>(memory->permanent) + sizeof(EngineState), Permanent_Memory_Block_Size - sizeof(EngineState));
-
 
     state->pointer.x = 200;
     state->pointer.y = 200;
@@ -164,16 +155,15 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     state->enemy_bitmap_handle = renderer_add_texture(state->enemy_bitmap);
     state->enemy_chargers.init(state->permanent, 100);
 
-    
-    //state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
-    //state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
-    //state->explosion_sprites[2] = load_sprite("assets/sprites/explosion/explosion-3.png", &sprite_program);
-    //state->explosion_sprites[3] = load_sprite("assets/sprites/explosion/explosion-4.png", &sprite_program);
-    //state->explosion_sprites[4] = load_sprite("assets/sprites/explosion/explosion-5.png", &sprite_program);
-    //state->explosion_sprites[5] = load_sprite("assets/sprites/explosion/explosion-6.png", &sprite_program);
-    //state->explosion_sprites[6] = load_sprite("assets/sprites/explosion/explosion-7.png", &sprite_program);
-    //state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
-    //state->explosions.init(state->permanent, 30);
+    // state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
+    // state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
+    // state->explosion_sprites[2] = load_sprite("assets/sprites/explosion/explosion-3.png", &sprite_program);
+    // state->explosion_sprites[3] = load_sprite("assets/sprites/explosion/explosion-4.png", &sprite_program);
+    // state->explosion_sprites[4] = load_sprite("assets/sprites/explosion/explosion-5.png", &sprite_program);
+    // state->explosion_sprites[5] = load_sprite("assets/sprites/explosion/explosion-6.png", &sprite_program);
+    // state->explosion_sprites[6] = load_sprite("assets/sprites/explosion/explosion-7.png", &sprite_program);
+    // state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
+    // state->explosions.init(state->permanent, 30);
 
     init_audio_system(state->audio, state->permanent);
 
@@ -203,7 +193,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   time.t += time.dt;
   time.num_frames_this_second++;
 
- {
+  {
     auto& input = app_input->input;
     auto& p_pos = state->player.p;
 
@@ -212,7 +202,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       state->enemy_timer = 0;
 
       Sprite enemy = {};
-      enemy.p = vec2(100.0, app_input->client_height); 
+      enemy.p = vec2(100.0, app_input->client_height);
       enemy.dim = vec2(state->enemy_bitmap->width, state->enemy_bitmap->height);
       enemy.sprite_handle = state->enemy_bitmap_handle;
       enemy.deg = PI;
@@ -224,8 +214,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       play_sound(SoundType::Laser, state->audio);
       auto pos = state->player.p;
       pos.y = pos.y + state->player.dim.y;
-      pos.x = pos.x + 0.5*state->player.dim.x - 0.5*state->projectile_bitmap->width;
-      Projectile p{.p = pos };
+      pos.x = pos.x + 0.5 * state->player.dim.x - 0.5 * state->projectile_bitmap->width;
+      Projectile p{ .p = pos };
       state->player_projectiles.push(p);
     }
 
@@ -279,7 +269,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     player.p = update_position(player.p, player.speed, player.dim, time.dt, app_input->client_width, app_input->client_height);
 
-    
     const auto projectile_speed = 1200.0;
     for (auto& proj : state->player_projectiles) {
       proj.p.y += projectile_speed * time.dt;
@@ -300,23 +289,21 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     }
 
     */
-    
+
     // Update enemies
     for (auto i = 0; i < state->enemy_chargers.size();) {
-      auto &enemy = state->enemy_chargers[i];
-      enemy.p.y += -400.0f*time.dt; 
+      auto& enemy = state->enemy_chargers[i];
+      enemy.p.y += -400.0f * time.dt;
       enemy.progress += time.dt;
       enemy.p.x = sine_movement(100.0, 100.0, 3.0, enemy.progress);
 
       if (enemy.p.y + enemy.dim.y <= 0.0) {
         state->enemy_chargers.remove(i);
-      }
-      else {
+      } else {
         i++;
       }
     }
 
-   
     // Update projectile
     for (auto i = 0; i < state->player_projectiles.size();) {
       auto pos = state->player_projectiles[i].p;
@@ -325,8 +312,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
       if (!hmath::in_rect(pos, bottom_left, top_right)) {
         state->player_projectiles.remove(i);
         continue;
-      }
-      else {
+      } else {
         i++;
       }
     }
@@ -362,7 +348,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   ///////////////////////////
   //// Rendering ////////////
   ///////////////////////////
-  RenderGroup group {};
+  RenderGroup group{};
   group.push_buffer_size = 0;
   group.max_push_buffer_size = MegaBytes(4);
   group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
@@ -373,36 +359,35 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
   clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
   {
-    const auto &player = state->player;
+    const auto& player = state->player;
     auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
     render_bm->quad = rect_to_quadrilateral(player.p, player.dim);
-    render_bm->local_origin = 0.5*player.dim;
+    render_bm->local_origin = 0.5 * player.dim;
     render_bm->offset = player.p;
     render_bm->basis.x = vec2(cos(player.deg), -sin(player.deg));
     render_bm->basis.y = vec2(sin(player.deg), cos(player.deg));
     render_bm->bitmap_handle = player.sprite_handle;
   }
 
-
-  for (auto &enemy : state->enemy_chargers) {
+  for (auto& enemy : state->enemy_chargers) {
     auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
     render_el->quad = rect_to_quadrilateral(enemy.p, enemy.dim);
-    render_el->local_origin = 0.5*enemy.dim;
+    render_el->local_origin = 0.5 * enemy.dim;
     render_el->offset = enemy.p;
     render_el->basis.x = vec2(cos(enemy.deg), -sin(enemy.deg));
     render_el->basis.y = vec2(sin(enemy.deg), cos(enemy.deg));
     render_el->bitmap_handle = enemy.sprite_handle;
   }
 
-  for (auto &proj : state->player_projectiles) {
-    auto &sprite = state->projectile_bitmap;
+  for (auto& proj : state->player_projectiles) {
+    auto& sprite = state->projectile_bitmap;
     const vec2 dim = vec2(sprite->width, sprite->height);
     const f32 deg = 0.0f;
-    auto &handle = state->projectile_bitmap_handle;
+    auto& handle = state->projectile_bitmap_handle;
 
     auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
     rendel_el->quad = rect_to_quadrilateral(proj.p, dim);
-    rendel_el->local_origin = 0.5*dim;
+    rendel_el->local_origin = 0.5 * dim;
     rendel_el->offset = proj.p;
     rendel_el->basis.x = vec2(cos(deg), -sin(deg));
     rendel_el->basis.y = vec2(sin(deg), cos(deg));

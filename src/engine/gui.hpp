@@ -10,7 +10,7 @@
  *  - Refactor to use glDrawElementsInstanced to reduce data.
  *    E.g. for text, the quad shape does not change, only position
  *    and uv-coords.
-*/
+ */
 
 // Source: https://solhsa.com/imgui/ch04.html
 // If you're going to render widgets to the same
@@ -38,7 +38,7 @@ struct DrawVert {
 
     printf("UV: ");
     uv.print();
-    
+
     printf("Color: ");
     color.print();
   }

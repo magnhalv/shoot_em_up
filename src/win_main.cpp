@@ -1,6 +1,12 @@
+#define NOMINMAX
 #include <Windows.h>
+
+#include "platform/user_input.h"
+#include <intrin.h>
+
 #include <comdef.h>
 #include <cstdio>
+#include <iostream>
 
 #include <cstdlib>
 #include <cwchar>
@@ -21,6 +27,7 @@ struct SoundDataBuffer {
   i32 size;
   i32 max_size;
 };
+
 struct Audio {
   i32 num_channels;
   i32 sample_size;
@@ -35,11 +42,6 @@ struct Audio {
   i32 active_buffer_idx;
 
   i32 samples_processed;
-
-  /*audio.sourceVoice->Stop();*/
-  /*audio.sourceVoice->DestroyVoice();*/
-  /*audio.masteringVoice->DestroyVoice();*/
-  /*audio.xAudio2->Release();*/
 };
 
 auto win32_init_opengl(HWND window) -> void {
@@ -884,7 +886,95 @@ void win32_bind_gl_funcs(GLFunctions* gl) {
   gl->generate_mip_map = glGenerateMipmap;
 }
 
+#define CompletePastWritesBeforeFutureWrites \
+  _WriteBarrier();                           \
+  _mm_sfence()
+#define CompletePastReadsBeforeFutureReads _ReadBarrier()
+
+typedef struct {
+  i32 logical_thread_idx;
+  HANDLE semaphore_handle;
+} win32_thread_info;
+
+typedef struct {
+  const char* msg;
+} Job;
+
+global_variable const int num_threads = 4;
+global_variable win32_thread_info thread_infos[num_threads];
+
+global_variable u32 volatile next_job_to_do;
+global_variable u32 volatile job_count;
+Job jobs[256];
+
+static void PushJob(HANDLE semaphore_handle, const char* msg) {
+  Assert(job_count < array_length(jobs));
+
+  jobs[job_count].msg = msg;
+
+  // CompletePastWritesBeforeFutureWrites;
+
+  job_count = job_count + 1;
+  ReleaseSemaphore(semaphore_handle, 1, 0);
+}
+
+DWORD WINAPI worker_proc(LPVOID lpParameter) {
+  win32_thread_info* thread_info = (win32_thread_info*)lpParameter;
+  printf("Starting thread: %d!\n", thread_info->logical_thread_idx);
+  for (;;) {
+    auto original_next_job_to_do = next_job_to_do;
+    if (original_next_job_to_do < job_count) {
+      u32 job_index = InterlockedCompareExchange( //
+          (LONG volatile*)&next_job_to_do,        //
+          original_next_job_to_do + 1,            //
+          original_next_job_to_do                 //
+      );                                          //
+
+      if (job_index == original_next_job_to_do) {
+        CompletePastReadsBeforeFutureReads;
+
+        Job* job = &jobs[job_index];
+        printf("Thread %d: %s\n", thread_info->logical_thread_idx, job->msg);
+      }
+    } else {
+      printf("Sleep thread %d\n", thread_info->logical_thread_idx);
+      WaitForSingleObjectEx(thread_info->semaphore_handle, INFINITE, FALSE);
+      printf("Wake up thread %d\n", thread_info->logical_thread_idx);
+    }
+  }
+  return 0;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
+  auto initial_count = 0;
+  HANDLE semaphore_handle = CreateSemaphoreEx(0, initial_count, array_length(thread_infos), 0, 0, SEMAPHORE_ALL_ACCESS);
+
+  for (auto i = 0; i < num_threads; i++) {
+    thread_infos[i].logical_thread_idx = i;
+    thread_infos[i].semaphore_handle = semaphore_handle;
+    DWORD thread_id;
+    HANDLE thread_handle = CreateThread(0, 0, &worker_proc, &thread_infos[i], 0, &thread_id);
+    CloseHandle(thread_handle);
+  }
+
+  Sleep(1000);
+  PushJob(semaphore_handle, "Job 1");
+  PushJob(semaphore_handle, "Job 2");
+  PushJob(semaphore_handle, "Job 3");
+  PushJob(semaphore_handle, "Job 4");
+  PushJob(semaphore_handle, "Job 5");
+  PushJob(semaphore_handle, "Job 6");
+  PushJob(semaphore_handle, "Job 7");
+  PushJob(semaphore_handle, "Job 8");
+  PushJob(semaphore_handle, "Job 9");
+  PushJob(semaphore_handle, "Job 10");
+  PushJob(semaphore_handle, "Job 11");
+  PushJob(semaphore_handle, "Job 12");
+  PushJob(semaphore_handle, "Job 13");
+  PushJob(semaphore_handle, "Job 14");
+  PushJob(semaphore_handle, "Job 15");
+  PushJob(semaphore_handle, "Job 16");
+
   win32_check_ticks_frequency();
   const auto tick_frequency = win32_get_ticks_per_second();
   auto main_entry_tick = win32_get_tick();

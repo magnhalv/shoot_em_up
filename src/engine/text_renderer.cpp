@@ -1,7 +1,5 @@
 #include "text_renderer.h"
 
-#include <cstring>
-
 #include <engine/gl/gl.h>
 
 #undef internal

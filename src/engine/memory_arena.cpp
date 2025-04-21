@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cinttypes>
 #include <cstring>
 
 #include "engine/hm_assert.h"

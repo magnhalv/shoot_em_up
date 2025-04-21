@@ -1,7 +1,8 @@
 #pragma once
 
-#include "glad/gl.h"
 #include <platform/types.h>
+
+#include "glad/gl.h"
 
 struct GLBufferElementDescription {
   u32 binding_index;

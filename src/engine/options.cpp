@@ -2,7 +2,6 @@
 #include "globals.hpp"
 #include "logger.h"
 #include "memory_arena.h"
-#include <cstring>
 
 auto line_in_buffer(const char* line, LineBuffer& line_buffer) {
   for (auto& line_in_buffer : line_buffer._lines) {

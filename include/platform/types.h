@@ -2,7 +2,6 @@
 #define HOT_RELOAD_OPENGL_TYPES_H
 
 #include <cfloat>
-#include <cinttypes>
 #include <cstdint>
 #include <cstdio>
 #include <type_traits>

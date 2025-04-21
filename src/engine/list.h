@@ -1,12 +1,13 @@
 #pragma once
 
+#include <platform/types.h>
+
 #include <cassert>
 
+#include "hm_assert.h"
 #include "math/vec2.h"
 #include "math/vec3.h"
 #include "memory_arena.h"
-#include "hm_assert.h"
-#include <platform/types.h>
 
 template <typename T> struct List {
 

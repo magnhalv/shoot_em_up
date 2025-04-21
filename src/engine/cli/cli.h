@@ -1,6 +1,9 @@
 #ifndef HOT_RELOAD_OPENGL_CLI_H
 #define HOT_RELOAD_OPENGL_CLI_H
 
+#include <math/vec2.h>
+#include <math/vec3.h>
+#include <math/vec4.h>
 #include <platform/types.h>
 #include <platform/user_input.h>
 

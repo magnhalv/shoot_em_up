@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstring>
+
 #include <platform/types.h>
 
 #include "array.h"
