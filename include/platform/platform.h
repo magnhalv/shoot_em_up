@@ -91,19 +91,31 @@ struct GLFunctions {
 
 const u32 Gl_Invalid_Id = 0;
 
-// Functions platform MUST support
-typedef u64 (*GET_FILE_LAST_MODIFIED_PROC)(const char* file_path);
-typedef bool (*READ_FILE_PROC)(const char* path, char* buffer, const u64 buffer_size);
-typedef bool (*WRITE_FILE_PROC)(const char*, const char*, const u64);
-typedef u64 (*GET_FILE_SIZE_PROC)(const char*);
-typedef void (*DEBUG_PRINT_READABLE_TIMESTAMP_PROC)(u64);
+// Platform API
+#define PLATFORM_GET_FILE_LAST_MODIFIED(name) u64 name(const char* file_path)
+typedef PLATFORM_GET_FILE_LAST_MODIFIED(platform_get_file_last_modified);
+
+#define PLATFORM_READ_FILE(name) bool name(const char* path, char* buffer, const u64 buffer_size)
+typedef PLATFORM_READ_FILE(platform_read_file);
+
+#define PLATFORM_WRITE_FILE(name) bool name(const char*, const char*, const u64)
+typedef PLATFORM_WRITE_FILE(platform_write_file);
+
+#define PLATFORM_GET_FILE_SIZE(name) u64 name(const char*)
+typedef PLATFORM_GET_FILE_SIZE(platform_get_file_size);
+
+struct platform_work_queue;
+#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue* Queue, void* Data)
+typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
+
+typedef void platform_add_entry(platform_work_queue* Queue, platform_work_queue_callback* Callback, void* Data);
+typedef void platform_complete_all_work(platform_work_queue* Queue);
 
 struct Platform {
-  GET_FILE_LAST_MODIFIED_PROC get_file_last_modified;
-  READ_FILE_PROC read_file;
-  WRITE_FILE_PROC write_file;
-  GET_FILE_SIZE_PROC get_file_size;
-  DEBUG_PRINT_READABLE_TIMESTAMP_PROC debug_print_readable_timestamp;
+  platform_get_file_last_modified* get_file_last_modified;
+  platform_read_file* read_file;
+  platform_write_file* write_file;
+  platform_get_file_size* get_file_size;
 };
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);

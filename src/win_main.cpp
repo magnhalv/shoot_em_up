@@ -1,5 +1,4 @@
-#define NOMINMAX
-#include <Windows.h>
+#include <win_main.hpp>
 
 #include "platform/user_input.h"
 #include <intrin.h>
@@ -258,21 +257,6 @@ bool win32_write_file(const char* path, const char* data, const u64 data_size) {
   assert(bytes_written == data_size);
   CloseHandle(file_handle);
   return true;
-}
-
-void win32_debug_print_readable_timestamp(u64 timestamp) {
-  FILETIME file_time;
-  file_time.dwLowDateTime = timestamp & 0xFFFFFFFF;
-  file_time.dwHighDateTime = timestamp >> 32;
-
-  SYSTEMTIME system_time;
-  FILETIME local_file_time;
-
-  FileTimeToLocalFileTime(&file_time, &local_file_time);
-  FileTimeToSystemTime(&local_file_time, &system_time);
-
-  printf("%02d:%02d %02d/%02d/%04d", system_time.wHour, system_time.wMinute, system_time.wDay, system_time.wMonth,
-      system_time.wYear);
 }
 
 u64 win32_file_last_modified(const char* path) {
@@ -886,94 +870,80 @@ void win32_bind_gl_funcs(GLFunctions* gl) {
   gl->generate_mip_map = glGenerateMipmap;
 }
 
-#define CompletePastWritesBeforeFutureWrites \
-  _WriteBarrier();                           \
-  _mm_sfence()
-#define CompletePastReadsBeforeFutureReads _ReadBarrier()
+static void win32_add_entry(platform_work_queue* queue, platform_work_queue_callback* callback, void* data) {
+  // NOTE: This function assumes only a single thread writes to it.
+  u32 new_next_entry_to_write = (queue->NextEntryToWrite + 1) % ArrayCount(queue->entries);
+  // Means the work queue is full
+  Assert(new_next_entry_to_write != queue->NextEntryToRead);
+  platform_work_queue_entry* entry = queue->entries + queue->NextEntryToWrite;
+  entry->Callback = callback;
+  entry->Data = data;
+  queue->CompletionGoal = queue->CompletionGoal + 1;
 
-typedef struct {
-  i32 logical_thread_idx;
-  HANDLE semaphore_handle;
-} win32_thread_info;
+  MemoryBarrier();
 
-typedef struct {
-  const char* msg;
-} Job;
+  queue->NextEntryToWrite = new_next_entry_to_write;
+  ReleaseSemaphore(queue->SemaphoreHandle, 1, 0);
+}
 
-global_variable const int num_threads = 4;
-global_variable win32_thread_info thread_infos[num_threads];
+bool win32_do_next_work_entry(platform_work_queue* queue) {
 
-global_variable u32 volatile next_job_to_do;
-global_variable u32 volatile job_count;
-Job jobs[256];
+  bool we_should_sleep = true;
 
-static void PushJob(HANDLE semaphore_handle, const char* msg) {
-  Assert(job_count < array_length(jobs));
+  u32 original_next_entry_to_read = queue->NextEntryToRead;
+  u32 new_next_entry_to_read = (original_next_entry_to_read + 1) % array_length(queue->entries);
+  if (original_next_entry_to_read != queue->NextEntryToWrite) {
+    // Getes back initial value of dest, while desti is updated to new
+    u32 index = InterlockedCompareExchange(                 //
+        (LONG volatile*)&queue->NextEntryToRead,            //
+        new_next_entry_to_read, original_next_entry_to_read //
+    );
 
-  jobs[job_count].msg = msg;
+    if (index == original_next_entry_to_read) {
+      platform_work_queue_entry entry = queue->entries[index];
+      entry.Callback(queue, entry.Data);
+      InterlockedIncrement((LONG volatile*)&queue->CompletionCount);
+    } else {
+      we_should_sleep = true;
+    }
+  }
 
-  // CompletePastWritesBeforeFutureWrites;
-
-  job_count = job_count + 1;
-  ReleaseSemaphore(semaphore_handle, 1, 0);
+  return we_should_sleep;
 }
 
 DWORD WINAPI worker_proc(LPVOID lpParameter) {
-  win32_thread_info* thread_info = (win32_thread_info*)lpParameter;
-  printf("Starting thread: %d!\n", thread_info->logical_thread_idx);
+  win32_thread_startup* thread = (win32_thread_startup*)lpParameter;
+  platform_work_queue* queue = thread->queue;
+  // TODO: Get ThreadID
   for (;;) {
-    auto original_next_job_to_do = next_job_to_do;
-    if (original_next_job_to_do < job_count) {
-      u32 job_index = InterlockedCompareExchange( //
-          (LONG volatile*)&next_job_to_do,        //
-          original_next_job_to_do + 1,            //
-          original_next_job_to_do                 //
-      );                                          //
-
-      if (job_index == original_next_job_to_do) {
-        CompletePastReadsBeforeFutureReads;
-
-        Job* job = &jobs[job_index];
-        printf("Thread %d: %s\n", thread_info->logical_thread_idx, job->msg);
-      }
-    } else {
-      printf("Sleep thread %d\n", thread_info->logical_thread_idx);
-      WaitForSingleObjectEx(thread_info->semaphore_handle, INFINITE, FALSE);
-      printf("Wake up thread %d\n", thread_info->logical_thread_idx);
+    if (win32_do_next_work_entry(queue)) {
+      WaitForSingleObjectEx(queue->SemaphoreHandle, INFINITE, FALSE);
     }
   }
   return 0;
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
-  auto initial_count = 0;
-  HANDLE semaphore_handle = CreateSemaphoreEx(0, initial_count, array_length(thread_infos), 0, 0, SEMAPHORE_ALL_ACCESS);
+static void win32_make_queue(platform_work_queue* queue, u32 num_threads, win32_thread_startup* startups) {
+  queue->CompletionGoal = 0;
+  queue->CompletionCount = 0;
 
-  for (auto i = 0; i < num_threads; i++) {
-    thread_infos[i].logical_thread_idx = i;
-    thread_infos[i].semaphore_handle = semaphore_handle;
+  queue->NextEntryToRead = 0;
+  queue->NextEntryToWrite = 0;
+
+  u32 initial_count = 0;
+  queue->SemaphoreHandle = CreateSemaphoreEx(0, initial_count, num_threads, 0, 0, SEMAPHORE_ALL_ACCESS);
+
+  for (u32 i = 0; i < num_threads; i++) {
+    win32_thread_startup* startup = startups + i;
+    startup->queue = queue;
+
     DWORD thread_id;
-    HANDLE thread_handle = CreateThread(0, 0, &worker_proc, &thread_infos[i], 0, &thread_id);
+    HANDLE thread_handle = CreateThread(0, 0, &worker_proc, &startup[i], 0, &thread_id);
     CloseHandle(thread_handle);
   }
+}
 
-  Sleep(1000);
-  PushJob(semaphore_handle, "Job 1");
-  PushJob(semaphore_handle, "Job 2");
-  PushJob(semaphore_handle, "Job 3");
-  PushJob(semaphore_handle, "Job 4");
-  PushJob(semaphore_handle, "Job 5");
-  PushJob(semaphore_handle, "Job 6");
-  PushJob(semaphore_handle, "Job 7");
-  PushJob(semaphore_handle, "Job 8");
-  PushJob(semaphore_handle, "Job 9");
-  PushJob(semaphore_handle, "Job 10");
-  PushJob(semaphore_handle, "Job 11");
-  PushJob(semaphore_handle, "Job 12");
-  PushJob(semaphore_handle, "Job 13");
-  PushJob(semaphore_handle, "Job 14");
-  PushJob(semaphore_handle, "Job 15");
-  PushJob(semaphore_handle, "Job 16");
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
 
   win32_check_ticks_frequency();
   const auto tick_frequency = win32_get_ticks_per_second();
@@ -1125,7 +1095,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
   platform.get_file_size = &win32_file_size;
   platform.read_file = &win32_read_text_file;
   platform.write_file = &win32_write_file;
-  platform.debug_print_readable_timestamp = &win32_debug_print_readable_timestamp;
   // endregion
 
   Audio audio = {};
