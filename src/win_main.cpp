@@ -878,7 +878,7 @@ static void win32_add_entry(platform_work_queue* queue, platform_work_queue_call
   platform_work_queue_entry* entry = queue->entries + queue->NextEntryToWrite;
   entry->Callback = callback;
   entry->Data = data;
-  queue->CompletionGoal = queue->CompletionGoal + 1;
+  queue->completion_goal = queue->completion_goal + 1;
 
   MemoryBarrier();
 
@@ -902,13 +902,22 @@ bool win32_do_next_work_entry(platform_work_queue* queue) {
     if (index == original_next_entry_to_read) {
       platform_work_queue_entry entry = queue->entries[index];
       entry.Callback(queue, entry.Data);
-      InterlockedIncrement((LONG volatile*)&queue->CompletionCount);
+      InterlockedIncrement((LONG volatile*)&queue->completion_count);
     } else {
       we_should_sleep = true;
     }
   }
 
   return we_should_sleep;
+}
+
+static void win32_complete_all_work(platform_work_queue* queue) {
+  while (queue->completion_count != queue->completion_goal) {
+    win32_do_next_work_entry(queue);
+  }
+
+  queue->completion_goal = 0;
+  queue->completion_count = 0;
 }
 
 DWORD WINAPI worker_proc(LPVOID lpParameter) {
@@ -924,8 +933,8 @@ DWORD WINAPI worker_proc(LPVOID lpParameter) {
 }
 
 static void win32_make_queue(platform_work_queue* queue, u32 num_threads, win32_thread_startup* startups) {
-  queue->CompletionGoal = 0;
-  queue->CompletionCount = 0;
+  queue->completion_goal = 0;
+  queue->completion_count = 0;
 
   queue->NextEntryToRead = 0;
   queue->NextEntryToWrite = 0;

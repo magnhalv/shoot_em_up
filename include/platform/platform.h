@@ -108,7 +108,7 @@ struct platform_work_queue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue* Queue, void* Data)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 
-typedef void platform_add_entry(platform_work_queue* Queue, platform_work_queue_callback* Callback, void* Data);
+typedef void platform_add_work_queue_entry(platform_work_queue* Queue, platform_work_queue_callback* Callback, void* Data);
 typedef void platform_complete_all_work(platform_work_queue* Queue);
 
 struct Platform {
@@ -116,6 +116,9 @@ struct Platform {
   platform_read_file* read_file;
   platform_write_file* write_file;
   platform_get_file_size* get_file_size;
+
+  platform_add_work_queue_entry* add_work_queue_entry;
+  platform_complete_all_work* complete_all_work;
 };
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);

@@ -9,8 +9,8 @@ struct platform_work_queue_entry {
 };
 
 struct platform_work_queue {
-  u32 volatile CompletionGoal;
-  u32 volatile CompletionCount;
+  u32 volatile completion_goal;
+  u32 volatile completion_count;
 
   u32 volatile NextEntryToWrite;
   u32 volatile NextEntryToRead;
