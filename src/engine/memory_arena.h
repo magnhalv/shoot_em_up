@@ -29,6 +29,10 @@ template <typename T> auto inline allocate(MemoryArena& arena, i32 num = 1) -> T
   return static_cast<T*>(arena.allocate(sizeof(T) * num));
 }
 
+template <typename T> auto inline allocate(MemoryArena* arena, i32 num = 1) -> T* {
+  return static_cast<T*>(arena->allocate(sizeof(T) * num));
+}
+
 template <typename T> auto inline extend(T* block, MemoryArena& arena, i32 num = 1) -> T* {
   return static_cast<T*>(arena.extend(block, sizeof(T) * num));
 }
