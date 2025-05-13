@@ -42,7 +42,7 @@ struct FileAsset {
     TimeStamp last_modified;
 };
 
-enum AssetTypeId {
+enum AssetTypeId : u32 {
     Asset_None = 0,
     Asset_PlayerSpaceShip,
 
@@ -103,7 +103,7 @@ struct GameAssetsWrite {
     AssetSource asset_sources[MAX_ASSETS_COUNT];
     HuginAsset assets[MAX_ASSETS_COUNT];
 
-    HuginAssetType* DEBUG_asset_type;
+    HuginAssetType* current_asset_type;
     u32 asset_index;
 };
 
@@ -113,19 +113,12 @@ enum AssetState {
     AssetState_Loaded,
 };
 
-struct Asset {
-    AssetState state;
-    HuginAsset ha;
-};
-
 struct GameAssetsRead {
     HuginAssetType asset_types[Asset_Count];
 
     u32 asset_count;
-    Asset* assets;
-
-    HuginAssetType* DEBUG_asset_type;
-    u32 asset_index;
+    HuginAsset* assets;
+    AssetState* asset_states;
 };
 
 #define HAF_CODE(a, b, c, d) (((u32)(a) << 0) | ((u32)(b) << 8) | ((u32)(c) << 16) | ((u32)(d) << 24))
@@ -144,12 +137,12 @@ struct HafHeader {
 };
 
 static void begin_asset_type(GameAssetsWrite* assets, AssetTypeId type_id) {
-    Assert(assets->DEBUG_asset_type == 0);
+    Assert(assets->current_asset_type == NULL);
 
-    assets->DEBUG_asset_type = assets->asset_types + type_id;
-    assets->DEBUG_asset_type->type_id = type_id;
-    assets->DEBUG_asset_type->first_asset_index = assets->asset_count;
-    assets->DEBUG_asset_type->one_past_last_asset_index = assets->DEBUG_asset_type->first_asset_index;
+    assets->current_asset_type = assets->asset_types + type_id;
+    assets->current_asset_type->type_id = type_id;
+    assets->current_asset_type->first_asset_index = assets->asset_count;
+    assets->current_asset_type->one_past_last_asset_index = assets->current_asset_type->first_asset_index;
 }
 
 struct AddedAsset {
@@ -159,12 +152,12 @@ struct AddedAsset {
 };
 
 static auto add_asset(GameAssetsWrite* assets) -> AddedAsset {
-    Assert(assets->DEBUG_asset_type);
-    Assert(assets->DEBUG_asset_type->one_past_last_asset_index < ArrayCount(assets->assets));
+    Assert(assets->current_asset_type);
+    Assert(assets->current_asset_type->one_past_last_asset_index < ArrayCount(assets->assets));
 
-    u32 index = assets->DEBUG_asset_type->one_past_last_asset_index++;
+    u32 index = assets->current_asset_type->one_past_last_asset_index++;
+
     AssetSource* source = assets->asset_sources + index;
-
     HuginAsset* ha = assets->assets + index;
 
     assets->asset_index = index;
@@ -187,15 +180,15 @@ static auto add_bitmap_asset(
 }
 
 static auto end_asset_type(GameAssetsWrite* assets) -> void {
-    Assert(assets->DEBUG_asset_type);
-    assets->asset_count = assets->DEBUG_asset_type->one_past_last_asset_index;
-    assets->DEBUG_asset_type = 0;
+    Assert(assets->current_asset_type);
+    assets->asset_count = assets->current_asset_type->one_past_last_asset_index;
+    assets->current_asset_type = 0;
     assets->asset_index = 0;
 }
 
 static auto initialize(GameAssetsWrite* assets) -> void {
     assets->asset_count = 1;
-    assets->DEBUG_asset_type = 0;
+    assets->current_asset_type = 0;
     assets->asset_index = 0;
 
     assets->num_asset_types = Asset_Count;
@@ -204,16 +197,16 @@ static auto initialize(GameAssetsWrite* assets) -> void {
 
 // TODO: Read AllocateGameAssets in handmade hero.
 
-static auto read_asset_file(const char* file_name, MemoryArena* arena) -> GameAssetsRead {
-    FILE* out = fopen(file_name, "rb");
-    GameAssetsRead game_assets = { 0 };
+static auto read_asset_file(const char* file_name, MemoryArena* arena) -> GameAssetsRead* {
+    FILE* file = fopen(file_name, "rb");
+    GameAssetsRead* game_assets = allocate<GameAssetsRead>(arena);
 
-    if (!out) {
+    if (!file) {
         printf("ERROR: Could not open file '%s'\n", file_name);
     }
     else {
         HafHeader header = { 0 };
-        fread(&header, sizeof(HafHeader), 1, out);
+        fread(&header, sizeof(HafHeader), 1, file);
 
         if (header.magic_value != HAF_MAGIC_VALUE) {
             InvalidCodePath;
@@ -224,6 +217,25 @@ static auto read_asset_file(const char* file_name, MemoryArena* arena) -> GameAs
         }
         u32 asset_count = header.asset_count;
         u32 asset_type_count = header.asset_type_count;
+
+        fseek(file, header.asset_types, SEEK_SET);
+        fread(game_assets->asset_types, asset_type_count * sizeof(HuginAssetType), 1, file);
+        Assert(game_assets->asset_types[1].type_id == Asset_PlayerSpaceShip);
+
+        game_assets->asset_count = asset_count;
+        game_assets->assets = allocate<HuginAsset>(arena, asset_count);
+        game_assets->asset_states = allocate<AssetState>(arena, asset_count);
+        fseek(file, header.assets, SEEK_SET);
+        fread(game_assets->assets, asset_count * sizeof(HuginAsset), 1, file);
+
+        {
+          auto space_ship = game_assets->asset_types[Asset_PlayerSpaceShip];
+
+          auto spaceship_asset = game_assets->assets[space_ship.first_asset_index];
+
+          printf("0: %d", spaceship_asset.bitmap.dim[0]);
+          printf("1: %d", spaceship_asset.bitmap.dim[1]);
+        }
     }
 
     return game_assets;
@@ -245,6 +257,10 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 
         u32 asset_type_array_size = header.asset_type_count * sizeof(HuginAssetType);
         u32 asset_array_size = header.asset_count * sizeof(HuginAsset);
+
+        header.asset_types = sizeof(HafHeader);
+        header.assets = header.asset_types + asset_type_array_size;
+
 
         fwrite(&header, sizeof(header), 1, out);
         fwrite(&assets->asset_types, asset_type_array_size, 1, out);

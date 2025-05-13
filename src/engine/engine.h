@@ -98,7 +98,7 @@ struct EngineState {
     MemoryArena permanent;
 
     AudioSystemState audio;
-    GameAssets assets;
+    GameAssetsRead *assets;
 
     Cli cli;
     bool is_cli_active;

@@ -168,7 +168,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         // state->explosions.init(state->permanent, 30);
 
         write_spaceships();
-        state->assets = read_asset_file("assets.haf");
+        state->assets = read_asset_file("assets.haf", &state->permanent);
 
         init_audio_system(state->audio, state->permanent);
 
