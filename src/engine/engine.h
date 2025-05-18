@@ -98,7 +98,7 @@ struct EngineState {
     MemoryArena permanent;
 
     AudioSystemState audio;
-    GameAssetsRead *assets;
+    GameAssetsRead* assets;
 
     Cli cli;
     bool is_cli_active;
@@ -110,9 +110,9 @@ struct EngineState {
     Font* font;
 
     // Bitmaps
-    Bitmap* player_bitmap;
-    Bitmap* projectile_bitmap;
-    Bitmap* enemy_bitmap;
+    LoadedBitmap player_bitmap;
+    LoadedBitmap* projectile_bitmap;
+    LoadedBitmap* enemy_bitmap;
     u32 enemy_bitmap_handle;
     u32 projectile_bitmap_handle;
 

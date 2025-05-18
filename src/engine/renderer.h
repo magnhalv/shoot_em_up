@@ -70,5 +70,5 @@ struct RenderGroup {
 };
 
 auto renderer_init() -> void;
-auto renderer_add_texture(Bitmap* bitmap) -> u32;
+auto renderer_add_texture(LoadedBitmap* bitmap) -> u32;
 auto render(RenderGroup* group, i32 client_width, i32 client_height) -> void;

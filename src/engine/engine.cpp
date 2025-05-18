@@ -143,9 +143,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
         im::initialize_imgui(state->font, &state->permanent);
 
-        state->player_bitmap = load_bitmap("assets/sprites/player_1.png", &state->permanent);
-        state->player.sprite_handle = renderer_add_texture(state->player_bitmap);
-        state->player.dim = vec2(state->player_bitmap->width, state->player_bitmap->height);
+        write_spaceships();
+        state->assets = read_asset_file("assets.haf", &state->permanent);
+
+        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
+        state->player_bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
+        state->player.sprite_handle = renderer_add_texture(&state->player_bitmap);
+        state->player.dim = vec2(state->player_bitmap.width, state->player_bitmap.height);
         state->player.p = vec2(100, 100);
         state->player.deg = 0.0f;
 
@@ -166,9 +170,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         // state->explosion_sprites[6] = load_sprite("assets/sprites/explosion/explosion-7.png", &sprite_program);
         // state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
         // state->explosions.init(state->permanent, 30);
-
-        write_spaceships();
-        state->assets = read_asset_file("assets.haf", &state->permanent);
 
         init_audio_system(state->audio, state->permanent);
 
