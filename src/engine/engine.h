@@ -37,9 +37,7 @@ struct Pointer {
 
 typedef struct {
     vec2 p;
-    vec2 dim;
     f32 deg; // rotation
-    u32 sprite_handle;
 
     f32 progress;
     vec2 speed;
@@ -108,13 +106,6 @@ struct EngineState {
 
     TextRenderer text_renderer;
     Font* font;
-
-    // Bitmaps
-    LoadedBitmap player_bitmap;
-    LoadedBitmap* projectile_bitmap;
-    LoadedBitmap* enemy_bitmap;
-    u32 enemy_bitmap_handle;
-    u32 projectile_bitmap_handle;
 
     Sprite player;
     SwapBackList<Explosion> explosions;

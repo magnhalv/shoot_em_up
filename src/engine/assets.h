@@ -21,6 +21,10 @@ struct LoadedBitmap {
     i32 width;
     i32 height;
     i32 pitch;
+
+    vec2 align_percentage;
+    // TODO: Make this a void pointer, to support multiple renderers
+    u32 texture_handle;
     void* data;
 };
 
@@ -46,6 +50,8 @@ struct FileAsset {
 enum AssetTypeId : u32 {
     Asset_None = 0,
     Asset_PlayerSpaceShip,
+    Asset_EnemySpaceShip,
+    Asset_Projectile,
 
     Asset_Count
 };
@@ -71,7 +77,7 @@ struct AssetSource {
 
 struct HuginBitmap {
     u32 dim[2];
-    f32 align_percentage[2];
+    vec2 align_percentage;
 };
 
 struct HuginSound {
@@ -184,8 +190,8 @@ static auto add_asset(GameAssetsWrite* assets) -> AddedAsset {
 static auto add_bitmap_asset(
     GameAssetsWrite* assets, const char* file_name, f32 align_percentage_x = 0.5f, f32 align_percentage_y = 0.5f) {
     AddedAsset asset = add_asset(assets);
-    asset.hugin_asset->bitmap.align_percentage[0] = align_percentage_x;
-    asset.hugin_asset->bitmap.align_percentage[1] = align_percentage_y;
+    asset.hugin_asset->bitmap.align_percentage.x = align_percentage_x;
+    asset.hugin_asset->bitmap.align_percentage.y = align_percentage_y;
     asset.source->type = AssetType_Bitmap;
     asset.source->bitmap.file_name = file_name;
 
@@ -210,7 +216,7 @@ static auto initialize(GameAssetsWrite* assets) -> void {
 
 // TODO: Read AllocateGameAssets in handmade hero.
 
-static auto read_asset_file(const char* file_name, MemoryArena* arena) -> GameAssetsRead* {
+static auto initialize_game_assets(const char* file_name, MemoryArena* arena) -> GameAssetsRead* {
     FILE* file = fopen(file_name, "rb");
     GameAssetsRead* game_assets = allocate<GameAssetsRead>(arena);
 
@@ -307,7 +313,7 @@ static auto get_first_bitmap_from(GameAssetsRead* game_assets, AssetTypeId asset
 }
 
 // TODO: Not BitmapId, AssetTypeId
-static auto load_bitmap2(GameAssetsRead* game_assets, BitmapId id, MemoryArena* arena, const char* file_name) -> LoadedBitmap {
+static auto load_bitmap2(GameAssetsRead* game_assets, BitmapId id, MemoryArena* arena, const char* file_name) -> LoadedBitmap* {
     Assert(id.value < game_assets->asset_count);
     AssetMeta* meta = game_assets->assets_meta + id.value;
     Asset* asset = game_assets->assets + id.value;
@@ -327,12 +333,16 @@ static auto load_bitmap2(GameAssetsRead* game_assets, BitmapId id, MemoryArena* 
         asset->asset_memory->bitmap.pitch = meta->bitmap.dim[0];
         asset->asset_memory->bitmap.width = meta->bitmap.dim[0];
         asset->asset_memory->bitmap.height = meta->bitmap.dim[1];
+        asset->asset_memory->bitmap.align_percentage = meta->bitmap.align_percentage;
+        asset->asset_memory->bitmap.texture_handle = 0;
         fread(asset->asset_memory->bitmap.data, size, 1, file);
 
         fclose(file);
+    
+        asset->state = AssetState_Loaded;
     }
 
-    return asset->asset_memory->bitmap;
+    return &asset->asset_memory->bitmap;
 }
 
 static auto write_spaceships() -> void {
@@ -342,7 +352,15 @@ static auto write_spaceships() -> void {
     initialize(assets);
 
     begin_asset_type(assets, Asset_PlayerSpaceShip);
-    add_bitmap_asset(assets, "assets/sprites/player_1.png", 0.5, 0.5);
+    add_bitmap_asset(assets, "assets/sprites/player_1.png");
+    end_asset_type(assets);
+
+    begin_asset_type(assets, Asset_EnemySpaceShip);
+    add_bitmap_asset(assets, "assets/sprites/blue_01.png");
+    end_asset_type(assets);
+
+    begin_asset_type(assets, Asset_Projectile);
+    add_bitmap_asset(assets, "assets/sprites/projectile_1.png");
     end_asset_type(assets);
 
     write_asset_file(assets, "assets.haf");

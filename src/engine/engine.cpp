@@ -144,21 +144,15 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         im::initialize_imgui(state->font, &state->permanent);
 
         write_spaceships();
-        state->assets = read_asset_file("assets.haf", &state->permanent);
+        state->assets = initialize_game_assets("assets.haf", &state->permanent);
 
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
-        state->player_bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        state->player.sprite_handle = renderer_add_texture(&state->player_bitmap);
-        state->player.dim = vec2(state->player_bitmap.width, state->player_bitmap.height);
+        auto player = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
+        state->player.dim = vec2(player->width, player->height);
         state->player.p = vec2(100, 100);
         state->player.deg = 0.0f;
 
-        state->projectile_bitmap = load_bitmap("assets/sprites/projectile_1.png", &state->permanent);
-        state->projectile_bitmap_handle = renderer_add_texture(state->projectile_bitmap);
         state->player_projectiles.init(state->permanent, 100);
-
-        state->enemy_bitmap = load_bitmap("assets/sprites/blue_01.png", &state->permanent);
-        state->enemy_bitmap_handle = renderer_add_texture(state->enemy_bitmap);
         state->enemy_chargers.init(state->permanent, 100);
 
         // state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
@@ -209,8 +203,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
             Sprite enemy = {};
             enemy.p = vec2(100.0, app_input->client_height);
-            enemy.dim = vec2(state->enemy_bitmap->width, state->enemy_bitmap->height);
-            enemy.sprite_handle = state->enemy_bitmap_handle;
             enemy.deg = PI;
 
             state->enemy_chargers.push(enemy);
@@ -371,6 +363,12 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
     {
+        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
+        auto player_bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
+        if (player_bitmap->texture_handle == 0){
+          player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
+        }
+
         const auto& player = state->player;
         auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
         render_bm->quad = rect_to_quadrilateral(player.p, player.dim);
@@ -378,24 +376,33 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         render_bm->offset = player.p;
         render_bm->basis.x = vec2(cos(player.deg), -sin(player.deg));
         render_bm->basis.y = vec2(sin(player.deg), cos(player.deg));
-        render_bm->bitmap_handle = player.sprite_handle;
+        render_bm->bitmap_handle = player_bitmap->texture_handle;
     }
 
     for (auto& enemy : state->enemy_chargers) {
+
+        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_EnemySpaceShip);
+        auto bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
+        if (bitmap->texture_handle == 0){
+          bitmap->texture_handle = renderer_add_texture(bitmap);
+        }
         auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
         render_el->quad = rect_to_quadrilateral(enemy.p, enemy.dim);
         render_el->local_origin = 0.5 * enemy.dim;
         render_el->offset = enemy.p;
         render_el->basis.x = vec2(cos(enemy.deg), -sin(enemy.deg));
         render_el->basis.y = vec2(sin(enemy.deg), cos(enemy.deg));
-        render_el->bitmap_handle = enemy.sprite_handle;
+        render_el->bitmap_handle = bitmap->texture_handle;
     }
 
     for (auto& proj : state->player_projectiles) {
-        auto& sprite = state->projectile_bitmap;
-        const vec2 dim = vec2(sprite->width, sprite->height);
+        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_EnemySpaceShip);
+        auto bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
+        if (bitmap->texture_handle == 0){
+          bitmap->texture_handle = renderer_add_texture(bitmap);
+        }
+        const vec2 dim = vec2(bitmap->width, bitmap->height);
         const f32 deg = 0.0f;
-        auto& handle = state->projectile_bitmap_handle;
 
         auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
         rendel_el->quad = rect_to_quadrilateral(proj.p, dim);
@@ -403,7 +410,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         rendel_el->offset = proj.p;
         rendel_el->basis.x = vec2(cos(deg), -sin(deg));
         rendel_el->basis.y = vec2(sin(deg), cos(deg));
-        rendel_el->bitmap_handle = handle;
+        rendel_el->bitmap_handle = bitmap->texture_handle;
     }
 
     render(&group, app_input->client_width, app_input->client_height);
