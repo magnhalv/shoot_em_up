@@ -43,10 +43,6 @@ typedef struct {
     vec2 speed;
 } Sprite;
 
-struct Projectile {
-    vec2 p;
-};
-
 struct Explosion {
     i32 frames_per_sprite = 0;
     i32 curr_frame = 0;
@@ -82,7 +78,8 @@ struct TimeInfo {
 enum class InputMode { Game = 0, Gui };
 
 struct Entity {
-    int id;
+  vec2 P;
+  ivec2 dim;
 };
 
 struct GameState {
@@ -107,12 +104,12 @@ struct EngineState {
     TextRenderer text_renderer;
     Font* font;
 
-    Sprite player;
+    Entity player;
     SwapBackList<Explosion> explosions;
     SwapBackList<Sprite> enemy_chargers;
     f32 enemy_timer;
-    SwapBackList<Projectile> player_projectiles;
-    SwapBackList<Projectile> enemy_projectiles;
+    SwapBackList<Entity> player_projectiles;
+    SwapBackList<Entity> enemy_projectiles;
 };
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);

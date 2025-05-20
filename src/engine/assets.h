@@ -312,6 +312,18 @@ static auto get_first_bitmap_from(GameAssetsRead* game_assets, AssetTypeId asset
     return BitmapId{ result };
 }
 
+static auto get_first_bitmap_meta(GameAssetsRead* game_assets, AssetTypeId asset_type_id) -> HuginBitmap {
+    u32 id = 0;
+
+    HuginAssetType* type = game_assets->asset_types + asset_type_id;
+    if (type->first_asset_index != type->one_past_last_asset_index) {
+        id = type->first_asset_index;
+    }
+
+    auto *meta = game_assets->assets_meta + id;
+    return meta->bitmap;
+}
+
 // TODO: Not BitmapId, AssetTypeId
 static auto load_bitmap2(GameAssetsRead* game_assets, BitmapId id, MemoryArena* arena, const char* file_name) -> LoadedBitmap* {
     Assert(id.value < game_assets->asset_count);

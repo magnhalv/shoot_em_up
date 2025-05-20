@@ -210,10 +210,16 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
         if (input.space.is_pressed_this_frame()) {
             play_sound(SoundType::Laser, state->audio);
-            auto pos = state->player.p;
+            auto proj_meta = get_first_bitmap_meta(state->assets, Asset_Projectile);
+            auto pos = state->player.P;
             pos.y = pos.y + state->player.dim.y;
-            pos.x = pos.x + 0.5 * state->player.dim.x - 0.5 * state->projectile_bitmap->width;
-            Projectile p{ .p = pos };
+            pos.x = pos.x + 0.5 * state->player.dim.x - 0.5 * proj_meta.dim[0];
+
+            Entity p = {};
+            p.P = pos;
+            p.dim.x = proj_meta.dim[0];
+            p.dim.y = proj_meta.dim[1];
+
             state->player_projectiles.push(p);
         }
 
