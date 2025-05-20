@@ -78,8 +78,11 @@ struct TimeInfo {
 enum class InputMode { Game = 0, Gui };
 
 struct Entity {
-  vec2 P;
-  ivec2 dim;
+    vec2 P;
+    vec2 dim;
+    f32 direction;
+    vec2 speed;
+    f32 progress;
 };
 
 struct GameState {
@@ -106,7 +109,7 @@ struct EngineState {
 
     Entity player;
     SwapBackList<Explosion> explosions;
-    SwapBackList<Sprite> enemy_chargers;
+    SwapBackList<Entity> enemy_chargers;
     f32 enemy_timer;
     SwapBackList<Entity> player_projectiles;
     SwapBackList<Entity> enemy_projectiles;

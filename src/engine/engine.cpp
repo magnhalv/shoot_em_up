@@ -149,8 +149,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
         auto player = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
         state->player.dim = vec2(player->width, player->height);
-        state->player.p = vec2(100, 100);
-        state->player.deg = 0.0f;
+        state->player.P = vec2(100, 100);
+        state->player.direction = 0.0f;
 
         state->player_projectiles.init(state->permanent, 100);
         state->enemy_chargers.init(state->permanent, 100);
@@ -195,15 +195,18 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     {
         auto& input = app_input->input;
-        auto& p_pos = state->player.p;
+        auto& p_pos = state->player.P;
 
         state->enemy_timer += app_input->dt;
         if (state->enemy_timer > 0.3) {
             state->enemy_timer = 0;
 
-            Sprite enemy = {};
-            enemy.p = vec2(100.0, app_input->client_height);
-            enemy.deg = PI;
+            auto enemy_meta = get_first_bitmap_meta(state->assets, Asset_EnemySpaceShip);
+            Entity enemy = {};
+            enemy.P = vec2(100.0, app_input->client_height);
+            enemy.dim.x = enemy_meta.dim[0];
+            enemy.dim.y = enemy_meta.dim[1];
+            enemy.direction = PI;
 
             state->enemy_chargers.push(enemy);
         }
@@ -275,11 +278,11 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
             player.speed = normalized(player.speed) * max_speed;
         }
 
-        player.p = update_position(player.p, player.speed, player.dim, time.dt, app_input->client_width, app_input->client_height);
+        player.P = update_position(player.P, player.speed, player.dim, time.dt, app_input->client_width, app_input->client_height);
 
         const auto projectile_speed = 1200.0;
         for (auto& proj : state->player_projectiles) {
-            proj.p.y += projectile_speed * time.dt;
+            proj.P.y += projectile_speed * time.dt;
         }
 
         /*
@@ -301,11 +304,11 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         // Update enemies
         for (auto i = 0; i < state->enemy_chargers.size();) {
             auto& enemy = state->enemy_chargers[i];
-            enemy.p.y += -400.0f * time.dt;
+            enemy.P.y += -400.0f * time.dt;
             enemy.progress += time.dt;
-            enemy.p.x = sine_movement(100.0, 100.0, 3.0, enemy.progress);
+            enemy.P.x = sine_movement(100.0, 100.0, 3.0, enemy.progress);
 
-            if (enemy.p.y + enemy.dim.y <= 0.0) {
+            if (enemy.P.y + enemy.dim.y <= 0.0) {
                 state->enemy_chargers.remove(i);
             }
             else {
@@ -315,7 +318,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
         // Update projectile
         for (auto i = 0; i < state->player_projectiles.size();) {
-            auto pos = state->player_projectiles[i].p;
+            auto pos = state->player_projectiles[i].P;
             vec2 bottom_left = vec2(0, 0);
             vec2 top_right = vec2(app_input->client_width, app_input->client_height);
             if (!hmath::in_rect(pos, bottom_left, top_right)) {
@@ -371,17 +374,17 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     {
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
         auto player_bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        if (player_bitmap->texture_handle == 0){
-          player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
+        if (player_bitmap->texture_handle == 0) {
+            player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
         }
 
         const auto& player = state->player;
         auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
-        render_bm->quad = rect_to_quadrilateral(player.p, player.dim);
+        render_bm->quad = rect_to_quadrilateral(player.P, player.dim);
         render_bm->local_origin = 0.5 * player.dim;
-        render_bm->offset = player.p;
-        render_bm->basis.x = vec2(cos(player.deg), -sin(player.deg));
-        render_bm->basis.y = vec2(sin(player.deg), cos(player.deg));
+        render_bm->offset = player.P;
+        render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));
+        render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));
         render_bm->bitmap_handle = player_bitmap->texture_handle;
     }
 
@@ -389,31 +392,31 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_EnemySpaceShip);
         auto bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        if (bitmap->texture_handle == 0){
-          bitmap->texture_handle = renderer_add_texture(bitmap);
+        if (bitmap->texture_handle == 0) {
+            bitmap->texture_handle = renderer_add_texture(bitmap);
         }
         auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
-        render_el->quad = rect_to_quadrilateral(enemy.p, enemy.dim);
+        render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
         render_el->local_origin = 0.5 * enemy.dim;
-        render_el->offset = enemy.p;
-        render_el->basis.x = vec2(cos(enemy.deg), -sin(enemy.deg));
-        render_el->basis.y = vec2(sin(enemy.deg), cos(enemy.deg));
+        render_el->offset = enemy.P;
+        render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));
+        render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));
         render_el->bitmap_handle = bitmap->texture_handle;
     }
 
     for (auto& proj : state->player_projectiles) {
-        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_EnemySpaceShip);
+        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_Projectile);
         auto bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        if (bitmap->texture_handle == 0){
-          bitmap->texture_handle = renderer_add_texture(bitmap);
+        if (bitmap->texture_handle == 0) {
+            bitmap->texture_handle = renderer_add_texture(bitmap);
         }
         const vec2 dim = vec2(bitmap->width, bitmap->height);
         const f32 deg = 0.0f;
 
         auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
-        rendel_el->quad = rect_to_quadrilateral(proj.p, dim);
+        rendel_el->quad = rect_to_quadrilateral(proj.P, dim);
         rendel_el->local_origin = 0.5 * dim;
-        rendel_el->offset = proj.p;
+        rendel_el->offset = proj.P;
         rendel_el->basis.x = vec2(cos(deg), -sin(deg));
         rendel_el->basis.y = vec2(sin(deg), cos(deg));
         rendel_el->bitmap_handle = bitmap->texture_handle;
