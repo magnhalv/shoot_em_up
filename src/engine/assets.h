@@ -28,9 +28,6 @@ struct LoadedBitmap {
     void* data;
 };
 
-auto load_bitmap(const char* path, MemoryArena* arena) -> LoadedBitmap*;
-auto load_bitmap(const char* path) -> LoadedBitmap;
-
 static_assert(true); // due to pragma clang bug
 #pragma pack(push, 1)
 struct BitmapId {
@@ -154,6 +151,13 @@ struct HafHeader {
     u64 asset_types;
     u64 assets;
 };
+
+auto load_bitmap(const char* path, MemoryArena* arena) -> LoadedBitmap*;
+auto load_bitmap_stbi(const char* path) -> LoadedBitmap;
+
+auto get_bitmap_meta(GameAssetsRead* game_assets, BitmapId id) -> HuginBitmap;
+auto get_bitmap(GameAssetsRead* game_assets, BitmapId id) -> LoadedBitmap*;
+auto load_bitmap(GameAssetsRead* game_assets, BitmapId id, MemoryArena* arena) -> void;
 
 static void begin_asset_type(GameAssetsWrite* assets, AssetTypeId type_id) {
     Assert(assets->current_asset_type == NULL);
@@ -284,7 +288,7 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 
             if (source->type == AssetType_Bitmap) {
                 // TODO: Do not use loaded bitmap here
-                LoadedBitmap bitmap = load_bitmap(source->bitmap.file_name);
+                LoadedBitmap bitmap = load_bitmap_stbi(source->bitmap.file_name);
                 dest->bitmap.dim[0] = bitmap.width;
                 dest->bitmap.dim[1] = bitmap.height;
 
@@ -320,41 +324,8 @@ static auto get_first_bitmap_meta(GameAssetsRead* game_assets, AssetTypeId asset
         id = type->first_asset_index;
     }
 
-    auto *meta = game_assets->assets_meta + id;
+    auto* meta = game_assets->assets_meta + id;
     return meta->bitmap;
-}
-
-// TODO: Not BitmapId, AssetTypeId
-static auto load_bitmap2(GameAssetsRead* game_assets, BitmapId id, MemoryArena* arena, const char* file_name) -> LoadedBitmap* {
-    Assert(id.value < game_assets->asset_count);
-    AssetMeta* meta = game_assets->assets_meta + id.value;
-    Asset* asset = game_assets->assets + id.value;
-
-    if (asset->state == AssetState_Unloaded) {
-
-        FILE* file = fopen(file_name, "rb");
-
-        Assert(asset->asset_memory == NULL);
-        asset->asset_memory = allocate<AssetMemoryHeader>(arena);
-        fseek(file, meta->data_offset, SEEK_SET);
-
-        asset->asset_memory->asset_type = AssetType_Bitmap;
-        auto size = meta->bitmap.dim[0] * meta->bitmap.dim[1] * BitmapBytePerPixel;
-        asset->asset_memory->bitmap.data = allocate<u8>(arena, size);
-
-        asset->asset_memory->bitmap.pitch = meta->bitmap.dim[0];
-        asset->asset_memory->bitmap.width = meta->bitmap.dim[0];
-        asset->asset_memory->bitmap.height = meta->bitmap.dim[1];
-        asset->asset_memory->bitmap.align_percentage = meta->bitmap.align_percentage;
-        asset->asset_memory->bitmap.texture_handle = 0;
-        fread(asset->asset_memory->bitmap.data, size, 1, file);
-
-        fclose(file);
-    
-        asset->state = AssetState_Loaded;
-    }
-
-    return &asset->asset_memory->bitmap;
 }
 
 static auto write_spaceships() -> void {

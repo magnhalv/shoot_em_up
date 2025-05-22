@@ -19,6 +19,7 @@
 #include "logger.h"
 #include "math/vec2.h"
 #include "memory_arena.h"
+#include "platform/types.h"
 #include "text_renderer.h"
 #include <engine/renderer.h>
 #include <engine/renderer/asset_manager.h>
@@ -131,6 +132,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         state->permanent.init(static_cast<u8*>(memory->permanent) + sizeof(EngineState),
             Permanent_Memory_Block_Size - sizeof(EngineState));
 
+        state->task_system.queue = memory->work_queue;
+        TaskSystem* task_system = &state->task_system;
+        for (auto i = 0; i < array_length(task_system->tasks); i++) {
+            TaskWithMemory* task = task_system->tasks + i;
+            task->memory = state->permanent.allocate_arena(KiloBytes(1));
+        }
+
         state->pointer.x = 200;
         state->pointer.y = 200;
 
@@ -147,8 +155,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         state->assets = initialize_game_assets("assets.haf", &state->permanent);
 
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
-        auto player = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        state->player.dim = vec2(player->width, player->height);
+        auto player = get_bitmap_meta(state->assets, bitmap_id);
+        state->player.dim = vec2(player.dim[0], player.dim[1]);
         state->player.P = vec2(100, 100);
         state->player.direction = 0.0f;
 
@@ -170,6 +178,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         state->is_initialized = true;
         log_info("Initializing complete");
     }
+
     // TODO: Gotta set this on hot reload
     clear_transient();
     remove_finished_sounds(state->audio);
@@ -373,66 +382,76 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     {
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
-        auto player_bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        if (player_bitmap->texture_handle == 0) {
-            player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
-        }
+        load_bitmap(state->assets, bitmap_id, &state->permanent);
+        auto player_bitmap = get_bitmap(state->assets, bitmap_id);
+        if (player_bitmap) {
+            if (player_bitmap->texture_handle == 0) {
+                player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
+            }
 
-        const auto& player = state->player;
-        auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
-        render_bm->quad = rect_to_quadrilateral(player.P, player.dim);
-        render_bm->local_origin = 0.5 * player.dim;
-        render_bm->offset = player.P;
-        render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));
-        render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));
-        render_bm->bitmap_handle = player_bitmap->texture_handle;
+            const auto& player = state->player;
+            auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
+            render_bm->quad = rect_to_quadrilateral(player.P, player.dim);
+            render_bm->local_origin = 0.5 * player.dim;
+            render_bm->offset = player.P;
+            render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));
+            render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));
+            render_bm->bitmap_handle = player_bitmap->texture_handle;
+        }
     }
 
     for (auto& enemy : state->enemy_chargers) {
 
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_EnemySpaceShip);
-        auto bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        if (bitmap->texture_handle == 0) {
-            bitmap->texture_handle = renderer_add_texture(bitmap);
+        load_bitmap(state->assets, bitmap_id, &state->permanent);
+        auto bitmap = get_bitmap(state->assets, bitmap_id);
+        if (bitmap) {
+            if (bitmap->texture_handle == 0) {
+                bitmap->texture_handle = renderer_add_texture(bitmap);
+            }
+            auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
+            render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
+            render_el->local_origin = 0.5 * enemy.dim;
+            render_el->offset = enemy.P;
+            render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));
+            render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));
+            render_el->bitmap_handle = bitmap->texture_handle;
         }
-        auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
-        render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
-        render_el->local_origin = 0.5 * enemy.dim;
-        render_el->offset = enemy.P;
-        render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));
-        render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));
-        render_el->bitmap_handle = bitmap->texture_handle;
     }
 
     for (auto& proj : state->player_projectiles) {
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_Projectile);
-        auto bitmap = load_bitmap2(state->assets, bitmap_id, &state->permanent, "assets.haf");
-        if (bitmap->texture_handle == 0) {
-            bitmap->texture_handle = renderer_add_texture(bitmap);
-        }
-        const vec2 dim = vec2(bitmap->width, bitmap->height);
-        const f32 deg = 0.0f;
+        load_bitmap(state->assets, bitmap_id, &state->permanent);
+        auto bitmap = get_bitmap(state->assets, bitmap_id);
+        if (bitmap) {
+            if (bitmap->texture_handle == 0) {
+                bitmap->texture_handle = renderer_add_texture(bitmap);
+            }
+            const vec2 dim = vec2(bitmap->width, bitmap->height);
+            const f32 deg = 0.0f;
 
-        auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
-        rendel_el->quad = rect_to_quadrilateral(proj.P, dim);
-        rendel_el->local_origin = 0.5 * dim;
-        rendel_el->offset = proj.P;
-        rendel_el->basis.x = vec2(cos(deg), -sin(deg));
-        rendel_el->basis.y = vec2(sin(deg), cos(deg));
-        rendel_el->bitmap_handle = bitmap->texture_handle;
+            auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
+            rendel_el->quad = rect_to_quadrilateral(proj.P, dim);
+            rendel_el->local_origin = 0.5 * dim;
+            rendel_el->offset = proj.P;
+            rendel_el->basis.x = vec2(cos(deg), -sin(deg));
+            rendel_el->basis.y = vec2(sin(deg), cos(deg));
+            rendel_el->bitmap_handle = bitmap->texture_handle;
+        }
     }
 
     render(&group, app_input->client_width, app_input->client_height);
 }
 
-void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory) {
+void load(GLFunctions* in_gl, PlatformApi* platform, EngineMemory* in_memory) {
     load_gl(in_gl);
-    load(in_platform);
+    load(platform);
 
     assert(sizeof(EngineState) < Permanent_Memory_Block_Size);
     auto* state = (EngineState*)in_memory->permanent;
     state->transient.init(in_memory->transient, Transient_Memory_Block_Size);
     set_transient_arena(&state->transient);
+    load(&state->task_system);
 
     assert(sizeof(AssetManager) <= Assets_Memory_Block_Size);
     asset_manager_set_memory(in_memory->asset);

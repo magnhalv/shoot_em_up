@@ -1,11 +1,9 @@
 #pragma once
 
-#include "engine/assets.h"
-#ifdef ENGINE_HPP
-
-#endif
-
 #include <iostream>
+
+#include <engine/assets.h>
+#include <engine/globals.hpp>
 
 #include <math/mat4.h>
 #include <math/vec4.h>
@@ -98,6 +96,8 @@ struct EngineState {
     AudioSystemState audio;
     GameAssetsRead* assets;
 
+    TaskSystem task_system;
+
     Cli cli;
     bool is_cli_active;
 
@@ -116,5 +116,5 @@ struct EngineState {
 };
 
 extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);
-extern "C" __declspec(dllexport) void load(GLFunctions* in_gl, Platform* in_platform, EngineMemory* in_memory);
+extern "C" __declspec(dllexport) void load(GLFunctions* in_gl, PlatformApi* in_platform, EngineMemory* in_memory);
 extern "C" __declspec(dllexport) SoundBuffer get_sound_samples(EngineMemory* memory, i32 num_samples);
