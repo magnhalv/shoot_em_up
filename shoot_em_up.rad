@@ -1,0 +1,22 @@
+// raddbg 0.9.17 project file
+
+recent_file: path: "src/engine/assets.h"
+recent_file: path: "src/engine/engine.cpp"
+recent_file: path: "src/engine/assets.cpp"
+recent_file: path: "src/win_main.cpp"
+target:
+{
+  executable: "cmake-build/shoot_em_up.exe"
+  working_directory: "../shoot_em_up"
+  enabled: 1
+}
+breakpoint:
+{
+  source_location: "src/engine/assets.h:253:1"
+  hit_count: 1
+}
+breakpoint:
+{
+  source_location: "src/engine/assets.h:232:1"
+  hit_count: 1
+}
