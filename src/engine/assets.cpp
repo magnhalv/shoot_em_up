@@ -1,62 +1,13 @@
 #include <cstdlib>
 #include <libs/stb/stb_image.h>
 
-#include <engine/memory.h>
-#include <engine/memory_arena.h>
 #include <platform/platform.h>
 
+#include <engine/globals.hpp>
+#include <engine/memory.h>
+#include <engine/memory_arena.h>
+
 #include "assets.h"
-#include "engine/globals.hpp"
-
-auto load_bitmap(const char* path, MemoryArena* arena) -> LoadedBitmap* {
-    auto* result = allocate<LoadedBitmap>(*arena);
-    i32 num_channels;
-    stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-    unsigned char* data = stbi_load(path, &result->width, &result->height, &num_channels, 4);
-
-    if (num_channels != 4) {
-        InvalidCodePath;
-    }
-
-    if (data) {
-        auto size = result->width * result->height * num_channels; // 1 byte per channel
-        result->pitch = result->width * num_channels;
-        result->data = allocate<u8>(*arena, size);
-        mem_copy(data, result->data, size);
-        stbi_image_free(data);
-    }
-    else {
-        InvalidCodePath;
-    }
-
-    return result;
-}
-
-auto load_bitmap_stbi(const char* path) -> LoadedBitmap {
-    LoadedBitmap result;
-    i32 num_channels;
-    stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-    unsigned char* stbi_data = stbi_load(path, &result.width, &result.height, &num_channels, 4);
-
-    if (num_channels != 4) {
-        InvalidCodePath;
-    }
-
-    if (stbi_data) {
-        result.pitch = result.width * num_channels;
-        auto size = result.width * result.height * num_channels; // 1 byte per channel
-
-        result.data = malloc(size);
-        mem_copy(stbi_data, result.data, size);
-
-        stbi_image_free(stbi_data);
-    }
-    else {
-        InvalidCodePath;
-    }
-
-    return result;
-}
 
 struct LoadAssetWork {
     u64 file_offset;
@@ -81,13 +32,13 @@ static PLATFORM_WORK_QUEUE_CALLBACK(load_asset_work) {
     end_task(work->task);
 }
 
-auto get_bitmap_meta(GameAssetsRead* game_assets, BitmapId id) -> HuginBitmap {
+auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> HuginBitmap {
     Assert(id.value < game_assets->asset_count);
     AssetMeta* meta = game_assets->assets_meta + id.value;
     return meta->bitmap;
 }
 
-auto get_bitmap(GameAssetsRead* game_assets, BitmapId id) -> LoadedBitmap* {
+auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap* {
     LoadedBitmap* result = nullptr;
 
     Assert(id.value < game_assets->asset_count);
@@ -100,7 +51,7 @@ auto get_bitmap(GameAssetsRead* game_assets, BitmapId id) -> LoadedBitmap* {
     return result;
 }
 
-auto load_bitmap(GameAssetsRead* game_assets, BitmapId id, MemoryArena* permanent) -> void {
+auto load_bitmap(GameAssets* game_assets, BitmapId id, MemoryArena* permanent) -> void {
     Assert(id.value < game_assets->asset_count);
     AssetMeta* meta = game_assets->assets_meta + id.value;
     Asset* asset = game_assets->assets + id.value;

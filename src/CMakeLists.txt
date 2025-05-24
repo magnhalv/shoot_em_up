@@ -29,7 +29,6 @@ set(SOURCE_FILES
         engine/text_renderer.cpp
         engine/options.cpp
 
-        deps/libs.cpp
         )
 
 add_library(engine_dyn SHARED ${SOURCE_FILES})

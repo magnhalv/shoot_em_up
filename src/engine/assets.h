@@ -1,21 +1,14 @@
 #pragma once
 
-#include "platform/user_input.h"
 #include <cstdio>
-#include <cstring>
 #include <platform/platform.h>
 #include <platform/types.h>
 
 #include <engine/array.h>
+#include <engine/hugin_file_formats.h>
 #include <engine/memory_arena.h>
 
 const u32 BitmapBytePerPixel = 4;
-
-typedef struct {
-    i32 width;
-    i32 height;
-    u8* data;
-} Bitmap;
 
 struct LoadedBitmap {
     i32 width;
@@ -26,89 +19,6 @@ struct LoadedBitmap {
     // TODO: Make this a void pointer, to support multiple renderers
     u32 texture_handle;
     void* data;
-};
-
-static_assert(true); // due to pragma clang bug
-#pragma pack(push, 1)
-struct BitmapId {
-    u32 value;
-};
-
-struct SoundId {
-    u32 value;
-};
-#pragma pack(pop)
-
-struct FileAsset {
-    char path[Max_Path_Length];
-    TimeStamp last_modified;
-};
-
-enum AssetTypeId : u32 {
-    Asset_None = 0,
-    Asset_PlayerSpaceShip,
-    Asset_EnemySpaceShip,
-    Asset_Projectile,
-
-    Asset_Count
-};
-
-enum AssetType { AssetType_Sound = 0, AssetType_Bitmap };
-
-struct AssetSourceBitmap {
-    const char* file_name;
-};
-
-struct AssetSourceSound {
-    char* file_name;
-    u32 first_sample_index;
-};
-
-struct AssetSource {
-    AssetType type;
-    union {
-        AssetSourceBitmap bitmap;
-        AssetSourceSound sound;
-    };
-};
-
-struct HuginBitmap {
-    u32 dim[2];
-    vec2 align_percentage;
-};
-
-struct HuginSound {
-    u32 sample_count;
-    u32 channel_count;
-    u32 chain;
-};
-
-struct HuginAssetType {
-    u32 type_id;
-    u32 first_asset_index;
-    u32 one_past_last_asset_index;
-};
-
-struct AssetMeta {
-    u64 data_offset;
-    union {
-        HuginBitmap bitmap;
-        HuginSound sound;
-    };
-};
-
-const u32 MAX_ASSETS_COUNT = 4096;
-
-struct GameAssetsWrite {
-    u32 num_asset_types;
-    HuginAssetType asset_types[Asset_Count];
-
-    u32 asset_count;
-    AssetSource asset_sources[MAX_ASSETS_COUNT];
-    AssetMeta assets[MAX_ASSETS_COUNT];
-
-    HuginAssetType* current_asset_type;
-    u32 asset_index;
 };
 
 enum AssetState {
@@ -129,7 +39,7 @@ struct Asset {
     AssetMemoryHeader* asset_memory;
 };
 
-struct GameAssetsRead {
+struct GameAssets {
     HuginAssetType asset_types[Asset_Count];
 
     u32 asset_count;
@@ -137,92 +47,15 @@ struct GameAssetsRead {
     Asset* assets;
 };
 
-#define HAF_CODE(a, b, c, d) (((u32)(a) << 0) | ((u32)(b) << 8) | ((u32)(c) << 16) | ((u32)(d) << 24))
-
-struct HafHeader {
-#define HAF_MAGIC_VALUE HAF_CODE('h', 'a', 'f', 'c')
-    u32 magic_value;
-#define HAF_VERSION 0
-    u32 version;
-
-    u32 asset_type_count;
-    u32 asset_count;
-
-    u64 asset_types;
-    u64 assets;
-};
-
-auto load_bitmap(const char* path, MemoryArena* arena) -> LoadedBitmap*;
-auto load_bitmap_stbi(const char* path) -> LoadedBitmap;
-
-auto get_bitmap_meta(GameAssetsRead* game_assets, BitmapId id) -> HuginBitmap;
-auto get_bitmap(GameAssetsRead* game_assets, BitmapId id) -> LoadedBitmap*;
-auto load_bitmap(GameAssetsRead* game_assets, BitmapId id, MemoryArena* arena) -> void;
-
-static void begin_asset_type(GameAssetsWrite* assets, AssetTypeId type_id) {
-    Assert(assets->current_asset_type == NULL);
-
-    assets->current_asset_type = assets->asset_types + type_id;
-    assets->current_asset_type->type_id = type_id;
-    assets->current_asset_type->first_asset_index = assets->asset_count;
-    assets->current_asset_type->one_past_last_asset_index = assets->current_asset_type->first_asset_index;
-}
-
-struct AddedAsset {
-    u32 id;
-    AssetMeta* hugin_asset;
-    AssetSource* source;
-};
-
-static auto add_asset(GameAssetsWrite* assets) -> AddedAsset {
-    Assert(assets->current_asset_type);
-    Assert(assets->current_asset_type->one_past_last_asset_index < ArrayCount(assets->assets));
-
-    u32 index = assets->current_asset_type->one_past_last_asset_index++;
-
-    AssetSource* source = assets->asset_sources + index;
-    AssetMeta* ha = assets->assets + index;
-
-    assets->asset_index = index;
-    AddedAsset result;
-    result.id = index;
-    result.hugin_asset = assets->assets + index;
-    result.source = source;
-    return result;
-}
-
-static auto add_bitmap_asset(
-    GameAssetsWrite* assets, const char* file_name, f32 align_percentage_x = 0.5f, f32 align_percentage_y = 0.5f) {
-    AddedAsset asset = add_asset(assets);
-    asset.hugin_asset->bitmap.align_percentage.x = align_percentage_x;
-    asset.hugin_asset->bitmap.align_percentage.y = align_percentage_y;
-    asset.source->type = AssetType_Bitmap;
-    asset.source->bitmap.file_name = file_name;
-
-    return BitmapId{ asset.id };
-}
-
-static auto end_asset_type(GameAssetsWrite* assets) -> void {
-    Assert(assets->current_asset_type);
-    assets->asset_count = assets->current_asset_type->one_past_last_asset_index;
-    assets->current_asset_type = 0;
-    assets->asset_index = 0;
-}
-
-static auto initialize(GameAssetsWrite* assets) -> void {
-    assets->asset_count = 1;
-    assets->current_asset_type = 0;
-    assets->asset_index = 0;
-
-    assets->num_asset_types = Asset_Count;
-    memset(assets->asset_types, 0, sizeof(assets->asset_types));
-}
+auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> HuginBitmap;
+auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap*;
+auto load_bitmap(GameAssets* game_assets, BitmapId id, MemoryArena* arena) -> void;
 
 // TODO: Read AllocateGameAssets in handmade hero.
 
-static auto initialize_game_assets(const char* file_name, MemoryArena* arena) -> GameAssetsRead* {
+static auto initialize_game_assets(const char* file_name, MemoryArena* arena) -> GameAssets* {
     FILE* file = fopen(file_name, "rb");
-    GameAssetsRead* game_assets = allocate<GameAssetsRead>(arena);
+    GameAssets* game_assets = allocate<GameAssets>(arena);
 
     if (!file) {
         printf("ERROR: Could not open file '%s'\n", file_name);
@@ -257,55 +90,7 @@ static auto initialize_game_assets(const char* file_name, MemoryArena* arena) ->
     return game_assets;
 }
 
-static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> void {
-
-    FILE* out = fopen(file_name, "wb");
-
-    if (!out) {
-        printf("ERROR: Could not open file '%s'\n", file_name);
-    }
-    else {
-        HafHeader header = {};
-        header.magic_value = HAF_MAGIC_VALUE;
-        header.version = HAF_VERSION;
-        header.asset_type_count = Asset_Count;
-        header.asset_count = assets->asset_count;
-
-        u32 asset_type_array_size = header.asset_type_count * sizeof(HuginAssetType);
-        u32 asset_array_size = header.asset_count * sizeof(AssetMeta);
-
-        header.asset_types = sizeof(HafHeader);
-        header.assets = header.asset_types + asset_type_array_size;
-
-        fwrite(&header, sizeof(header), 1, out);
-        fwrite(&assets->asset_types, asset_type_array_size, 1, out);
-        fseek(out, asset_array_size, SEEK_CUR);
-        for (u32 asset_idx = 1; asset_idx < header.asset_count; asset_idx++) {
-            AssetSource* source = assets->asset_sources + asset_idx;
-            AssetMeta* dest = assets->assets + asset_idx;
-
-            dest->data_offset = ftell(out);
-
-            if (source->type == AssetType_Bitmap) {
-                // TODO: Do not use loaded bitmap here
-                LoadedBitmap bitmap = load_bitmap_stbi(source->bitmap.file_name);
-                dest->bitmap.dim[0] = bitmap.width;
-                dest->bitmap.dim[1] = bitmap.height;
-
-                Assert((bitmap.width * 4) == bitmap.pitch);
-                fwrite(bitmap.data, bitmap.pitch * bitmap.height, 1, out);
-
-                free(bitmap.data);
-            }
-        }
-
-        fseek(out, (u32)header.assets, SEEK_SET);
-        fwrite(assets->assets, asset_array_size, 1, out);
-    }
-    fclose(out);
-}
-
-static auto get_first_bitmap_from(GameAssetsRead* game_assets, AssetTypeId asset_type_id) -> BitmapId {
+static auto get_first_bitmap_from(GameAssets* game_assets, AssetTypeId asset_type_id) -> BitmapId {
     u32 result = 0;
 
     HuginAssetType* type = game_assets->asset_types + asset_type_id;
@@ -316,7 +101,7 @@ static auto get_first_bitmap_from(GameAssetsRead* game_assets, AssetTypeId asset
     return BitmapId{ result };
 }
 
-static auto get_first_bitmap_meta(GameAssetsRead* game_assets, AssetTypeId asset_type_id) -> HuginBitmap {
+static auto get_first_bitmap_meta(GameAssets* game_assets, AssetTypeId asset_type_id) -> HuginBitmap {
     u32 id = 0;
 
     HuginAssetType* type = game_assets->asset_types + asset_type_id;
@@ -326,26 +111,4 @@ static auto get_first_bitmap_meta(GameAssetsRead* game_assets, AssetTypeId asset
 
     auto* meta = game_assets->assets_meta + id;
     return meta->bitmap;
-}
-
-static auto write_spaceships() -> void {
-    GameAssetsWrite assets_ = { 0 };
-    GameAssetsWrite* assets = &assets_;
-
-    initialize(assets);
-
-    begin_asset_type(assets, Asset_PlayerSpaceShip);
-    add_bitmap_asset(assets, "assets/sprites/player_1.png");
-    end_asset_type(assets);
-
-    begin_asset_type(assets, Asset_EnemySpaceShip);
-    add_bitmap_asset(assets, "assets/sprites/blue_01.png");
-    end_asset_type(assets);
-
-    begin_asset_type(assets, Asset_Projectile);
-    add_bitmap_asset(assets, "assets/sprites/projectile_1.png");
-    end_asset_type(assets);
-
-    write_asset_file(assets, "assets.haf");
-    // TODO: Write assets file
 }

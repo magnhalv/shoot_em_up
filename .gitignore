@@ -13,3 +13,5 @@ compile_commands.json
 py-env
 src/deps/libs
 src/deps/archives
+
+assets/*

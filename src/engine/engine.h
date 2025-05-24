@@ -94,7 +94,7 @@ struct EngineState {
     MemoryArena permanent;
 
     AudioSystemState audio;
-    GameAssetsRead* assets;
+    GameAssets* assets;
 
     TaskSystem task_system;
 

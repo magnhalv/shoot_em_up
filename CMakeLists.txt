@@ -25,6 +25,11 @@ add_executable(shoot_em_up
         ${GLAD_SOURCES}
         )
 
+add_executable(asset_build
+        src/engine/asset_builder.cpp
+        src/deps/libs.cpp
+        )
+
 target_link_libraries(shoot_em_up ${OPENGL_gl_LIBRARY} )
 
 # This needs to be after the linking of opengl, otherwise we get linking issues against glad
