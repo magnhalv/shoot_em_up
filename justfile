@@ -1,5 +1,10 @@
+[working-directory: 'data']
 run: build
-  ./cmake-build/shoot_em_up.exe
+  ../cmake-build/shoot_em_up.exe
+
+[working-directory: 'data']
+assets-build: build
+  ../cmake-build/asset_builder.exe
   
 gen: env
   ./scripts/generate.bat

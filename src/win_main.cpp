@@ -448,9 +448,9 @@ void win32_stop_playback(Playback& playback) {
     playback.current_playback_frame = 0;
 }
 
-LPCTSTR DllPath = R"(.\bin\app\engine_dyn.dll)";
-LPCTSTR PdbPath = R"(.\bin\app\engine_dyn.pdb)";
-LPCTSTR VersionedDllPath = R"(.\bin\versions\)";
+LPCTSTR DllPath = R"(..\bin\app\engine_dyn.dll)";
+LPCTSTR PdbPath = R"(..\bin\app\engine_dyn.pdb)";
+LPCTSTR VersionedDllPath = R"(..\bin\versions\)";
 
 bool win32_should_reload_dll(EngineFunctions* app_functions) {
     if (app_functions->update_and_render == nullptr) {

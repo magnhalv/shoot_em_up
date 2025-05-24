@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <libs/stb/stb_image.h>
 
 #include <platform/platform.h>
@@ -30,7 +31,7 @@ auto load_bitmap_stbi(const char* path) -> Bitmap {
         auto size = result.width * result.height * num_channels; // 1 byte per channel
 
         result.data = malloc(size);
-        memcpy(stbi_data, result.data, size);
+        memcpy(result.data, stbi_data, size);
 
         stbi_image_free(stbi_data);
     }
@@ -156,15 +157,15 @@ static auto write_spaceships() -> void {
     initialize(assets);
 
     begin_asset_type(assets, Asset_PlayerSpaceShip);
-    add_bitmap_asset(assets, "bitmaps/player_1.png");
+    add_bitmap_asset(assets, "assets/bitmaps/player_1.png");
     end_asset_type(assets);
 
     begin_asset_type(assets, Asset_EnemySpaceShip);
-    add_bitmap_asset(assets, "bitmaps/blue_01.png");
+    add_bitmap_asset(assets, "assets/bitmaps/blue_01.png");
     end_asset_type(assets);
 
     begin_asset_type(assets, Asset_Projectile);
-    add_bitmap_asset(assets, "bitmaps/projectile_1.png");
+    add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
     end_asset_type(assets);
 
     write_asset_file(assets, "assets.haf");

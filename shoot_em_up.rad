@@ -1,13 +1,13 @@
 // raddbg 0.9.17 project file
 
+recent_file: path: "src/engine/assets.cpp"
+recent_file: path: "src/engine/engine.cpp"
 recent_file: path: "src/win_main.cpp"
 recent_file: path: "src/engine/memory_arena.cpp"
 recent_file: path: "src/engine/assets.h"
-recent_file: path: "src/engine/engine.cpp"
-recent_file: path: "src/engine/assets.cpp"
 target:
 {
   executable: "cmake-build/shoot_em_up.exe"
-  working_directory: "../shoot_em_up"
+  working_directory: data
   enabled: 1
 }

@@ -14,4 +14,5 @@ py-env
 src/deps/libs
 src/deps/archives
 
-assets/*
+data/assets/
+data/*.haf

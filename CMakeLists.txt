@@ -20,15 +20,17 @@ include_directories(include)
 include_directories(src)
 include_directories(src/deps)
 
-add_executable(shoot_em_up
-        src/win_main.cpp
-        ${GLAD_SOURCES}
-        )
+add_executable(
+  shoot_em_up
+  src/win_main.cpp
+  ${GLAD_SOURCES}
+ )
 
-add_executable(asset_build
-        src/engine/asset_builder.cpp
-        src/deps/libs.cpp
-        )
+add_executable(
+  asset_builder
+  src/asset_builder_main.cpp
+  src/deps/libs.cpp
+)
 
 target_link_libraries(shoot_em_up ${OPENGL_gl_LIBRARY} )
 

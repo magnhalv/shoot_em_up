@@ -163,7 +163,7 @@ auto renderer_init() -> void {
         gl->vertex_array_attrib_binding(state.quad_vao, attrib_index, attrib_index);
         gl->bind_vertex_array(0);
 
-        state.quad_shader.initialize(R"(.\assets\shaders\basic_2d.vert)", R"(.\assets\shaders\single_color.frag)");
+        state.quad_shader.initialize(R"(.\shaders\basic_2d.vert)", R"(.\shaders\single_color.frag)");
     }
 
     // Texture VAO
@@ -223,7 +223,7 @@ auto renderer_init() -> void {
         gl->enable_vertex_array_attrib(*vao, attrib_index);
         attrib_index++;
 
-        state.texture_shader.initialize(R"(.\assets\shaders\texture_2d.vert)", R"(.\assets\shaders\texture_2d.frag)");
+        state.texture_shader.initialize(R"(.\shaders\texture_2d.vert)", R"(.\shaders\texture_2d.frag)");
     }
 }
 
