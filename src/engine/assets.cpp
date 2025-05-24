@@ -1,5 +1,4 @@
 #include <cstdlib>
-#include <libs/stb/stb_image.h>
 
 #include <platform/platform.h>
 

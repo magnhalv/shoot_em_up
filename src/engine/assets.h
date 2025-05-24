@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdio>
 #include <platform/platform.h>
 #include <platform/types.h>
 
@@ -16,6 +15,7 @@ struct LoadedBitmap {
     i32 pitch;
 
     vec2 align_percentage;
+
     // TODO: Make this a void pointer, to support multiple renderers
     u32 texture_handle;
     void* data;
