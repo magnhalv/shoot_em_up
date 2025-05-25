@@ -52,7 +52,7 @@ auto read_from_file(Options* options) -> void {
         return;
     }
     char* raw_buffer = allocate<char>(*g_transient, file_size + 1);
-    auto success = Platform->read_file(graphic_options_path, raw_buffer, file_size + 1);
+    auto success = Platform->debug_read_file(graphic_options_path, raw_buffer, file_size + 1);
     if (!success) {
         log_error("Options: Failed to read %s.", graphic_options_path);
         return;

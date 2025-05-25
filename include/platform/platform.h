@@ -91,18 +91,42 @@ struct GLFunctions {
 
 const u32 Gl_Invalid_Id = 0;
 
+typedef struct {
+    bool no_errors;
+    void* platform;
+} PlatformFileHandle;
+
+typedef struct {
+    u32 file_count;
+    void* platform;
+} PlatformFileGroup;
+
+enum class PlatformFileType : u32 { AssetFile, Count };
+
 // Platform API
 #define PLATFORM_GET_FILE_LAST_MODIFIED(name) u64 name(const char* file_path)
 typedef PLATFORM_GET_FILE_LAST_MODIFIED(platform_get_file_last_modified);
 
-#define PLATFORM_READ_FILE(name) bool name(const char* path, char* buffer, const u64 buffer_size)
-typedef PLATFORM_READ_FILE(platform_read_file);
+#define DEBUG_PLATFORM_READ_FILE(name) bool name(const char* path, char* buffer, const u64 buffer_size)
+typedef DEBUG_PLATFORM_READ_FILE(debug_platform_read_file);
 
 #define PLATFORM_WRITE_FILE(name) bool name(const char*, const char*, const u64)
 typedef PLATFORM_WRITE_FILE(platform_write_file);
 
 #define PLATFORM_GET_FILE_SIZE(name) u64 name(const char*)
 typedef PLATFORM_GET_FILE_SIZE(platform_get_file_size);
+
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(name) PlatformFileGroup name(PlatformFileType type)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(platform_get_all_files_of_type_begin);
+
+#define PLATFORM_GET_ALL_FILES_OF_TYPE_END(name) void name(PlatformFileGroup* file_group)
+typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END(platform_get_all_files_of_type_end);
+
+#define PLATFORM_OPEN_FILE(name) PlatformFileHandle name(PlatformFileGroup* file_group)
+typedef PLATFORM_OPEN_FILE(platform_open_next_file);
+
+#define PLATFORM_READ_FILE(name) bool name(PlatformFileHandle* handle, u64 offset, u64 size, void* dest)
+typedef PLATFORM_READ_FILE(platform_read_file);
 
 struct PlatformWorkQueue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* Queue, void* Data)
@@ -113,9 +137,14 @@ typedef void platform_complete_all_work(PlatformWorkQueue* Queue);
 
 struct PlatformApi {
     platform_get_file_last_modified* get_file_last_modified;
-    platform_read_file* read_file;
+    debug_platform_read_file* debug_read_file;
     platform_write_file* write_file;
     platform_get_file_size* get_file_size;
+
+    platform_get_all_files_of_type_begin* get_all_files_of_type_begin;
+    platform_get_all_files_of_type_end* get_all_files_of_type_end;
+    platform_open_next_file* open_next_file;
+    platform_read_file* read_file;
 
     platform_add_work_queue_entry* add_work_queue_entry;
     platform_complete_all_work* complete_all_work;
@@ -127,7 +156,7 @@ const u64 Assets_Memory_Block_Size = MegaBytes(1);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Assets_Memory_Block_Size;
 
 #define local_persist static
-#define global_variable static
+#define global_variable extern
 
 #define Assert(expr)                                                                   \
     if (!(expr)) {                                                                     \
@@ -135,6 +164,10 @@ const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Blo
         exit(1);                                                                       \
     }
 #define InvalidCodePath assert(!"InvalidCodePath")
+#define InvalidDefaultCase \
+    default: {             \
+        InvalidCodePath;   \
+    } break
 
 struct EngineMemory {
     void* permanent = nullptr; // NOTE: Must be cleared to zero

@@ -22,6 +22,53 @@
 #include <cstdint>
 #include <xaudio2.h>
 
+///////////////// FILE HANDLING /////////////////////////////
+
+struct Win32_PlatformFileHandle {
+    HANDLE handle;
+};
+
+struct Win32_PlatformFileGroup {
+    HANDLE find_handle;
+    WIN32_FIND_DATAW find_data;
+};
+
+static PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(win32_get_all_files_of_type_begin) {
+    PlatformFileGroup result = {};
+
+    Win32_PlatformFileGroup* win32_file_group =
+        (Win32_PlatformFileGroup*)VirtualAlloc(0, sizeof(Win32_PlatformFileGroup), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    result.platform = win32_file_group;
+
+    wchar_t wild_card[8] = L"*.*";
+    switch (type) {
+
+    case PlatformFileType::AssetFile: {
+        wcscpy_s(wild_card, sizeof(wild_card), L"*.haf");
+    } break;
+        InvalidDefaultCase;
+    }
+
+    result.file_count = 0;
+
+    WIN32_FIND_DATAW find_data;
+    HANDLE find_handle = FindFirstFileW(wild_card, &find_data);
+    while (find_handle != INVALID_HANDLE_VALUE) {
+        result.file_count++;
+
+        if (!FindNextFileW(find_handle, &find_data)) {
+            break;
+        }
+    }
+    FindClose(find_handle);
+
+    win32_file_group->find_handle = FindFirstFileW(wild_card, &win32_file_group->find_data);
+
+    return result;
+}
+
+/////////////////////////// SOUND/OPENGL /////////////////////
+
 struct SoundDataBuffer {
     u8* data;
     i32 size;
@@ -306,6 +353,8 @@ void win32_print_last_error() {
     LocalFree(buffer);
 }
 
+////////////// RECODING ///////////////////////
+
 bool win32_overwrite_file(const char* path, void* memory, size_t size) {
     HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {
@@ -448,6 +497,7 @@ void win32_stop_playback(Playback& playback) {
     playback.current_playback_frame = 0;
 }
 
+////////////// DLL ///////////////////////
 LPCTSTR DllPath = R"(..\bin\app\engine_dyn.dll)";
 LPCTSTR PdbPath = R"(..\bin\app\engine_dyn.pdb)";
 LPCTSTR VersionedDllPath = R"(..\bin\versions\)";
@@ -560,6 +610,8 @@ void win32_load_dll(EngineFunctions* functions) {
         functions->last_loaded_dll_write_time = file_info.ftLastWriteTime;
     }
 }
+
+////////////// INPUT ///////////////////////
 
 void win32_process_keyboard_message(ButtonState& new_state, bool is_down) {
     if (new_state.ended_down != is_down) {
@@ -1123,7 +1175,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     PlatformApi platform = {};
     platform.get_file_last_modified = &win32_file_last_modified;
     platform.get_file_size = &win32_file_size;
-    platform.read_file = &win32_read_text_file;
+    platform.debug_read_file = &win32_read_text_file;
     platform.write_file = &win32_write_file;
 
     platform.add_work_queue_entry = &win32_add_entry;

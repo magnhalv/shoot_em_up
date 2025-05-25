@@ -22,7 +22,7 @@ auto init_audio_system(AudioSystemState& state, MemoryArena& init_arena) -> void
         auto file_size = Platform->get_file_size(path);
 
         auto buffer = allocate<char>(*g_transient, file_size);
-        auto is_success = Platform->read_file(path, buffer, file_size);
+        auto is_success = Platform->debug_read_file(path, buffer, file_size);
 
         if (!is_success) {
             log_warning("Unable to read audio file: %s\n", path);

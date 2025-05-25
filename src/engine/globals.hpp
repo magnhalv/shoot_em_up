@@ -14,9 +14,9 @@ struct TaskSystem {
     TaskWithMemory tasks[4];
 };
 
-extern PlatformApi* Platform;
-extern Options* g_graphics_options;
-extern TaskSystem* g_task_system;
+global_variable PlatformApi* Platform;
+global_variable Options* g_graphics_options;
+global_variable TaskSystem* Task_System;
 
 void load(PlatformApi* platform);
 void load(Options* platform);

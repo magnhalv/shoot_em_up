@@ -63,7 +63,7 @@ auto load_bitmap(GameAssets* game_assets, BitmapId id, MemoryArena* permanent) -
     Asset* asset = game_assets->assets + id.value;
 
     if (asset->state == AssetState_Unloaded) {
-        TaskWithMemory* task = begin_task(g_task_system);
+        TaskWithMemory* task = begin_task(Task_System);
 
         if (task) {
             Assert(asset->asset_memory == NULL);
@@ -85,7 +85,7 @@ auto load_bitmap(GameAssets* game_assets, BitmapId id, MemoryArena* permanent) -
             work->asset = asset;
             work->task = task;
             assert(Platform->add_work_queue_entry != nullptr);
-            Platform->add_work_queue_entry(g_task_system->queue, load_asset_work, work);
+            Platform->add_work_queue_entry(Task_System->queue, load_asset_work, work);
             asset->state = AssetState_Queued;
         }
         else {

@@ -3,7 +3,7 @@
 
 PlatformApi* Platform = nullptr;
 Options* g_graphics_options = nullptr;
-TaskSystem* g_task_system = nullptr;
+TaskSystem* Task_System = nullptr;
 
 auto load(PlatformApi* in_platform) -> void {
     Platform = in_platform;
@@ -14,7 +14,7 @@ auto load(Options* options) -> void {
 }
 
 auto load(TaskSystem* task_system) -> void {
-    g_task_system = task_system;
+    Task_System = task_system;
 }
 
 auto begin_task(TaskSystem* task_system) -> TaskWithMemory* {
