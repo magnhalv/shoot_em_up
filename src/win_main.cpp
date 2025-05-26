@@ -1,26 +1,18 @@
-#include <string>
-#include <win_main.hpp>
-
-#include "platform/user_input.h"
-#include <intrin.h>
-
-#include <comdef.h>
-#include <cstdio>
+// TODO: Remove
 #include <iostream>
 
-#include <cstdlib>
-#include <cwchar>
-#include <fileapi.h>
+#include <intrin.h>
+#include <string>
+#include <windows.h>
+#include <xaudio2.h>
+
 #include <glad/gl.h>
 #include <glad/wgl.h>
 
-#include <cassert>
-#include <platform/platform.h>
 #include <platform/types.h>
-#include <sysinfoapi.h>
+#include <platform/user_input.h>
 
-#include <cstdint>
-#include <xaudio2.h>
+#include "win_main.hpp"
 
 ///////////////// FILE HANDLING /////////////////////////////
 
@@ -54,6 +46,7 @@ static PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(win32_get_all_files_of_type_begin) {
     WIN32_FIND_DATAW find_data;
     HANDLE find_handle = FindFirstFileW(wild_card, &find_data);
     while (find_handle != INVALID_HANDLE_VALUE) {
+        // Just doing this do get the correct file_count
         result.file_count++;
 
         if (!FindNextFileW(find_handle, &find_data)) {
@@ -65,6 +58,56 @@ static PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(win32_get_all_files_of_type_begin) {
     win32_file_group->find_handle = FindFirstFileW(wild_card, &win32_file_group->find_data);
 
     return result;
+}
+
+static PLATFORM_GET_ALL_FILES_OF_TYPE_END(win32_get_all_files_of_type_end) {
+    Win32_PlatformFileGroup* win32_file_group = (Win32_PlatformFileGroup*)file_group->platform;
+    if (win32_file_group) {
+        VirtualFree(file_group, 0, MEM_RELEASE);
+    }
+}
+
+static PLATFORM_OPEN_FILE(win32_open_next_file) {
+    Win32_PlatformFileGroup* win32_file_group = (Win32_PlatformFileGroup*)file_group->platform;
+    PlatformFileHandle result = {};
+
+    if (win32_file_group) {
+        // NOTE: We do not need to deallocate this, as we will keep the files open until the end of the program.
+        Win32_PlatformFileHandle* win32_handle = (Win32_PlatformFileHandle*)VirtualAlloc(
+            0, sizeof(Win32_PlatformFileHandle), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        result.platform = win32_handle;
+
+        if (win32_handle) {
+            wchar_t* file_name = win32_file_group->find_data.cFileName;
+            win32_handle->handle = CreateFileW(file_name, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+            result.no_errors = (win32_handle->handle != INVALID_HANDLE_VALUE);
+        }
+
+        if (!FindNextFileW(win32_file_group->find_handle, &win32_file_group->find_data)) {
+            FindClose(win32_file_group->find_handle);
+            win32_file_group->find_handle = INVALID_HANDLE_VALUE;
+        }
+    }
+    return result;
+}
+
+static PLATFORM_READ_FILE(win32_read_file) {
+    Win32_PlatformFileHandle* win32_handle = (Win32_PlatformFileHandle*)platform_file_handle->platform;
+
+    if (win32_handle != INVALID_HANDLE_VALUE) {
+        OVERLAPPED overlapped = {};
+        overlapped.Offset = (u32)((offset >> 0) & 0xFFFFFFFF);
+        overlapped.OffsetHigh = (u32)((offset >> 32) & 0xFFFFFFFF);
+
+        u32 file_size = safe_truncate_u64(size);
+
+        DWORD bytes_read;
+        if (ReadFile(win32_handle->handle, dest, file_size, &bytes_read, &overlapped) && file_size == bytes_read) {
+        }
+        else {
+            // TODO: Error handling
+        }
+    }
 }
 
 /////////////////////////// SOUND/OPENGL /////////////////////

@@ -7,6 +7,9 @@
 #define WGL_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
 #define WGL_CONTEXT_PROFILE_MASK_ARB 0x9126
 
+// For exit(1)
+#include <stdlib.h>
+
 #include "types.h"
 #include "user_input.h"
 
@@ -91,6 +94,26 @@ struct GLFunctions {
 
 const u32 Gl_Invalid_Id = 0;
 
+#define local_persist static
+#define global_variable extern
+
+#define Assert(expr)                                                                   \
+    if (!(expr)) {                                                                     \
+        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
+        exit(1);                                                                       \
+    }
+#define InvalidCodePath assert(!"InvalidCodePath")
+#define InvalidDefaultCase \
+    default: {             \
+        InvalidCodePath;   \
+    } break
+
+inline u32 safe_truncate_u64(u64 value) {
+    Assert(value <= 0xFFFFFFFF);
+    u32 result = (u32)value;
+    return result;
+}
+
 typedef struct {
     bool no_errors;
     void* platform;
@@ -125,7 +148,7 @@ typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END(platform_get_all_files_of_type_end);
 #define PLATFORM_OPEN_FILE(name) PlatformFileHandle name(PlatformFileGroup* file_group)
 typedef PLATFORM_OPEN_FILE(platform_open_next_file);
 
-#define PLATFORM_READ_FILE(name) bool name(PlatformFileHandle* handle, u64 offset, u64 size, void* dest)
+#define PLATFORM_READ_FILE(name) bool name(PlatformFileHandle* platform_file_handle, u64 offset, u64 size, void* dest)
 typedef PLATFORM_READ_FILE(platform_read_file);
 
 struct PlatformWorkQueue;
@@ -154,20 +177,6 @@ const u64 Permanent_Memory_Block_Size = MegaBytes(10);
 const u64 Transient_Memory_Block_Size = MegaBytes(10);
 const u64 Assets_Memory_Block_Size = MegaBytes(1);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Assets_Memory_Block_Size;
-
-#define local_persist static
-#define global_variable extern
-
-#define Assert(expr)                                                                   \
-    if (!(expr)) {                                                                     \
-        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
-        exit(1);                                                                       \
-    }
-#define InvalidCodePath assert(!"InvalidCodePath")
-#define InvalidDefaultCase \
-    default: {             \
-        InvalidCodePath;   \
-    } break
 
 struct EngineMemory {
     void* permanent = nullptr; // NOTE: Must be cleared to zero
