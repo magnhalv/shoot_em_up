@@ -151,7 +151,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
         im::initialize_imgui(state->font, &state->permanent);
 
-        state->assets = initialize_game_assets("assets.haf", &state->permanent);
+        state->assets = initialize_game_assets(&state->permanent);
 
         auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
         auto player = get_bitmap_meta(state->assets, bitmap_id);

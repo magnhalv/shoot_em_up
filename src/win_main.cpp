@@ -35,8 +35,8 @@ static PLATFORM_GET_ALL_FILES_OF_TYPE_BEGIN(win32_get_all_files_of_type_begin) {
     wchar_t wild_card[8] = L"*.*";
     switch (type) {
 
-    case PlatformFileType::AssetFile: {
-        wcscpy_s(wild_card, sizeof(wild_card), L"*.haf");
+    case PlatformFileType_AssetFile: {
+        wcscpy_s(wild_card, sizeof(wild_card) / sizeof(wchar_t), L"*.haf");
     } break;
         InvalidDefaultCase;
     }
@@ -80,7 +80,7 @@ static PLATFORM_OPEN_FILE(win32_open_next_file) {
         if (win32_handle) {
             wchar_t* file_name = win32_file_group->find_data.cFileName;
             win32_handle->handle = CreateFileW(file_name, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-            result.no_errors = (win32_handle->handle != INVALID_HANDLE_VALUE);
+            result.has_errors = (win32_handle->handle == INVALID_HANDLE_VALUE);
         }
 
         if (!FindNextFileW(win32_file_group->find_handle, &win32_file_group->find_data)) {
@@ -94,7 +94,7 @@ static PLATFORM_OPEN_FILE(win32_open_next_file) {
 static PLATFORM_READ_FILE(win32_read_file) {
     Win32_PlatformFileHandle* win32_handle = (Win32_PlatformFileHandle*)platform_file_handle->platform;
 
-    if (win32_handle != INVALID_HANDLE_VALUE) {
+    if (win32_handle->handle != INVALID_HANDLE_VALUE) {
         OVERLAPPED overlapped = {};
         overlapped.Offset = (u32)((offset >> 0) & 0xFFFFFFFF);
         overlapped.OffsetHigh = (u32)((offset >> 32) & 0xFFFFFFFF);
@@ -105,8 +105,11 @@ static PLATFORM_READ_FILE(win32_read_file) {
         if (ReadFile(win32_handle->handle, dest, file_size, &bytes_read, &overlapped) && file_size == bytes_read) {
         }
         else {
-            // TODO: Error handling
+            platform_file_handle->has_errors = true;
         }
+    }
+    else {
+        printf("Invalid handle value\n");
     }
 }
 
@@ -1220,6 +1223,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     platform.get_file_size = &win32_file_size;
     platform.debug_read_file = &win32_read_text_file;
     platform.write_file = &win32_write_file;
+
+    platform.get_all_files_of_type_begin = &win32_get_all_files_of_type_begin;
+    platform.get_all_files_of_type_end = &win32_get_all_files_of_type_end;
+    platform.read_file = &win32_read_file;
+    platform.open_next_file = &win32_open_next_file;
 
     platform.add_work_queue_entry = &win32_add_entry;
     platform.complete_all_work = &win32_complete_all_work;

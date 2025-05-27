@@ -39,18 +39,24 @@ struct Asset {
     AssetMemoryHeader* asset_memory;
 };
 
+inline constexpr u32 ASSET_FILES_MAX_COUNT = 1;
+
 struct GameAssets {
+    bool is_initialized;
     HuginAssetType asset_types[Asset_Count];
 
     u32 asset_count;
     AssetMeta* assets_meta;
     Asset* assets;
+
+    u32 asset_files_count;
+    PlatformFileHandle asset_files[ASSET_FILES_MAX_COUNT];
 };
 
 auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> HuginBitmap;
 auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap*;
 auto load_bitmap(GameAssets* game_assets, BitmapId id, MemoryArena* arena) -> void;
-auto initialize_game_assets(const char* file_name, MemoryArena* arena) -> GameAssets*;
+auto initialize_game_assets(MemoryArena* arena) -> GameAssets*;
 
 auto get_first_bitmap_from(GameAssets* game_assets, AssetTypeId asset_type_id) -> BitmapId;
 auto get_first_bitmap_meta(GameAssets* game_assets, AssetTypeId asset_type_id) -> HuginBitmap;

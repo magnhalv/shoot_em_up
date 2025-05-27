@@ -1,5 +1,4 @@
-#ifndef HOT_RELOAD_OPENGL_PLATFORM_H
-#define HOT_RELOAD_OPENGL_PLATFORM_H
+#pragma once
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB 0x2092
@@ -115,7 +114,7 @@ inline u32 safe_truncate_u64(u64 value) {
 }
 
 typedef struct {
-    bool no_errors;
+    bool has_errors;
     void* platform;
 } PlatformFileHandle;
 
@@ -124,7 +123,7 @@ typedef struct {
     void* platform;
 } PlatformFileGroup;
 
-enum class PlatformFileType : u32 { AssetFile, Count };
+enum PlatformFileType : u32 { PlatformFileType_AssetFile, PlatformFileType_Count };
 
 // Platform API
 #define PLATFORM_GET_FILE_LAST_MODIFIED(name) u64 name(const char* file_path)
@@ -148,7 +147,7 @@ typedef PLATFORM_GET_ALL_FILES_OF_TYPE_END(platform_get_all_files_of_type_end);
 #define PLATFORM_OPEN_FILE(name) PlatformFileHandle name(PlatformFileGroup* file_group)
 typedef PLATFORM_OPEN_FILE(platform_open_next_file);
 
-#define PLATFORM_READ_FILE(name) bool name(PlatformFileHandle* platform_file_handle, u64 offset, u64 size, void* dest)
+#define PLATFORM_READ_FILE(name) void name(PlatformFileHandle* platform_file_handle, u64 offset, u64 size, void* dest)
 typedef PLATFORM_READ_FILE(platform_read_file);
 
 struct PlatformWorkQueue;
@@ -209,5 +208,3 @@ struct SoundBuffer {
 typedef void(__cdecl* UPDATE_AND_RENDER_PROC)(EngineMemory*, EngineInput*);
 typedef void(__cdecl* LOAD_PROC)(GLFunctions*, PlatformApi*, EngineMemory*);
 typedef SoundBuffer(__cdecl* GET_SOUND_SAMPLES_PROC)(EngineMemory* memory, i32 num_samples);
-
-#endif // HOT_RELOAD_OPENGL_PLATFORM_H
