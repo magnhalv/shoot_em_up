@@ -8,6 +8,70 @@
 
 #include <math/vec2.h>
 
+// Start external file format
+struct WavRiffChunk {
+    char identifier[4];
+    u32 file_size;
+    char file_format_id[4];
+};
+
+struct WavSubchunkDesc {
+    char chunk_id[4];
+    u32 chunk_size;
+};
+
+struct WavFormatChunk {
+    char format_block_id[4];
+    u32 block_size;
+    u16 audio_format;
+    u16 channel_count;
+    u32 frequency;
+    u32 bytes_per_sec;
+    u16 sample_byte_count;
+    u16 bits_per_sample;
+
+    auto print() -> void {
+    }
+};
+
+struct WavDataChunk {
+    char data_block_id[4];
+    u32 data_size;
+};
+
+struct WavFile {
+    WavRiffChunk riff_chunk;
+    WavFormatChunk fmt_chunk;
+    WavDataChunk data_chunk;
+    u8* data;
+};
+
+auto inline print(WavFile* file) -> void {
+    printf("Header: %.4s\n", file->riff_chunk.identifier);
+    printf("File Size: %u\n", file->riff_chunk.file_size);
+    printf("File format id: %.4s\n", file->riff_chunk.file_format_id);
+    printf("--------------\n");
+    printf("Format block id: %.4s\n", file->fmt_chunk.format_block_id);
+    printf("Block size: %u\n", file->fmt_chunk.block_size);
+    printf("Audio format: %u\n", file->fmt_chunk.audio_format);
+    printf("Num channels: %u\n", file->fmt_chunk.channel_count);
+    printf("Frequency: %u\n", file->fmt_chunk.frequency);
+    printf("Bytes per sec: %u\n", file->fmt_chunk.bytes_per_sec);
+    printf("Bytes per block: %u\n", file->fmt_chunk.sample_byte_count);
+    printf("Bits per sample: %u\n", file->fmt_chunk.bits_per_sample);
+    printf("Data block id: %.4s\n", file->data_chunk.data_block_id);
+    printf("Data size: %u\n", file->data_chunk.data_size);
+}
+// end
+
+struct WavResult {
+    i32 frequency;
+    i32 channel_count;
+    i32 bits_per_samle;
+
+    void* data;
+};
+
 struct Bitmap {
     i32 width;
     i32 height;
@@ -42,6 +106,37 @@ auto load_bitmap_stbi(const char* path) -> Bitmap {
     return result;
 }
 
+auto load_wav_file(const char* path) -> WavFile {
+    FILE* file = fopen(path, "rb");
+
+    WavFile wav_file;
+
+    fread(&wav_file.riff_chunk, sizeof(WavRiffChunk), 1, file);
+
+    while (!feof(file)) {
+        // TODO: memcopy the data into a WavFile struct, without pointers, so we can release the extra memory.
+        WavSubchunkDesc desc;
+        u64 curr_pos = ftell(file);
+        fread(&desc, sizeof(WavSubchunkDesc), 1, file);
+        fseek(file, curr_pos, SEEK_SET);
+
+        if (std::memcmp("fmt", desc.chunk_id, 3) == 0) {
+            fread(&wav_file.fmt_chunk, sizeof(WavFormatChunk), 1, file);
+        }
+        else if (std::memcmp("data", desc.chunk_id, 4) == 0) {
+            fread(&wav_file.data_chunk, sizeof(WavDataChunk), 1, file);
+            wav_file.data = (u8*)malloc(wav_file.data_chunk.data_size);
+            fread(wav_file.data, wav_file.data_chunk.data_size, 1, file);
+        }
+        else {
+            fseek(file, sizeof(WavSubchunkDesc), SEEK_CUR);
+        }
+    }
+
+    print(&wav_file);
+    return wav_file;
+}
+
 static void begin_asset_type(GameAssetsWrite* assets, AssetTypeId type_id) {
     Assert(assets->current_asset_type == NULL);
 
@@ -74,8 +169,8 @@ static auto add_asset(GameAssetsWrite* assets) -> AddedAsset {
     return result;
 }
 
-static auto add_bitmap_asset(
-    GameAssetsWrite* assets, const char* file_name, f32 align_percentage_x = 0.5f, f32 align_percentage_y = 0.5f) {
+static auto add_bitmap_asset(GameAssetsWrite* assets, const char* file_name, f32 align_percentage_x = 0.5f,
+    f32 align_percentage_y = 0.5f) -> BitmapId {
     AddedAsset asset = add_asset(assets);
     asset.hugin_asset->bitmap.align_percentage.x = align_percentage_x;
     asset.hugin_asset->bitmap.align_percentage.y = align_percentage_y;
@@ -83,6 +178,15 @@ static auto add_bitmap_asset(
     asset.source->bitmap.file_name = file_name;
 
     return BitmapId{ asset.id };
+}
+
+static auto add_audio_asset(GameAssetsWrite* assets, const char* file_name) -> AudioId {
+    AddedAsset asset = add_asset(assets);
+    asset.source->type = AssetType_Audio;
+    asset.source->sound.file_name = file_name;
+    asset.source->sound.first_sample_index = 0;
+
+    return AudioId{ asset.id };
 }
 
 static auto end_asset_type(GameAssetsWrite* assets) -> void {
@@ -141,6 +245,17 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 
                 free(bitmap.data);
             }
+            else if (source->type == AssetType_Audio) {
+                WavFile wav_file = load_wav_file(source->sound.file_name);
+                auto sample_count = wav_file.data_chunk.data_size / (wav_file.fmt_chunk.sample_byte_count);
+                dest->audio.sample_count = sample_count;
+                dest->audio.channel_count = wav_file.fmt_chunk.channel_count;
+                dest->audio.chain = 0;
+
+                fwrite(wav_file.data, sizeof(u8) * wav_file.data_chunk.data_size, 1, out);
+
+                free(wav_file.data);
+            }
         }
 
         fseek(out, (u32)header.assets, SEEK_SET);
@@ -150,7 +265,7 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 }
 
 /////// Write assets ////////////////
-static auto write_spaceships() -> void {
+static auto write_bitmaps() -> void {
     GameAssetsWrite assets_ = { 0 };
     GameAssetsWrite* assets = &assets_;
 
@@ -168,9 +283,24 @@ static auto write_spaceships() -> void {
     add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
     end_asset_type(assets);
 
-    write_asset_file(assets, "assets.haf");
-    // TODO: Write assets file
+    write_asset_file(assets, "bitmaps.haf");
 }
+
+static auto write_audio() -> void {
+    GameAssetsWrite assets_ = { 0 };
+    GameAssetsWrite* assets = &assets_;
+
+    initialize(assets);
+
+    begin_asset_type(assets, Asset_Laser);
+    add_audio_asset(assets, "assets/audio/laser_primary.wav");
+    end_asset_type(assets);
+
+    write_asset_file(assets, "audio.haf");
+}
+
 int main() {
-    write_spaceships();
+    // Write to separate files, in order to test supporting multiple asset files.
+    write_bitmaps();
+    write_audio();
 }

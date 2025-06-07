@@ -14,8 +14,9 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 ## TODO 
 
 * Load assets as background tasks
-    * Load asset from asset file in a background task
-    * Add platform function for reading file and opening File handles
+    * Load asset from asset file in a background task (Done)
+    * Add platform function for reading file and opening File handles (Done)
+    * Load sound from asset file
     * When hot reloading, wait for all current tasks to be completed.
 * Make enemies shoot
 * Make enemies move

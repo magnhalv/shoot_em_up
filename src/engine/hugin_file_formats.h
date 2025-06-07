@@ -10,6 +10,10 @@ struct BitmapId {
     u32 value;
 };
 
+struct AudioId {
+    u32 value;
+};
+
 struct SoundId {
     u32 value;
 };
@@ -17,20 +21,20 @@ struct SoundId {
 
 enum AssetTypeId : u32 {
     Asset_None = 0,
+
+    // Bitmaps
     Asset_PlayerSpaceShip,
     Asset_EnemySpaceShip,
     Asset_Projectile,
 
+    // Audio
+    Asset_Laser,
+    Asset_Explosion,
+
     Asset_Count
 };
 
-enum AssetType { AssetType_Sound = 0, AssetType_Bitmap };
-
-struct HuginSound {
-    u32 sample_count;
-    u32 channel_count;
-    u32 chain;
-};
+enum AssetType { AssetType_Invalid = 0, AssetType_Audio, AssetType_Bitmap };
 
 struct HuginAssetType {
     u32 type_id;
@@ -43,7 +47,7 @@ struct AssetSourceBitmap {
 };
 
 struct AssetSourceSound {
-    char* file_name;
+    const char* file_name;
     u32 first_sample_index;
 };
 
@@ -60,11 +64,17 @@ struct HuginBitmap {
     vec2 align_percentage;
 };
 
+struct HuginAudio {
+    u32 sample_count;
+    u32 channel_count;
+    u32 chain;
+};
+
 struct AssetMeta {
     u64 data_offset;
     union {
         HuginBitmap bitmap;
-        HuginSound sound;
+        HuginAudio audio;
     };
 };
 
