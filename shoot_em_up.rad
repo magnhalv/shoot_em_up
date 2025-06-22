@@ -1,11 +1,12 @@
 // raddbg 0.9.17 project file
 
 recent_file: path: "src/engine/assets.cpp"
+recent_file: path: "src/engine/memory_arena.cpp"
+recent_file: path: "src/asset_builder_main.cpp"
 recent_file: path: "src/win_main.cpp"
 recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/rtc/error.cpp"
 recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/rtc/stack.cpp"
 recent_file: path: "src/engine/engine.cpp"
-recent_file: path: "src/engine/memory_arena.cpp"
 recent_file: path: "src/engine/assets.h"
 target:
 {
@@ -13,13 +14,19 @@ target:
   working_directory: data
   enabled: 1
 }
+target:
+{
+  executable: "cmake-build/asset_builder.exe"
+  working_directory: "data/"
+  enabled: 0
+}
 breakpoint:
 {
-  source_location: "src/engine/assets.cpp:123:1"
+  source_location: "src/asset_builder_main.cpp:304:1"
   hit_count: 0
 }
 breakpoint:
 {
-  source_location: "src/engine/assets.cpp:121:1"
+  source_location: "src/engine/assets.cpp:34:1"
   hit_count: 1
 }

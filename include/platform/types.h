@@ -18,6 +18,8 @@ using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 
+using memory_index = size_t;
+
 const u64 us_in_second = 1000000;
 const u64 ms_in_second = 1000;
 

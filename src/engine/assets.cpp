@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <cstdlib>
 
 #include <platform/platform.h>
@@ -76,7 +77,7 @@ auto load_bitmap(GameAssets* game_assets, BitmapId id, MemoryArena* permanent) -
             work->asset = asset;
             work->task = task;
             Assert(game_assets->asset_files[0].platform != nullptr);
-            work->handle = game_assets->asset_files[0];
+            work->handle = game_assets->asset_files[asset->asset_file_index];
             assert(Platform->add_work_queue_entry != nullptr);
             Platform->add_work_queue_entry(Task_System->queue, load_asset_work, work);
             asset->state = AssetState_Queued;
@@ -93,44 +94,81 @@ auto initialize_game_assets(MemoryArena* arena) -> GameAssets* {
     PlatformFileGroup file_group = Platform->get_all_files_of_type_begin(PlatformFileType_AssetFile);
     assert(file_group.file_count <= ASSET_FILES_MAX_COUNT);
 
+    i32 asset_count = 1;
+    i32 asset_group_count = 1;
+
+    HafHeader headers[ASSET_FILES_MAX_COUNT];
     for (auto i = 0; i < file_group.file_count; i++) {
-        HafHeader header = { 0 };
-        HafHeader* ptr = &header;
+        HafHeader* header = headers + i;
 
         PlatformFileHandle file_handle = Platform->open_next_file(&file_group);
 
-        Platform->read_file(&file_handle, 0, sizeof(HafHeader), ptr);
+        Platform->read_file(&file_handle, 0, sizeof(HafHeader), header);
 
-        if (header.magic_value != HAF_MAGIC_VALUE) {
+        if (header->magic_value != HAF_MAGIC_VALUE) {
             InvalidCodePath;
         }
 
-        if (header.version != HAF_VERSION) {
+        if (header->version != HAF_VERSION) {
             InvalidCodePath;
         }
-        u32 asset_count = header.asset_count;
-        u32 asset_type_count = header.asset_type_count;
-
-        Platform->read_file(&file_handle, header.asset_types, asset_type_count * sizeof(HuginAssetType), game_assets->asset_types);
-        Assert(game_assets->asset_types[1].type_id == Asset_PlayerSpaceShip);
-
-        game_assets->asset_count = asset_count;
-        game_assets->assets_meta = allocate<AssetMeta>(arena, asset_count);
-        game_assets->assets = allocate<Asset>(arena, asset_count);
-        Platform->read_file(&file_handle, header.assets, asset_count * sizeof(AssetMeta), game_assets->assets_meta);
+        asset_count += header->asset_count - 1;
+        asset_group_count += header->asset_group_count - 1;
 
         game_assets->asset_files[game_assets->asset_files_count++] = file_handle;
     }
     Platform->get_all_files_of_type_end(&file_group);
 
+    game_assets->assets_meta = allocate<AssetMeta>(arena, asset_count);
+    game_assets->assets = allocate<Asset>(arena, asset_count);
+
+    game_assets->asset_groups[Asset_None].first_asset_index = 0;
+    game_assets->asset_groups[Asset_None].one_past_last_asset_index = 1;
+    game_assets->asset_groups[Asset_None].type_id = Asset_None;
+
+    ZeroStruct(*(game_assets->assets + game_assets->asset_count));
+    ZeroStruct(*(game_assets->assets_meta + game_assets->asset_count));
+    game_assets->asset_count++;
+
+    for (auto file_idx = 0; file_idx < game_assets->asset_files_count; file_idx++) {
+        HafHeader* header = headers + file_idx;
+        PlatformFileHandle* file_handle = &game_assets->asset_files[file_idx];
+
+        AssetMeta* assets_meta = allocate<AssetMeta>(g_transient, header->asset_count);
+        AssetGroup* asset_groups = allocate<AssetGroup>(g_transient, header->asset_group_count);
+        Platform->read_file(file_handle, header->assets_block, header->asset_count * sizeof(AssetMeta), assets_meta);
+        Platform->read_file(file_handle, header->asset_groups_block, header->asset_group_count * sizeof(AssetGroup), asset_groups);
+
+        for (auto group_idx = 1; group_idx < header->asset_group_count; group_idx++) {
+            AssetGroup* group = asset_groups + group_idx;
+            // If this file has any assets for this group
+            if (group->first_asset_index != 0) {
+                AssetMeta* meta = assets_meta + group->first_asset_index;
+                // NOTE: Until we support tags
+                {
+                    auto asset_index = game_assets->asset_count++;
+                    Assert(group->first_asset_index == group->one_past_last_asset_index - 1);
+                    game_assets->asset_groups[group->type_id].type_id = group->type_id;
+                    game_assets->asset_groups[group->type_id].first_asset_index = asset_index;
+                    game_assets->asset_groups[group->type_id].one_past_last_asset_index = asset_index + 1;
+
+                    game_assets->assets_meta[asset_index] = *meta;
+                    game_assets->assets[asset_index].asset_file_index = file_idx;
+                }
+            }
+        }
+    }
+
+    Assert(game_assets->asset_count == asset_count);
+
     game_assets->is_initialized = true;
     return game_assets;
 }
 
-auto get_first_bitmap_from(GameAssets* game_assets, AssetTypeId asset_type_id) -> BitmapId {
+auto get_first_bitmap_from(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId {
     u32 result = 0;
 
-    HuginAssetType* type = game_assets->asset_types + asset_type_id;
+    AssetGroup* type = game_assets->asset_groups + asset_group_id;
     if (type->first_asset_index != type->one_past_last_asset_index) {
         result = type->first_asset_index;
     }
@@ -138,10 +176,10 @@ auto get_first_bitmap_from(GameAssets* game_assets, AssetTypeId asset_type_id) -
     return BitmapId{ result };
 }
 
-auto get_first_bitmap_meta(GameAssets* game_assets, AssetTypeId asset_type_id) -> HuginBitmap {
+auto get_first_bitmap_meta(GameAssets* game_assets, AssetGroupId asset_group_id) -> HuginBitmap {
     u32 id = 0;
 
-    HuginAssetType* type = game_assets->asset_types + asset_type_id;
+    AssetGroup* type = game_assets->asset_groups + asset_group_id;
     if (type->first_asset_index != type->one_past_last_asset_index) {
         id = type->first_asset_index;
     }

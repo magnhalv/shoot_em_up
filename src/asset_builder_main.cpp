@@ -8,6 +8,37 @@
 
 #include <math/vec2.h>
 
+// Temp structures used for writing
+struct AssetSourceBitmap {
+    const char* file_name;
+};
+
+struct AssetSourceSound {
+    const char* file_name;
+    u32 first_sample_index;
+};
+
+struct AssetSource {
+    AssetType type;
+    union {
+        AssetSourceBitmap bitmap;
+        AssetSourceSound sound;
+    };
+};
+
+const u32 MAX_ASSETS_COUNT = 4096;
+struct GameAssetsWrite {
+    u32 asset_group_count;
+    AssetGroup asset_groups[AssetGroup_Count];
+
+    u32 asset_count;
+    AssetSource asset_sources[MAX_ASSETS_COUNT];
+    AssetMeta assets[MAX_ASSETS_COUNT];
+
+    AssetGroup* current_asset_group;
+    u32 asset_index;
+};
+
 // Start external file format
 struct WavRiffChunk {
     char identifier[4];
@@ -137,13 +168,13 @@ auto load_wav_file(const char* path) -> WavFile {
     return wav_file;
 }
 
-static void begin_asset_type(GameAssetsWrite* assets, AssetTypeId type_id) {
-    Assert(assets->current_asset_type == NULL);
+static void begin_asset_type(GameAssetsWrite* assets, AssetGroupId type_id) {
+    Assert(assets->current_asset_group == NULL);
 
-    assets->current_asset_type = assets->asset_types + type_id;
-    assets->current_asset_type->type_id = type_id;
-    assets->current_asset_type->first_asset_index = assets->asset_count;
-    assets->current_asset_type->one_past_last_asset_index = assets->current_asset_type->first_asset_index;
+    assets->current_asset_group = assets->asset_groups + type_id;
+    assets->current_asset_group->type_id = type_id;
+    assets->current_asset_group->first_asset_index = assets->asset_count;
+    assets->current_asset_group->one_past_last_asset_index = assets->current_asset_group->first_asset_index;
 }
 
 struct AddedAsset {
@@ -153,10 +184,10 @@ struct AddedAsset {
 };
 
 static auto add_asset(GameAssetsWrite* assets) -> AddedAsset {
-    Assert(assets->current_asset_type);
-    Assert(assets->current_asset_type->one_past_last_asset_index < ArrayCount(assets->assets));
+    Assert(assets->current_asset_group);
+    Assert(assets->current_asset_group->one_past_last_asset_index < ArrayCount(assets->assets));
 
-    u32 index = assets->current_asset_type->one_past_last_asset_index++;
+    u32 index = assets->current_asset_group->one_past_last_asset_index++;
 
     AssetSource* source = assets->asset_sources + index;
     AssetMeta* ha = assets->assets + index;
@@ -190,19 +221,19 @@ static auto add_audio_asset(GameAssetsWrite* assets, const char* file_name) -> A
 }
 
 static auto end_asset_type(GameAssetsWrite* assets) -> void {
-    Assert(assets->current_asset_type);
-    assets->asset_count = assets->current_asset_type->one_past_last_asset_index;
-    assets->current_asset_type = 0;
+    Assert(assets->current_asset_group);
+    assets->asset_count = assets->current_asset_group->one_past_last_asset_index;
+    assets->current_asset_group = 0;
     assets->asset_index = 0;
 }
 
 static auto initialize(GameAssetsWrite* assets) -> void {
     assets->asset_count = 1;
-    assets->current_asset_type = 0;
+    assets->current_asset_group = 0;
     assets->asset_index = 0;
 
-    assets->num_asset_types = Asset_Count;
-    memset(assets->asset_types, 0, sizeof(assets->asset_types));
+    assets->asset_group_count = AssetGroup_Count;
+    memset(assets->asset_groups, 0, sizeof(assets->asset_groups));
 }
 
 static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> void {
@@ -216,17 +247,17 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
         HafHeader header = {};
         header.magic_value = HAF_MAGIC_VALUE;
         header.version = HAF_VERSION;
-        header.asset_type_count = Asset_Count;
+        header.asset_group_count = assets->asset_group_count;
         header.asset_count = assets->asset_count;
 
-        u32 asset_type_array_size = header.asset_type_count * sizeof(HuginAssetType);
+        u32 asset_group_array_size = header.asset_group_count * sizeof(AssetGroup);
         u32 asset_array_size = header.asset_count * sizeof(AssetMeta);
 
-        header.asset_types = sizeof(HafHeader);
-        header.assets = header.asset_types + asset_type_array_size;
+        header.asset_groups_block = sizeof(HafHeader);
+        header.assets_block = header.asset_groups_block + asset_group_array_size;
 
         fwrite(&header, sizeof(header), 1, out);
-        fwrite(&assets->asset_types, asset_type_array_size, 1, out);
+        fwrite(&assets->asset_groups, asset_group_array_size, 1, out);
         fseek(out, asset_array_size, SEEK_CUR);
         for (u32 asset_idx = 1; asset_idx < header.asset_count; asset_idx++) {
             AssetSource* source = assets->asset_sources + asset_idx;
@@ -235,7 +266,6 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
             dest->data_offset = ftell(out);
 
             if (source->type == AssetType_Bitmap) {
-                // TODO: Do not use loaded bitmap here
                 Bitmap bitmap = load_bitmap_stbi(source->bitmap.file_name);
                 dest->bitmap.dim[0] = bitmap.width;
                 dest->bitmap.dim[1] = bitmap.height;
@@ -258,7 +288,7 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
             }
         }
 
-        fseek(out, (u32)header.assets, SEEK_SET);
+        fseek(out, (u32)header.assets_block, SEEK_SET);
         fwrite(assets->assets, asset_array_size, 1, out);
     }
     fclose(out);
