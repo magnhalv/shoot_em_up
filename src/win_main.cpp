@@ -1199,17 +1199,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     EngineInput app_input = {};
     EngineFunctions app_functions = {};
 
-    RAWINPUTDEVICE mouse;
-    mouse.usUsagePage = 0x01;       // HID_USAGE_PAGE_GENERIC
-    mouse.usUsage = 0x02;           // HID_USAGE_GENERIC_MOUSE
-    mouse.dwFlags = RIDEV_NOLEGACY; // adds mouse and also ignores legacy mouse messages, which hides the cursor
-    mouse.hwndTarget = hwnd;
-    ShowCursor(FALSE);
-
-    if (RegisterRawInputDevices(&mouse, 1, sizeof(mouse)) == FALSE) {
-        printf("Unable to register raw input device\n");
-        exit(1);
-    }
+    /*RAWINPUTDEVICE mouse;*/
+    /*mouse.usUsagePage = 0x01;       // HID_USAGE_PAGE_GENERIC*/
+    /*mouse.usUsage = 0x02;           // HID_USAGE_GENERIC_MOUSE*/
+    /*mouse.dwFlags = RIDEV_NOLEGACY; // adds mouse and also ignores legacy mouse messages, which hides the cursor*/
+    /*mouse.hwndTarget = hwnd;*/
+    /*ShowCursor(FALSE);*/
+    /**/
+    /*if (RegisterRawInputDevices(&mouse, 1, sizeof(mouse)) == FALSE) {*/
+    /*    printf("Unable to register raw input device\n");*/
+    /*    exit(1);*/
+    /*}*/
 
     UserInput inputs[2] = {};
     u32 curr_input_idx = 0;

@@ -246,7 +246,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
             AudioId audio_id = get_first_audio(state->assets, Asset_Laser);
             play_audio(&state->audio, audio_id);
 
-            // play_sound(SoundType::Laser, state->audio);
             auto proj_meta = get_first_bitmap_meta(state->assets, Asset_Projectile);
             auto pos = state->player.P;
             pos.y = pos.y + state->player.dim.y;
@@ -414,13 +413,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
             }
 
             const auto& player = state->player;
-            auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
-            render_bm->quad = rect_to_quadrilateral(player.P, player.dim);
-            render_bm->local_origin = 0.5 * player.dim;
-            render_bm->offset = player.P;
-            render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));
-            render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));
-            render_bm->bitmap_handle = player_bitmap->texture_handle;
+            /*auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);*/
+            /*render_bm->quad = rect_to_quadrilateral(player.P, player.dim);*/
+            /*render_bm->local_origin = 0.5 * player.dim;*/
+            /*render_bm->offset = player.P;*/
+            /*render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));*/
+            /*render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));*/
+            /*render_bm->bitmap_handle = player_bitmap->texture_handle;*/
         }
     }
 
