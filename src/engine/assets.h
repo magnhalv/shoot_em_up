@@ -8,6 +8,7 @@
 #include <engine/memory_arena.h>
 
 const u32 BitmapBytePerPixel = 4;
+const u32 BytesPerAudioSample = 2;
 
 struct LoadedBitmap {
     i32 width;
@@ -21,6 +22,14 @@ struct LoadedBitmap {
     void* data;
 };
 
+struct LoadedAudio {
+    u32 sample_count;
+    u32 channel_count;
+    u32 chain;
+
+    void* data;
+};
+
 enum AssetState {
     AssetState_Unloaded = 0,
     AssetState_Queued,
@@ -31,6 +40,7 @@ struct AssetMemoryHeader {
     AssetType asset_type;
     union {
         LoadedBitmap bitmap;
+        LoadedAudio audio;
     };
 };
 
@@ -52,12 +62,19 @@ struct GameAssets {
 
     u32 asset_files_count;
     PlatformFileHandle asset_files[ASSET_FILES_MAX_COUNT];
+
+    MemoryArena* memory;
 };
+
+auto initialize_game_assets(MemoryArena* arena) -> GameAssets*;
 
 auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> HuginBitmap;
 auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap*;
-auto load_bitmap(GameAssets* game_assets, BitmapId id, MemoryArena* arena) -> void;
-auto initialize_game_assets(MemoryArena* arena) -> GameAssets*;
+auto get_audio(GameAssets* game_assets, AudioId id) -> LoadedAudio*;
 
-auto get_first_bitmap_from(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId;
+auto load_bitmap(GameAssets* game_assets, BitmapId id) -> void;
+auto load_audio(GameAssets* game_assets, AudioId id) -> void;
+
+auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId;
 auto get_first_bitmap_meta(GameAssets* game_assets, AssetGroupId asset_group_id) -> HuginBitmap;
+auto get_first_audio(GameAssets* game_assets, AssetGroupId asset_group_id) -> AudioId;

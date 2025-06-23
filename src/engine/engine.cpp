@@ -62,7 +62,8 @@ inline f32 rotate_y(f32 x, f32 y, f32 degree) {
 
 auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
     auto* engine = (EngineState*)memory->permanent;
-    auto& audio = engine->audio;
+    auto* audio = &engine->audio;
+    auto* game_assets = engine->assets;
     HM_ASSERT(num_samples >= 0);
     SoundBuffer buffer;
     buffer.tone_hz = 220;
@@ -75,18 +76,39 @@ auto get_sound_samples(EngineMemory* memory, i32 num_samples) -> SoundBuffer {
         buffer.samples[i] = 0;
     }
 
-    for (auto& playing_sound : audio.playing_sounds) {
-
-        uint32_t target_buf_idx = 0;
-        auto src_buffer = playing_sound.sound->samples;
-        auto start_src_idx = playing_sound.curr_sample;
-        auto end_src_idx = playing_sound.sound->samples.size();
-        end_src_idx = hm::min(start_src_idx + buffer.num_samples, playing_sound.sound->samples.size());
-        while (start_src_idx < end_src_idx) {
-            // NOTE: We need to handle this better when we get more sounds
-            buffer.samples[target_buf_idx++] += (src_buffer[start_src_idx++] / 4);
+    for (auto& ps : audio->playing_sounds) {
+        if (ps.audio == nullptr) {
+            LoadedAudio* audio = get_audio(game_assets, ps.id);
+            if (audio) {
+                ps.audio = audio;
+            }
+            else {
+                load_audio(game_assets, ps.id);
+            }
         }
-        playing_sound.curr_sample = end_src_idx;
+    }
+
+    for (auto& ps : audio->playing_sounds) {
+        if (ps.audio != nullptr) {
+            uint32_t target_buf_idx = 0;
+            i16* src_buffer = (i16*)ps.audio->data;
+            auto start_src_idx = ps.curr_sample;
+            auto end_src_idx = ps.audio->sample_count;
+            end_src_idx = hm::min(start_src_idx + buffer.num_samples, ps.audio->sample_count);
+            while (start_src_idx < end_src_idx) {
+                // NOTE: We need to handle this better when we get more sounds
+                buffer.samples[target_buf_idx++] += (src_buffer[start_src_idx++] / 4);
+            }
+
+            /*i16 max = 0;*/
+            /*for (auto i = 0; i < target_buf_idx; i++) {*/
+            /*    if (max < buffer.samples[i]) {*/
+            /*        max = buffer.samples[i];*/
+            /*    }*/
+            /*}*/
+            /*printf("%d\n", max);*/
+            ps.curr_sample = end_src_idx;
+        }
     }
 
     return buffer;
@@ -153,7 +175,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
         state->assets = initialize_game_assets(&state->permanent);
 
-        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
+        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
         auto player = get_bitmap_meta(state->assets, bitmap_id);
         state->player.dim = vec2(player.dim[0], player.dim[1]);
         state->player.P = vec2(100, 100);
@@ -172,7 +194,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         // state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
         // state->explosions.init(state->permanent, 30);
 
-        init_audio_system(state->audio, state->permanent);
+        init_audio_system(&state->audio, &state->permanent);
 
         state->is_initialized = true;
         log_info("Initializing complete");
@@ -180,7 +202,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     // TODO: Gotta set this on hot reload
     clear_transient();
-    remove_finished_sounds(state->audio);
+    remove_finished_sounds(&state->audio);
 
     // endregion
 
@@ -220,7 +242,11 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         }
 
         if (input.space.is_pressed_this_frame()) {
-            play_sound(SoundType::Laser, state->audio);
+
+            AudioId audio_id = get_first_audio(state->assets, Asset_Laser);
+            play_audio(&state->audio, audio_id);
+
+            // play_sound(SoundType::Laser, state->audio);
             auto proj_meta = get_first_bitmap_meta(state->assets, Asset_Projectile);
             auto pos = state->player.P;
             pos.y = pos.y + state->player.dim.y;
@@ -380,9 +406,8 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
     {
-        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_PlayerSpaceShip);
-        load_bitmap(state->assets, bitmap_id, &state->permanent);
-        auto player_bitmap = get_bitmap(state->assets, bitmap_id);
+        auto player_bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
+        auto player_bitmap = get_bitmap(state->assets, player_bitmap_id);
         if (player_bitmap) {
             if (player_bitmap->texture_handle == 0) {
                 player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
@@ -401,8 +426,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
     for (auto& enemy : state->enemy_chargers) {
 
-        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_EnemySpaceShip);
-        load_bitmap(state->assets, bitmap_id, &state->permanent);
+        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_EnemySpaceShip);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
@@ -419,8 +443,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     }
 
     for (auto& proj : state->player_projectiles) {
-        auto bitmap_id = get_first_bitmap_from(state->assets, Asset_Projectile);
-        load_bitmap(state->assets, bitmap_id, &state->permanent);
+        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_Projectile);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {

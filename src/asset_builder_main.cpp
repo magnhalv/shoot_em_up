@@ -4,6 +4,7 @@
 #include <platform/platform.h>
 #include <platform/types.h>
 
+#include <engine/assets.h>
 #include <engine/hugin_file_formats.h>
 
 #include <math/vec2.h>
@@ -98,7 +99,7 @@ auto inline print(WavFile* file) -> void {
 struct WavResult {
     i32 frequency;
     i32 channel_count;
-    i32 bits_per_samle;
+    i32 bits_per_sample;
 
     void* data;
 };
@@ -140,13 +141,13 @@ auto load_bitmap_stbi(const char* path) -> Bitmap {
 auto load_wav_file(const char* path) -> WavFile {
     FILE* file = fopen(path, "rb");
 
-    WavFile wav_file;
+    WavFile wav_file = {};
 
     fread(&wav_file.riff_chunk, sizeof(WavRiffChunk), 1, file);
 
     while (!feof(file)) {
         // TODO: memcopy the data into a WavFile struct, without pointers, so we can release the extra memory.
-        WavSubchunkDesc desc;
+        WavSubchunkDesc desc = { 0 };
         u64 curr_pos = ftell(file);
         fread(&desc, sizeof(WavSubchunkDesc), 1, file);
         fseek(file, curr_pos, SEEK_SET);
@@ -154,17 +155,18 @@ auto load_wav_file(const char* path) -> WavFile {
         if (std::memcmp("fmt", desc.chunk_id, 3) == 0) {
             fread(&wav_file.fmt_chunk, sizeof(WavFormatChunk), 1, file);
         }
-        else if (std::memcmp("data", desc.chunk_id, 4) == 0) {
+        else if (std::memcmp("data", desc.chunk_id, 4) == 0 && wav_file.data == nullptr) {
             fread(&wav_file.data_chunk, sizeof(WavDataChunk), 1, file);
             wav_file.data = (u8*)malloc(wav_file.data_chunk.data_size);
-            fread(wav_file.data, wav_file.data_chunk.data_size, 1, file);
+            fread(wav_file.data, 1, wav_file.data_chunk.data_size, file);
         }
         else {
-            fseek(file, sizeof(WavSubchunkDesc), SEEK_CUR);
+            fseek(file, desc.chunk_size, SEEK_CUR);
+            break;
         }
     }
 
-    print(&wav_file);
+    Assert(wav_file.fmt_chunk.bits_per_sample / 8 == BytesPerAudioSample);
     return wav_file;
 }
 
@@ -333,4 +335,6 @@ int main() {
     // Write to separate files, in order to test supporting multiple asset files.
     write_bitmaps();
     write_audio();
+
+    printf("Built assets successfully!\n");
 }
