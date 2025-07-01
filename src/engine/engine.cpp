@@ -413,13 +413,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
             }
 
             const auto& player = state->player;
-            /*auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);*/
-            /*render_bm->quad = rect_to_quadrilateral(player.P, player.dim);*/
-            /*render_bm->local_origin = 0.5 * player.dim;*/
-            /*render_bm->offset = player.P;*/
-            /*render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));*/
-            /*render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));*/
-            /*render_bm->bitmap_handle = player_bitmap->texture_handle;*/
+            auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
+            render_bm->quad = rect_to_quadrilateral(player.P, player.dim);
+            render_bm->local_origin = 0.5 * player.dim;
+            render_bm->offset = player.P;
+            render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));
+            render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));
+            render_bm->bitmap_handle = player_bitmap->texture_handle;
         }
     }
 

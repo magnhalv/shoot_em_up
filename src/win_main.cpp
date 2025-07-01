@@ -1,7 +1,10 @@
 // TODO: Remove
+#include <cstdio>
+#include <cwchar>
 #include <iostream>
 
 #include <intrin.h>
+#include <stdlib.h>
 #include <string>
 #include <windows.h>
 #include <xaudio2.h>
@@ -11,6 +14,8 @@
 
 #include <platform/types.h>
 #include <platform/user_input.h>
+
+#include <renderers/renderer.h>
 
 #include "win_main.hpp"
 
@@ -266,6 +271,7 @@ auto win32_add_sound_samples_to_queue(Audio& audio, SoundBuffer& src_buffer) -> 
 
 struct EngineFunctions {
     HMODULE handle = nullptr;
+
     UPDATE_AND_RENDER_PROC update_and_render = nullptr;
     LOAD_PROC load = nullptr;
     GET_SOUND_SAMPLES_PROC get_sound_samples = nullptr;
@@ -544,9 +550,48 @@ void win32_stop_playback(Playback& playback) {
 }
 
 ////////////// DLL ///////////////////////
-LPCTSTR DllPath = R"(..\bin\app\engine_dyn.dll)";
-LPCTSTR PdbPath = R"(..\bin\app\engine_dyn.pdb)";
-LPCTSTR VersionedDllPath = R"(..\bin\versions\)";
+LPCWSTR EngineDllPath = LR"(..\bin\app\engine_dyn.dll)";
+LPCWSTR EnginePdbPath = LR"(..\bin\app\engine_dyn.pdb)";
+
+LPCWSTR OpenGlDllPath = LR"(..\bin\app\opengl_renderer.dll)";
+LPCWSTR OpenGLPdbPath = LR"(..\bin\app\opengl_renderer.pdb)";
+
+LPCWSTR OpenGlRendererDllPath = LR"(..\bin\app\opengl_renderer.dll)";
+LPCWSTR OpenGlRendererPdbPath = LR"(..\bin\app\opengl_renderer.pdb)";
+
+LPCWSTR EngineDllCopyPath = LR"(..\bin\engine\)";
+LPCWSTR OpenGLDllCopyPath = LR"(..\bin\opengl\)";
+
+bool win32_delete_directory_tree(const wchar_t* path) {
+    wchar_t search_pattern[256];
+    swprintf(search_pattern, 256, L"%ls\\*", path);
+    wprintf(L"%ls\n", search_pattern);
+
+    WIN32_FIND_DATAW find_data;
+    HANDLE find_handle = FindFirstFileW(search_pattern, &find_data);
+    while (find_handle != INVALID_HANDLE_VALUE) {
+        if (wcscmp(find_data.cFileName, L".") != 0 and wcscmp(find_data.cFileName, L"..") != 0) {
+            wchar_t file_name[512];
+            swprintf(file_name, 512, L"%ls\\%ls", path, find_data.cFileName);
+
+            wprintf(L"%ls\n", file_name);
+
+            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                win32_delete_directory_tree(file_name);
+                RemoveDirectoryW(file_name);
+            }
+            else {
+                DeleteFileW(file_name);
+            }
+        }
+
+        if (!FindNextFileW(find_handle, &find_data)) {
+            break;
+        }
+    }
+    FindClose(find_handle);
+    return true;
+}
 
 bool win32_should_reload_dll(EngineFunctions* app_functions) {
     if (app_functions->update_and_render == nullptr) {
@@ -554,18 +599,18 @@ bool win32_should_reload_dll(EngineFunctions* app_functions) {
     }
 
     WIN32_FILE_ATTRIBUTE_DATA file_info;
-    if (GetFileAttributesEx(DllPath, GetFileExInfoStandard, &file_info)) {
+    if (GetFileAttributesExW(EngineDllPath, GetFileExInfoStandard, &file_info)) {
         auto result = CompareFileTime(&file_info.ftLastWriteTime, &app_functions->last_loaded_dll_write_time);
         return result > 0;
     }
     else {
-        printf("Unable to open read time of '%s'.\n", DllPath);
+        wprintf(L"Unable to open read time of '%ls'.\n", EngineDllPath);
         return false;
     }
 }
 
-bool win32_is_directory(const char* path) {
-    DWORD ftyp = GetFileAttributesA(path);
+bool win32_is_directory(LPCWSTR path) {
+    DWORD ftyp = GetFileAttributesW(path);
     if (ftyp == INVALID_FILE_ATTRIBUTES) {
         return false;
     }
@@ -583,10 +628,10 @@ void win32_load_dll(EngineFunctions* functions) {
         functions->handle = nullptr;
     }
 
-    if (!win32_is_directory(VersionedDllPath)) {
-        if (!CreateDirectory(VersionedDllPath, nullptr)) {
+    if (!win32_is_directory(EngineDllCopyPath)) {
+        if (!CreateDirectoryW(EngineDllCopyPath, nullptr)) {
             DWORD error = GetLastError();
-            printf("[ERROR] Failed to create directory %s.\n", VersionedDllPath);
+            wprintf(L"[ERROR] Failed to create directory %s.\n", EngineDllCopyPath);
             win32_print_last_error();
             exit(1);
         }
@@ -594,40 +639,40 @@ void win32_load_dll(EngineFunctions* functions) {
 
     SYSTEMTIME curr_time;
     GetSystemTime(&curr_time);
-    char timestamp[20];
-    sprintf(timestamp, "%04d%02d%02d%02d%02d%02d", curr_time.wYear, curr_time.wMonth, curr_time.wDay, curr_time.wHour,
-        curr_time.wMinute, curr_time.wSecond);
+    wchar_t timestamp[20];
+    swprintf(timestamp, 20, L"%04d%02d%02d%02d%02d%02d", curr_time.wYear, curr_time.wMonth, curr_time.wDay,
+        curr_time.wHour, curr_time.wMinute, curr_time.wSecond);
 
-    char dir_path[128];
-    sprintf(dir_path, "%s%s", VersionedDllPath, timestamp);
+    wchar_t dir_path[128];
+    swprintf(dir_path, 128, L"%ls%ls", EngineDllCopyPath, timestamp);
 
-    if (!CreateDirectory(dir_path, nullptr)) {
-        printf("[ERROR] Failed to create directory %s.\n", dir_path);
+    if (!CreateDirectoryW(dir_path, nullptr)) {
+        wprintf(L"[ERROR] Failed to create directory %ls.\n", dir_path);
         win32_print_last_error();
         exit(1);
     }
 
-    char dll_to_load_path[128];
-    sprintf(dll_to_load_path, "%s\\%s", dir_path, "engine_dyn.dll");
-    while (!CopyFile(DllPath, dll_to_load_path, FALSE)) {
+    wchar_t dll_to_load_path[128];
+    swprintf(dll_to_load_path, 128, L"%ls\\%ls", dir_path, L"engine_dyn.dll");
+    while (!CopyFileW(EngineDllPath, dll_to_load_path, FALSE)) {
         DWORD error = GetLastError();
-        printf("Failed to copy %s to %s. Error code: %lu\n", DllPath, dll_to_load_path, error);
+        wprintf(L"Failed to copy %s to %s. Error code: %lu\n", EngineDllPath, dll_to_load_path, error);
         // exit(1);
         // TODO: Make this more airtight
     }
 
-    char pdb_to_load_path[128];
-    sprintf(pdb_to_load_path, "%s\\%s", dir_path, "engine_dyn.pdb");
-    if (!CopyFile(PdbPath, pdb_to_load_path, FALSE)) {
+    wchar_t pdb_to_load_path[128];
+    swprintf(pdb_to_load_path, 128, L"%ls\\%ls", dir_path, L"engine_dyn.pdb");
+    if (!CopyFileW(EnginePdbPath, pdb_to_load_path, FALSE)) {
         DWORD error = GetLastError();
-        printf("Failed to copy %s to %s. Error code: %lu\n", PdbPath, pdb_to_load_path, error);
+        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", EnginePdbPath, pdb_to_load_path, error);
         exit(1);
     }
 
-    functions->handle = LoadLibrary(dll_to_load_path);
+    functions->handle = LoadLibraryW(dll_to_load_path);
     if (functions->handle == nullptr) {
         DWORD error = GetLastError();
-        printf("Unable to load %s. Error: %lu\n", dll_to_load_path, error);
+        wprintf(L"Unable to load %ls. Error: %lu\n", dll_to_load_path, error);
         functions->update_and_render = nullptr;
         return;
     }
@@ -652,8 +697,101 @@ void win32_load_dll(EngineFunctions* functions) {
     }
 
     WIN32_FILE_ATTRIBUTE_DATA file_info;
-    if (GetFileAttributesEx(DllPath, GetFileExInfoStandard, &file_info)) {
+    if (GetFileAttributesExW(EngineDllPath, GetFileExInfoStandard, &file_info)) {
         functions->last_loaded_dll_write_time = file_info.ftLastWriteTime;
+    }
+}
+
+struct RendererApi {
+    HMODULE handle;
+    bool is_valid;
+    FILETIME last_loaded_dll_write_time = { 0, 0 };
+
+    renderer_init_fn* init;
+    renderer_add_texture_fn* add_texture;
+    renderer_render_fn* render;
+};
+
+void win32_load_renderer_dll(RendererApi* api) {
+    if (api->handle != nullptr) {
+        if (!FreeLibrary(api->handle)) {
+            DWORD error = GetLastError();
+            printf("Failed to unload .dll. Error code: %lu. Exiting...\n", error);
+            exit(1);
+        }
+        api->handle = nullptr;
+    }
+
+    if (!win32_is_directory(OpenGLDllCopyPath)) {
+        if (!CreateDirectoryW(OpenGLDllCopyPath, nullptr)) {
+            DWORD error = GetLastError();
+            wprintf(L"[ERROR] Failed to create directory %ls.\n", OpenGLDllCopyPath);
+            win32_print_last_error();
+            exit(1);
+        }
+    }
+
+    SYSTEMTIME curr_time;
+    GetSystemTime(&curr_time);
+    wchar_t timestamp[20];
+    swprintf(timestamp, 20, L"%04d%02d%02d%02d%02d%02d", curr_time.wYear, curr_time.wMonth, curr_time.wDay,
+        curr_time.wHour, curr_time.wMinute, curr_time.wSecond);
+
+    wchar_t dir_path[128];
+    swprintf(dir_path, 128, L"%ls%ls", OpenGLDllCopyPath, timestamp);
+
+    if (!CreateDirectoryW(dir_path, nullptr)) {
+        wprintf(L"[ERROR] Failed to create directory %ls.\n", dir_path);
+        win32_print_last_error();
+        exit(1);
+    }
+
+    wchar_t dll_to_load_path[128];
+    swprintf(dll_to_load_path, 128, L"%ls\\%ls", dir_path, L"opengl_renderer.dll");
+    while (!CopyFileW(OpenGlDllPath, dll_to_load_path, FALSE)) {
+        DWORD error = GetLastError();
+        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", OpenGlDllPath, dll_to_load_path, error);
+        // exit(1);
+        // TODO: Make this more airtight
+    }
+
+    wchar_t pdb_to_load_path[128];
+    swprintf(pdb_to_load_path, 128, L"%ls\\%ls", dir_path, L"opengl_renderer.pdb");
+    if (!CopyFileW(OpenGLPdbPath, pdb_to_load_path, FALSE)) {
+        DWORD error = GetLastError();
+        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", OpenGLPdbPath, pdb_to_load_path, error);
+        exit(1);
+    }
+
+    api->handle = LoadLibraryW(dll_to_load_path);
+    if (api->handle == nullptr) {
+        DWORD error = GetLastError();
+        wprintf(L"Unable to load %ls. Error: %lu\n", dll_to_load_path, error);
+        api->is_valid = false;
+    }
+    else {
+        api->init = (renderer_init_fn*)GetProcAddress(api->handle, "win32_renderer_init");
+        if (api->init == nullptr) {
+            printf("Unable to load 'win32_render_init' function in opengl_renderer.dll\n");
+            FreeLibrary(api->handle);
+        }
+
+        api->add_texture = (renderer_add_texture_fn*)GetProcAddress(api->handle, "win32_renderer_add_texture");
+        if (api->add_texture == nullptr) {
+            printf("Unable to load 'win32_renderer_add_texture' function in opengl_renderer.dll\n");
+            FreeLibrary(api->handle);
+        }
+
+        api->render = (renderer_render_fn*)GetProcAddress(api->handle, "win32_renderer_render");
+        if (api->render == nullptr) {
+            printf("Unable to load 'win32_renderer_render' function in opengl_renderer.dll\n");
+            FreeLibrary(api->handle);
+        }
+    }
+
+    WIN32_FILE_ATTRIBUTE_DATA file_info;
+    if (GetFileAttributesExW(OpenGlDllPath, GetFileExInfoStandard, &file_info)) {
+        api->last_loaded_dll_write_time = file_info.ftLastWriteTime;
     }
 }
 
@@ -1062,6 +1200,9 @@ static void win32_make_queue(PlatformWorkQueue* queue, u32 num_threads, win32_th
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
 
+    win32_delete_directory_tree(EngineDllCopyPath);
+    win32_delete_directory_tree(OpenGLDllCopyPath);
+
     win32_check_ticks_frequency();
     const auto tick_frequency = win32_get_ticks_per_second();
     auto main_entry_tick = win32_get_tick();
@@ -1256,6 +1397,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick) / tick_frequency;
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
+    RendererApi renderer = {};
+    win32_load_renderer_dll(&renderer);
     while (is_running) {
         const auto this_tick = win32_get_tick();
 

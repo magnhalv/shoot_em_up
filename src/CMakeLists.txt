@@ -76,3 +76,22 @@ set_target_properties(engine_dyn PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
         )
+
+
+## OpenGL renderer
+
+set(OPENGL_RENDERER_SRC_FILES
+  renderers/gl/gl.cpp
+  renderers/gl/gl_shader.cpp
+  renderers/gl/gl_vao.cpp
+
+  renderers/opengl_renderer.cpp
+)
+
+add_library(opengl_renderer SHARED ${OPENGL_RENDERER_SRC_FILES})
+set_target_properties(opengl_renderer PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
+)
+
