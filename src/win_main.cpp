@@ -142,32 +142,6 @@ struct Audio {
     i32 samples_processed;
 };
 
-auto win32_init_opengl(HWND window) -> void {
-    HDC window_dc = GetDC(window);
-
-    PIXELFORMATDESCRIPTOR desired_pixel_format = {};
-    desired_pixel_format.nSize = sizeof(desired_pixel_format);
-    desired_pixel_format.nVersion = 1;
-    desired_pixel_format.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
-    desired_pixel_format.cColorBits = 32;
-    desired_pixel_format.cAlphaShift = 8;
-    desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
-
-    int suggested_pixel_forrmat_index = ChoosePixelFormat(window_dc, &desired_pixel_format);
-    PIXELFORMATDESCRIPTOR suggested_pixel_format;
-    DescribePixelFormat(window_dc, suggested_pixel_forrmat_index, sizeof(suggested_pixel_format), &suggested_pixel_format);
-    SetPixelFormat(window_dc, suggested_pixel_forrmat_index, &suggested_pixel_format);
-
-    HGLRC opengl_rc = wglCreateContext(window_dc);
-    if (wglMakeCurrent(window_dc, opengl_rc)) {
-        // success
-    }
-    else {
-        // Fail
-    }
-    ReleaseDC(window, window_dc);
-}
-
 auto win32_print_error_msg(HRESULT hr) {
     char* errorMessage = nullptr;
 
@@ -565,7 +539,6 @@ LPCWSTR OpenGLDllCopyPath = LR"(..\bin\opengl\)";
 bool win32_delete_directory_tree(const wchar_t* path) {
     wchar_t search_pattern[256];
     swprintf(search_pattern, 256, L"%ls\\*", path);
-    wprintf(L"%ls\n", search_pattern);
 
     WIN32_FIND_DATAW find_data;
     HANDLE find_handle = FindFirstFileW(search_pattern, &find_data);
@@ -573,8 +546,6 @@ bool win32_delete_directory_tree(const wchar_t* path) {
         if (wcscmp(find_data.cFileName, L".") != 0 and wcscmp(find_data.cFileName, L"..") != 0) {
             wchar_t file_name[512];
             swprintf(file_name, 512, L"%ls\\%ls", path, find_data.cFileName);
-
-            wprintf(L"%ls\n", file_name);
 
             if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 win32_delete_directory_tree(file_name);
@@ -770,23 +741,28 @@ void win32_load_renderer_dll(RendererApi* api) {
         api->is_valid = false;
     }
     else {
+        api->is_valid = true;
         api->init = (renderer_init_fn*)GetProcAddress(api->handle, "win32_renderer_init");
         if (api->init == nullptr) {
             printf("Unable to load 'win32_render_init' function in opengl_renderer.dll\n");
-            FreeLibrary(api->handle);
+            api->is_valid = false;
         }
 
         api->add_texture = (renderer_add_texture_fn*)GetProcAddress(api->handle, "win32_renderer_add_texture");
         if (api->add_texture == nullptr) {
             printf("Unable to load 'win32_renderer_add_texture' function in opengl_renderer.dll\n");
-            FreeLibrary(api->handle);
+            api->is_valid = false;
         }
 
         api->render = (renderer_render_fn*)GetProcAddress(api->handle, "win32_renderer_render");
         if (api->render == nullptr) {
             printf("Unable to load 'win32_renderer_render' function in opengl_renderer.dll\n");
-            FreeLibrary(api->handle);
+            api->is_valid = false;
         }
+    }
+
+    if (!api->is_valid) {
+        FreeLibrary(api->handle);
     }
 
     WIN32_FILE_ATTRIBUTE_DATA file_info;
@@ -1203,6 +1179,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     win32_delete_directory_tree(EngineDllCopyPath);
     win32_delete_directory_tree(OpenGLDllCopyPath);
 
+    RendererApi renderer = {};
+    win32_load_renderer_dll(&renderer);
     win32_check_ticks_frequency();
     const auto tick_frequency = win32_get_ticks_per_second();
     auto main_entry_tick = win32_get_tick();
@@ -1397,8 +1375,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick) / tick_frequency;
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
-    RendererApi renderer = {};
-    win32_load_renderer_dll(&renderer);
+    if (renderer.is_valid) {
+        renderer.init();
+    }
     while (is_running) {
         const auto this_tick = win32_get_tick();
 

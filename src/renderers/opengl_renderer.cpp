@@ -1,3 +1,5 @@
+#include <glad/gl.h>
+
 #include <platform/platform.h>
 
 #include <engine/hm_assert.h>
@@ -148,7 +150,10 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     // Quad VAO
     {
         f32 quad_verticies[12] = { -1, -1, -1, 1, 1, 1, -1, -1, 1, 1, 1, -1 };
-        gl->create_vertex_arrays(1, &state.quad_vao);
+        // gl->create_vertex_arrays(1, &state.quad_vao);
+        printf("a\n");
+        glCreateVertexArrays(1, &state.quad_vao);
+        printf("b\n");
         gl->bind_vertex_array(state.quad_vao);
         gl->create_buffers(1, &state.quad_vbo);
 
