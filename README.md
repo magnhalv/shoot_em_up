@@ -19,6 +19,7 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
     * [X] Load sound from asset file
     * [ ] When hot reloading, wait for all current tasks to be completed.
 * Move the renderer to a separate .dll
+    - Init opengl from inside the .dll
 * Make the window movable
 * Make enemies shoot
 * Make enemies move
