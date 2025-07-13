@@ -1,7 +1,5 @@
 #pragma once
 
-#include <iostream>
-
 #include <engine/assets.h>
 #include <engine/globals.hpp>
 
@@ -115,6 +113,6 @@ struct EngineState {
     SwapBackList<Entity> enemy_projectiles;
 };
 
-extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);
-extern "C" __declspec(dllexport) void load(GLFunctions* in_gl, PlatformApi* in_platform, EngineMemory* in_memory);
+extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup* group);
+extern "C" __declspec(dllexport) void load(PlatformApi* in_platform, EngineMemory* in_memory);
 extern "C" __declspec(dllexport) SoundBuffer get_sound_samples(EngineMemory* memory, i32 num_samples);

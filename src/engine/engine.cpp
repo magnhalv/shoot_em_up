@@ -13,17 +13,14 @@
 #include "engine/audio.hpp"
 #include "engine/gameplay.h"
 #include "engine/hm_assert.h"
-#include "gl/gl.h"
 #include "globals.hpp"
-#include "gui.hpp"
 #include "logger.h"
 #include "math/vec2.h"
 #include "memory_arena.h"
 #include "platform/types.h"
-#include "text_renderer.h"
-#include <engine/renderer.h>
-#include <engine/renderer/asset_manager.h>
 #include <math/transform.h>
+
+#include <renderers/renderer.hpp>
 
 // Only works without rotation
 auto rect_to_quadrilateral(const vec2& p, const vec2& dim) -> Quadrilateral {
@@ -143,7 +140,7 @@ auto push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryT
     return result;
 }
 
-void update_and_render(EngineMemory* memory, EngineInput* app_input) {
+void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup* group) {
     auto* state = (EngineState*)memory->permanent;
     const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
@@ -164,14 +161,12 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         state->pointer.x = 200;
         state->pointer.y = 200;
 
-        renderer_init();
-
         // endregion
         auto cli_memory_arena = state->permanent.allocate_arena(MegaBytes(1));
-        state->font = font_load("assets/fonts/ubuntu/Ubuntu-Regular.ttf", state->permanent);
-        state->cli.init(cli_memory_arena);
+        // state->font = font_load("assets/fonts/ubuntu/Ubuntu-Regular.ttf", state->permanent);
+        // state->cli.init(cli_memory_arena);
 
-        im::initialize_imgui(state->font, &state->permanent);
+        // im::initialize_imgui(state->font, &state->permanent);
 
         state->assets = initialize_game_assets(&state->permanent);
 
@@ -208,7 +203,6 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
 
 #if ENGINE_DEBUG
     state->permanent.check_integrity();
-    asset_manager->update_if_changed();
 #endif
 
     const vec2 screen_center = vec2(app_input->client_width / 2.0, app_input->client_height / 2.0);
@@ -394,14 +388,13 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
     ///////////////////////////
     //// Rendering ////////////
     ///////////////////////////
-    RenderGroup group{};
-    group.push_buffer_size = 0;
-    group.max_push_buffer_size = MegaBytes(4);
-    group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-    group.screen_width = app_input->client_width;
-    group.screen_height = app_input->client_height;
+    group->push_buffer_size = 0;
+    group->max_push_buffer_size = MegaBytes(4);
+    group->push_buffer = allocate<u8>(*g_transient, group->max_push_buffer_size);
+    group->screen_width = app_input->client_width;
+    group->screen_height = app_input->client_height;
 
-    auto* clear = PushRenderElement(&group, RenderEntryClear);
+    auto* clear = PushRenderElement(group, RenderEntryClear);
     clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
     {
@@ -409,11 +402,11 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         auto player_bitmap = get_bitmap(state->assets, player_bitmap_id);
         if (player_bitmap) {
             if (player_bitmap->texture_handle == 0) {
-                player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
+                // player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
             }
 
             const auto& player = state->player;
-            auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
+            auto* render_bm = PushRenderElement(group, RenderEntryBitmap);
             render_bm->quad = rect_to_quadrilateral(player.P, player.dim);
             render_bm->local_origin = 0.5 * player.dim;
             render_bm->offset = player.P;
@@ -429,9 +422,9 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
-                bitmap->texture_handle = renderer_add_texture(bitmap);
+                // bitmap->texture_handle = renderer_add_texture(bitmap);
             }
-            auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
+            auto* render_el = PushRenderElement(group, RenderEntryBitmap);
             render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
             render_el->local_origin = 0.5 * enemy.dim;
             render_el->offset = enemy.P;
@@ -446,12 +439,12 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
-                bitmap->texture_handle = renderer_add_texture(bitmap);
+                // bitmap->texture_handle = renderer_add_texture(bitmap);
             }
             const vec2 dim = vec2(bitmap->width, bitmap->height);
             const f32 deg = 0.0f;
 
-            auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
+            auto* rendel_el = PushRenderElement(group, RenderEntryBitmap);
             rendel_el->quad = rect_to_quadrilateral(proj.P, dim);
             rendel_el->local_origin = 0.5 * dim;
             rendel_el->offset = proj.P;
@@ -461,11 +454,10 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input) {
         }
     }
 
-    render(&group, app_input->client_width, app_input->client_height);
+    // render(&group, app_input->client_width, app_input->client_height);
 }
 
-void load(GLFunctions* in_gl, PlatformApi* platform, EngineMemory* in_memory) {
-    load_gl(in_gl);
+void load(PlatformApi* platform, EngineMemory* in_memory) {
     load(platform);
 
     assert(sizeof(EngineState) < Permanent_Memory_Block_Size);
@@ -473,9 +465,6 @@ void load(GLFunctions* in_gl, PlatformApi* platform, EngineMemory* in_memory) {
     state->transient.init(in_memory->transient, Transient_Memory_Block_Size);
     set_transient_arena(&state->transient);
     load(&state->task_system);
-
-    assert(sizeof(AssetManager) <= Assets_Memory_Block_Size);
-    asset_manager_set_memory(in_memory->asset);
 
     load(&state->graphics_options);
 }

@@ -1,21 +1,22 @@
 // TODO: Remove
+//
+#include <glad/gl.h>
+#include <glad/wgl.h>
+#include <windows.h>
+
 #include <cstdio>
 #include <cwchar>
-#include <iostream>
 
 #include <intrin.h>
 #include <stdlib.h>
 #include <string>
-#include <windows.h>
 #include <xaudio2.h>
 
-#include <glad/gl.h>
-#include <glad/wgl.h>
+#include <renderers/win32_renderer.hpp>
 
+#include <platform/platform.h>
 #include <platform/types.h>
 #include <platform/user_input.h>
-
-#include <renderers/renderer.h>
 
 #include "win_main.hpp"
 
@@ -673,24 +674,14 @@ void win32_load_dll(EngineFunctions* functions) {
     }
 }
 
-struct RendererApi {
-    HMODULE handle;
-    bool is_valid;
-    FILETIME last_loaded_dll_write_time = { 0, 0 };
-
-    renderer_init_fn* init;
-    renderer_add_texture_fn* add_texture;
-    renderer_render_fn* render;
-};
-
-void win32_load_renderer_dll(RendererApi* api) {
-    if (api->handle != nullptr) {
-        if (!FreeLibrary(api->handle)) {
+void win32_load_renderer_dll(RendererPlatform* renderer) {
+    if (renderer->handle != nullptr) {
+        if (!FreeLibrary(renderer->handle)) {
             DWORD error = GetLastError();
             printf("Failed to unload .dll. Error code: %lu. Exiting...\n", error);
             exit(1);
         }
-        api->handle = nullptr;
+        renderer->handle = nullptr;
     }
 
     if (!win32_is_directory(OpenGLDllCopyPath)) {
@@ -734,40 +725,40 @@ void win32_load_renderer_dll(RendererApi* api) {
         exit(1);
     }
 
-    api->handle = LoadLibraryW(dll_to_load_path);
-    if (api->handle == nullptr) {
+    renderer->handle = LoadLibraryW(dll_to_load_path);
+    if (renderer->handle == nullptr) {
         DWORD error = GetLastError();
         wprintf(L"Unable to load %ls. Error: %lu\n", dll_to_load_path, error);
-        api->is_valid = false;
+        renderer->is_valid = false;
     }
     else {
-        api->is_valid = true;
-        api->init = (renderer_init_fn*)GetProcAddress(api->handle, "win32_renderer_init");
-        if (api->init == nullptr) {
+        renderer->is_valid = true;
+        renderer->init = (renderer_init_fn*)GetProcAddress(renderer->handle, "win32_renderer_init");
+        if (renderer->init == nullptr) {
             printf("Unable to load 'win32_render_init' function in opengl_renderer.dll\n");
-            api->is_valid = false;
+            renderer->is_valid = false;
         }
 
-        api->add_texture = (renderer_add_texture_fn*)GetProcAddress(api->handle, "win32_renderer_add_texture");
-        if (api->add_texture == nullptr) {
+        renderer->api.add_texture = (renderer_add_texture_fn*)GetProcAddress(renderer->handle, "win32_renderer_add_texture");
+        if (renderer->api.add_texture == nullptr) {
             printf("Unable to load 'win32_renderer_add_texture' function in opengl_renderer.dll\n");
-            api->is_valid = false;
+            renderer->is_valid = false;
         }
 
-        api->render = (renderer_render_fn*)GetProcAddress(api->handle, "win32_renderer_render");
-        if (api->render == nullptr) {
+        renderer->api.render = (renderer_render_fn*)GetProcAddress(renderer->handle, "win32_renderer_render");
+        if (renderer->api.render == nullptr) {
             printf("Unable to load 'win32_renderer_render' function in opengl_renderer.dll\n");
-            api->is_valid = false;
+            renderer->is_valid = false;
         }
     }
 
-    if (!api->is_valid) {
-        FreeLibrary(api->handle);
+    if (!renderer->is_valid) {
+        FreeLibrary(renderer->handle);
     }
 
     WIN32_FILE_ATTRIBUTE_DATA file_info;
     if (GetFileAttributesExW(OpenGlDllPath, GetFileExInfoStandard, &file_info)) {
-        api->last_loaded_dll_write_time = file_info.ftLastWriteTime;
+        renderer->last_loaded_dll_write_time = file_info.ftLastWriteTime;
     }
 }
 
@@ -1010,83 +1001,6 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
     }
 }
 
-void win32_bind_gl_funcs(GLFunctions* gl) {
-    gl->attach_shader = glAttachShader;
-    gl->detach_shader = glDetachShader;
-    gl->bind_buffer_base = glBindBufferBase;
-    gl->bind_vertex_array = glBindVertexArray;
-    gl->clear = glClear;
-    gl->clear_color = glClearColor;
-    gl->compile_shader = glCompileShader;
-    gl->create_buffers = glCreateBuffers;
-    gl->create_program = glCreateProgram;
-    gl->create_shader = glCreateShader;
-    gl->create_vertex_arrays = glCreateVertexArrays;
-    gl->delete_buffers = glDeleteBuffers;
-    gl->delete_program = glDeleteProgram;
-    gl->delete_shader = glDeleteShader;
-    gl->delete_vertex_array = glDeleteVertexArrays;
-    gl->draw_arrays = glDrawArrays;
-    gl->enable = glEnable;
-    gl->enable_vertex_array_attrib = glEnableVertexArrayAttrib;
-    gl->finish = glFinish;
-    gl->get_error = glGetError;
-    gl->get_program_info_log = glGetProgramInfoLog;
-    gl->get_shader_info_log = glGetShaderInfoLog;
-    gl->get_uniform_location = glGetUniformLocation;
-    gl->link_program = glLinkProgram;
-    gl->named_buffer_storage = glNamedBufferStorage;
-    gl->named_buffer_sub_data = glNamedBufferSubData;
-    gl->polygon_mode = glPolygonMode;
-    gl->shader_source = glShaderSource;
-    gl->uniform_4f = glUniform4f;
-    gl->use_program = glUseProgram;
-    gl->vertex_array_attrib_binding = glVertexArrayAttribBinding;
-    gl->vertex_array_attrib_format = glVertexArrayAttribFormat;
-    gl->vertex_array_vertex_buffer = glVertexArrayVertexBuffer;
-    gl->viewport = glViewport;
-    gl->get_programiv = glGetProgramiv;
-    gl->stencil_op = glStencilOp;
-    gl->stencil_func = glStencilFunc;
-    gl->stencil_mask = glStencilMask;
-    gl->disable = glDisable;
-    gl->gen_framebuffers = glGenFramebuffers;
-    gl->bind_framebuffer = glBindFramebuffer;
-    gl->framebuffer_check_status = glCheckFramebufferStatus;
-    gl->delete_framebuffers = glDeleteFramebuffers;
-    gl->textures_gen = glGenTextures;
-    gl->texture_bind = glBindTexture;
-    gl->tex_image_2d = glTexImage2D;
-    gl->tex_parameter_i = glTexParameteri;
-    gl->framebuffer_texture_2d = glFramebufferTexture2D;
-    gl->renderbuffers_gen = glGenRenderbuffers;
-    gl->renderbuffer_bind = glBindRenderbuffer;
-    gl->renderbuffer_storage = glRenderbufferStorage;
-    gl->renderbuffer_storage_multisample = glRenderbufferStorageMultisample;
-    gl->framebuffer_renderbuffer = glFramebufferRenderbuffer;
-    gl->tex_image_2d_multisample = glTexImage2DMultisample;
-    gl->framebuffer_blit = glBlitFramebuffer;
-    gl->bind_buffer = glBindBuffer;
-    gl->buffer_data = glBufferData;
-    gl->enable_vertex_attrib_array = glEnableVertexAttribArray;
-    gl->vertex_attrib_pointer = glVertexAttribPointer;
-    gl->bind_texture = glBindTexture;
-    gl->buffer_sub_data = glBufferSubData;
-    gl->active_texture = glActiveTexture;
-    gl->gen_textures = glGenTextures;
-    gl->pixel_store_i = glPixelStorei;
-    gl->gl_uniform_matrix_4_fv = glUniformMatrix4fv;
-    gl->blend_func = glBlendFunc;
-    gl->uniform_3f = glUniform3f;
-    gl->draw_arrays_instanced_base_instance = glDrawArraysInstancedBaseInstance;
-    gl->vertex_array_element_buffer = glVertexArrayElementBuffer;
-    gl->draw_elements = glDrawElements;
-    gl->get_tex_image = glGetTexImage;
-    gl->copy_tex_sub_image_2d = glCopyTexSubImage2D;
-    gl->tex_sub_image_2d = glTexSubImage2D;
-    gl->generate_mip_map = glGenerateMipmap;
-}
-
 static void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_callback* callback, void* data) {
     // NOTE: This function assumes only a single thread writes to it.
     u32 new_next_entry_to_write = (queue->NextEntryToWrite + 1) % ArrayCount(queue->entries);
@@ -1174,12 +1088,29 @@ static void win32_make_queue(PlatformWorkQueue* queue, u32 num_threads, win32_th
     }
 }
 
+auto win32_set_pixel_format(HDC window_dc) {
+    /*  CREATE OPEN_GL CONTEXT */
+    PIXELFORMATDESCRIPTOR pfd;
+    memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
+    pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 24;
+    pfd.cAlphaBits = 8;
+    pfd.cDepthBits = 32;
+    pfd.cStencilBits = 8;
+    pfd.iLayerType = PFD_MAIN_PLANE;
+    int pixelFormat = ChoosePixelFormat(window_dc, &pfd);
+    SetPixelFormat(window_dc, pixelFormat, &pfd);
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
 
     win32_delete_directory_tree(EngineDllCopyPath);
     win32_delete_directory_tree(OpenGLDllCopyPath);
 
-    RendererApi renderer = {};
+    RendererPlatform renderer = {};
     win32_load_renderer_dll(&renderer);
     win32_check_ticks_frequency();
     const auto tick_frequency = win32_get_ticks_per_second();
@@ -1216,83 +1147,45 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     DWORD style = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX); // WS_THICKFRAME to resize
     AdjustWindowRectEx(&windowRect, style, FALSE, 0);
-    HWND hwnd = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
-        windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, hInstance, szCmdLine);
+    HWND window = CreateWindowEx(0,         //
+        wndclass.lpszClassName,             //
+        "Shoot em up",                      //
+        style,                              //
+        windowRect.left,                    //
+        windowRect.top,                     //
+        windowRect.right - windowRect.left, //
+        windowRect.bottom - windowRect.top, //
+        nullptr,                            //
+        nullptr,                            //
+        hInstance,                          //
+        szCmdLine                           //
+    );
 
-    HDC hdc = GetDC(hwnd);
+    /*auto _wglGetExtensionsStringEXT = (PFNWGLGETEXTENSIONSSTRINGEXTPROC)wglGetProcAddress("wglGetExtensionsStringEXT");*/
+    /*bool swapControlSupported = strstr(_wglGetExtensionsStringEXT(), "WGL_EXT_swap_control") != 0;*/
+    /**/
+    /*int vsynch = 0;*/
+    /*if (swapControlSupported) {*/
+    /*    // TODO: Remove auto?*/
+    /*    auto wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");*/
+    /*    auto wglGetSwapIntervalEXT = (PFNWGLGETSWAPINTERVALEXTPROC)wglGetProcAddress("wglGetSwapIntervalEXT");*/
+    /**/
+    /*    if (wglSwapIntervalEXT(1)) {*/
+    /*        vsynch = wglGetSwapIntervalEXT();*/
+    /*    }*/
+    /*    else {*/
+    /*        printf("Could not enable vsync\n");*/
+    /*    }*/
+    /*}*/
+    /*else { // !swapControlSupported*/
+    /*    printf("WGL_EXT_swap_control not supported\n");*/
+    /*}*/
 
-    /*  CREATE OPEN_GL CONTEXT */
-    PIXELFORMATDESCRIPTOR pfd;
-    memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
-    pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
-    pfd.nVersion = 1;
-    pfd.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
-    pfd.iPixelType = PFD_TYPE_RGBA;
-    pfd.cColorBits = 24;
-    pfd.cAlphaBits = 8;
-    pfd.cDepthBits = 32;
-    pfd.cStencilBits = 8;
-    pfd.iLayerType = PFD_MAIN_PLANE;
-    int pixelFormat = ChoosePixelFormat(hdc, &pfd);
-    SetPixelFormat(hdc, pixelFormat, &pfd);
-
-    HGLRC tempRC = wglCreateContext(hdc);
-    wglMakeCurrent(hdc, tempRC);
-    PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = nullptr;
-    wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
-
-    const int attribList[] = {
-        WGL_CONTEXT_MAJOR_VERSION_ARB,
-        4,
-        WGL_CONTEXT_MINOR_VERSION_ARB,
-        3,
-        WGL_CONTEXT_FLAGS_ARB,
-        0,
-        WGL_CONTEXT_PROFILE_MASK_ARB,
-        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-        0,
-    };
-    HGLRC hglrc = wglCreateContextAttribsARB(hdc, nullptr, attribList);
-
-    wglMakeCurrent(nullptr, nullptr);
-    wglDeleteContext(tempRC);
-    wglMakeCurrent(hdc, hglrc);
-
-    GLFunctions gl_funcs = {};
-    if (!gladLoaderLoadGL()) {
-        printf("Could not initialize GLAD\n");
-        exit(1);
+    if (renderer.is_valid) {
+        renderer.init(window);
     }
-    else {
-        win32_bind_gl_funcs(&gl_funcs);
-    }
-
-    auto _wglGetExtensionsStringEXT = (PFNWGLGETEXTENSIONSSTRINGEXTPROC)wglGetProcAddress("wglGetExtensionsStringEXT");
-    bool swapControlSupported = strstr(_wglGetExtensionsStringEXT(), "WGL_EXT_swap_control") != 0;
-
-    int vsynch = 0;
-    if (swapControlSupported) {
-        // TODO: Remove auto?
-        auto wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
-        auto wglGetSwapIntervalEXT = (PFNWGLGETSWAPINTERVALEXTPROC)wglGetProcAddress("wglGetSwapIntervalEXT");
-
-        if (wglSwapIntervalEXT(1)) {
-            vsynch = wglGetSwapIntervalEXT();
-        }
-        else {
-            printf("Could not enable vsync\n");
-        }
-    }
-    else { // !swapControlSupported
-        printf("WGL_EXT_swap_control not supported\n");
-    }
-
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
-
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Calls to the callback will be synchronous
-    glDebugMessageCallback(MessageCallback, 0);
+    ShowWindow(window, SW_SHOW);
+    UpdateWindow(window);
 
     // region Setup Memory
     EngineMemory memory = {};
@@ -1316,7 +1209,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     printf("Startup before loop: %f seconds.\n", main_to_input);
     // region Setup Input
     EngineInput app_input = {};
-    EngineFunctions app_functions = {};
+    EngineFunctions engine = {};
 
     /*RAWINPUTDEVICE mouse;*/
     /*mouse.usUsagePage = 0x01;       // HID_USAGE_PAGE_GENERIC*/
@@ -1361,8 +1254,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     Recording recording = {};
     Playback playback = {};
 
-    win32_load_dll(&app_functions);
-    app_functions.load(&gl_funcs, &platform, &memory);
+    win32_load_dll(&engine);
+    engine.load(&platform, &memory);
 
     const f32 target_fps = 60;
     const f32 ticks_per_frame = tick_frequency / target_fps;
@@ -1375,9 +1268,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick) / tick_frequency;
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
-    if (renderer.is_valid) {
-        renderer.init();
-    }
     while (is_running) {
         const auto this_tick = win32_get_tick();
 
@@ -1387,13 +1277,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         app_input.t += app_input.dt;
         last_tick = this_tick;
 
-        if (win32_should_reload_dll(&app_functions)) {
+        if (win32_should_reload_dll(&engine)) {
             printf("Hot reloading dll...\n");
-            win32_load_dll(&app_functions);
-            app_functions.load(&gl_funcs, &platform, &memory);
+            win32_load_dll(&engine);
+            engine.load(&platform, &memory);
         }
         RECT client_rect;
-        GetClientRect(hwnd, &client_rect);
+        GetClientRect(window, &client_rect);
         app_input.client_height = client_rect.bottom - client_rect.top;
         app_input.client_width = client_rect.right - client_rect.left;
 
@@ -1413,7 +1303,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         /*  ClipCursor(&screen_rect);*/
         /*}*/
 
-        win32_process_pending_messages(hwnd, is_running, *current_input, *previous_input);
+        win32_process_pending_messages(window, is_running, *current_input, *previous_input);
 
         {
             /*if (current_input->r.is_pressed_this_frame()) {
@@ -1468,8 +1358,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }*/
         }
 
-        app_functions.update_and_render(&memory, &app_input);
-        SwapBuffers(hdc);
+        RenderGroup group{};
+        engine.update_and_render(&memory, &app_input, &group);
+        renderer.api.render(&group, client_width, client_height);
 
         {
             XAUDIO2_VOICE_STATE state;
@@ -1478,7 +1369,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             while (state.BuffersQueued < 2) {
                 const auto num_samples_to_add = static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
                 if (num_samples_to_add > 0) {
-                    auto sound_buffer = app_functions.get_sound_samples(&memory, num_samples_to_add);
+                    auto sound_buffer = engine.get_sound_samples(&memory, num_samples_to_add);
                     win32_add_sound_samples_to_queue(audio, sound_buffer);
                 }
                 audio.sourceVoice->GetState(&state);

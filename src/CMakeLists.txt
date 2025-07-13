@@ -7,17 +7,11 @@ option(ENGINE_BUILD_SHARED_LIBS "Build using shared libraries" ON)
 set(SOURCE_FILES
         engine/array.cpp
 
-        engine/renderer/asset_manager.cpp
-
         engine/cli/cli.cpp
 
         engine/engine.cpp
 
         engine/gui.cpp
-
-        engine/gl/gl.cpp
-        engine/gl/gl_shader.cpp
-        engine/gl/gl_vao.cpp
 
         engine/audio.cpp
         engine/assets.cpp
@@ -25,7 +19,6 @@ set(SOURCE_FILES
         engine/memory.cpp
         engine/memory_arena.cpp
         engine/globals.cpp
-        engine/renderer.cpp
         engine/text_renderer.cpp
         engine/options.cpp
 
@@ -92,11 +85,9 @@ endif()
 find_package(OpenGL REQUIRED)
 
 set(OPENGL_RENDERER_SRC_FILES
-  renderers/gl/gl.cpp
   renderers/gl/gl_shader.cpp
-  renderers/gl/gl_vao.cpp
 
-  renderers/opengl_renderer.cpp
+  renderers/win32_opengl_renderer.cpp
 
   ${GLAD_SOURCES}
 )

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "list.h"
+#include "math/mat4.h"
 #include "math/vec2.h"
 #include "math/vec4.h"
 #include "text_renderer.h"
@@ -28,33 +29,33 @@ namespace im {
 const i32 None_Hot_Items_id = -1;
 
 struct DrawVert {
-  vec2 position;
-  vec2 uv;
-  vec4 color;
+    vec2 position;
+    vec2 uv;
+    vec4 color;
 
-  auto print() -> void {
-    printf("Position: ");
-    position.print();
+    auto print() -> void {
+        printf("Position: ");
+        position.print();
 
-    printf("UV: ");
-    uv.print();
+        printf("UV: ");
+        uv.print();
 
-    printf("Color: ");
-    color.print();
-  }
+        printf("Color: ");
+        color.print();
+    }
 };
 
 struct UIState {
-  ivec2 mouse_pos;
-  bool mouse_down;
+    ivec2 mouse_pos;
+    bool mouse_down;
 
-  i32 hot_item;
-  i32 active_item;
+    i32 hot_item;
+    i32 active_item;
 };
 
 struct RenderLayer {
-  List<DrawVert> vertices;
-  List<i32> indices;
+    List<DrawVert> vertices;
+    List<i32> indices;
 };
 
 auto initialize_imgui(Font* font, MemoryArena* permanent) -> void;
