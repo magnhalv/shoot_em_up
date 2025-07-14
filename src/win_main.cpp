@@ -1243,6 +1243,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     platform.add_work_queue_entry = &win32_add_entry;
     platform.complete_all_work = &win32_complete_all_work;
+
+    platform.render_api = &renderer.api;
     // endregion
 
     Audio audio = {};

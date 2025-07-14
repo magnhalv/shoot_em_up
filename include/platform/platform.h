@@ -12,6 +12,8 @@
 #include "types.h"
 #include "user_input.h"
 
+#include <renderers/renderer.hpp>
+
 #define local_persist static
 #define global_variable extern
 
@@ -69,6 +71,9 @@ typedef PLATFORM_OPEN_FILE(platform_open_next_file);
 #define PLATFORM_READ_FILE(name) void name(PlatformFileHandle* platform_file_handle, u64 offset, u64 size, void* dest)
 typedef PLATFORM_READ_FILE(platform_read_file);
 
+#define PLATFORM_UPLOAD_TEXTURE(name) i32 name(void* data, i32 width, i32 height)
+typedef PLATFORM_UPLOAD_TEXTURE(platform_upload_texture);
+
 struct PlatformWorkQueue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* Queue, void* Data)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
@@ -89,6 +94,8 @@ struct PlatformApi {
 
     platform_add_work_queue_entry* add_work_queue_entry;
     platform_complete_all_work* complete_all_work;
+
+    RenderApi* render_api;
 };
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);

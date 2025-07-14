@@ -399,10 +399,10 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
 
     {
         auto player_bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
-        auto player_bitmap = get_bitmap(state->assets, player_bitmap_id);
-        if (player_bitmap) {
-            if (player_bitmap->texture_handle == 0) {
-                // player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
+        auto bitmap = get_bitmap(state->assets, player_bitmap_id);
+        if (bitmap) {
+            if (bitmap->texture_handle == 0) {
+                bitmap->texture_handle = Platform->render_api->add_texture(bitmap->data, bitmap->width, bitmap->height);
             }
 
             const auto& player = state->player;
@@ -412,7 +412,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
             render_bm->offset = player.P;
             render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));
             render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));
-            render_bm->bitmap_handle = player_bitmap->texture_handle;
+            render_bm->bitmap_handle = bitmap->texture_handle;
         }
     }
 
@@ -422,7 +422,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
-                // bitmap->texture_handle = renderer_add_texture(bitmap);
+                bitmap->texture_handle = Platform->render_api->add_texture(bitmap->data, bitmap->width, bitmap->height);
             }
             auto* render_el = PushRenderElement(group, RenderEntryBitmap);
             render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
@@ -439,7 +439,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
-                // bitmap->texture_handle = renderer_add_texture(bitmap);
+                bitmap->texture_handle = Platform->render_api->add_texture(bitmap->data, bitmap->width, bitmap->height);
             }
             const vec2 dim = vec2(bitmap->width, bitmap->height);
             const f32 deg = 0.0f;
