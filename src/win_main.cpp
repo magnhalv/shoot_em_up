@@ -627,8 +627,8 @@ void win32_load_dll(EngineFunctions* functions) {
     wchar_t dll_to_load_path[128];
     swprintf(dll_to_load_path, 128, L"%ls\\%ls", dir_path, L"engine_dyn.dll");
     while (!CopyFileW(EngineDllPath, dll_to_load_path, FALSE)) {
-        DWORD error = GetLastError();
-        wprintf(L"Failed to copy %s to %s. Error code: %lu\n", EngineDllPath, dll_to_load_path, error);
+        /*DWORD error = GetLastError();*/
+        /*wprintf(L"Failed to copy %s to %s. Error code: %lu\n", EngineDllPath, dll_to_load_path, error);*/
         // exit(1);
         // TODO: Make this more airtight
     }
@@ -1270,13 +1270,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick) / tick_frequency;
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
+    RenderGroup group{};
+
+    bool freeze_frame = false;
+    int freeze_frame_steps = 0;
+
     while (is_running) {
         const auto this_tick = win32_get_tick();
 
         app_input.dt_tick = this_tick - last_tick;
         app_input.ticks += app_input.dt_tick;
         app_input.dt = static_cast<f32>(app_input.dt_tick) / tick_frequency;
-        app_input.t += app_input.dt;
+        if (!freeze_frame && freeze_frame_steps > 0) {
+            app_input.t += app_input.dt;
+        }
+
         last_tick = this_tick;
 
         if (win32_should_reload_dll(&engine)) {
@@ -1307,7 +1315,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
         win32_process_pending_messages(window, is_running, *current_input, *previous_input);
 
+        // -------------- Platform layer key actions --------------------------
         {
+            if (current_input->f.is_pressed_this_frame()) {
+                freeze_frame = !freeze_frame;
+            }
+            if (current_input->n.is_pressed_this_frame() && freeze_frame) {
+                freeze_frame_steps++;
+            }
             /*if (current_input->r.is_pressed_this_frame()) {
                 if (!is_recording) {
                     auto is_success = win32_start_recording(&memory, recording);
@@ -1360,8 +1375,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }*/
         }
 
-        RenderGroup group{};
-        engine.update_and_render(&memory, &app_input, &group);
+        if (!freeze_frame || freeze_frame_steps > 0) {
+            engine.update_and_render(&memory, &app_input, &group);
+        }
         renderer.api.render(&group, client_width, client_height);
 
         {
@@ -1395,6 +1411,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         previous_input = &inputs[prev_input_idx];
         current_input->frame_clear(*previous_input);
         is_first_frame = false;
+
+        if (freeze_frame_steps > 0) {
+            freeze_frame_steps--;
+        }
     }
 
     return 0;

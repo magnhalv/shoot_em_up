@@ -13,18 +13,19 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 
 ## TODO 
 
-* Load assets as background tasks
-    * [X] Load asset from asset file in a background task
-    * [X] Add platform function for reading file and opening File handles
-    * [X] Load sound from asset file
-    * [ ] When hot reloading, wait for all current tasks to be completed.
-* Move the renderer to a separate .dll
-    - Init opengl from inside the .dll
-* Make the window movable
-* Make enemies shoot
-* Make enemies move
-* Blink if hit
-* Three lives
+- [ ] Load assets as background tasks
+    - [X] Load asset from asset file in a background task
+    - [X] Add platform function for reading file and opening File handles
+    - [X] Load sound from asset file
+    - [ ] When hot reloading, wait for all current tasks to be completed.
+- [X] Move the renderer to a separate .dll
+- [ ] Make the renderer hot reloadable
+- [ ] Make explosion animation work again
+- Make the window movable
+- Make enemies shoot
+- Make enemies move
+- Blink if hit
+- Three lives
 
 ### GUI
 
@@ -35,3 +36,8 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 * Add separate color for input text
 * Add auto-complete
 * Add help
+
+
+### Done
+- [X] Move the renderer to a separate .dll
+    - [X] Init opengl from inside the .dll

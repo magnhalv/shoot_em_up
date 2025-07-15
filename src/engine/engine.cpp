@@ -217,6 +217,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
     time.t += time.dt;
     time.num_frames_this_second++;
 
+    // -------------- PLAYER INPUT ------------------
     {
         auto& input = app_input->input;
         auto& p_pos = state->player.P;
@@ -304,7 +305,11 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
         if (mag(player.speed) > max_speed) {
             player.speed = normalized(player.speed) * max_speed;
         }
+    }
 
+    // -------------- UPDATE GAME STATE -----------------
+    {
+        auto& player = state->player;
         player.P = update_position(player.P, player.speed, player.dim, time.dt, app_input->client_width, app_input->client_height);
 
         const auto projectile_speed = 1200.0;
@@ -344,16 +349,35 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
         }
 
         // Update projectile
-        for (auto i = 0; i < state->player_projectiles.size();) {
-            auto pos = state->player_projectiles[i].P;
+        for (size_t i = 0; i < state->player_projectiles.size(); i++) {
+            auto* projectile = &state->player_projectiles[i];
             vec2 bottom_left = vec2(0, 0);
             vec2 top_right = vec2(app_input->client_width, app_input->client_height);
-            if (!hmath::in_rect(pos, bottom_left, top_right)) {
-                state->player_projectiles.remove(i);
-                continue;
+            if (!hmath::in_rect(projectile->P, bottom_left, top_right)) {
+                state->player_projectiles.remove_safe(&i);
             }
             else {
-                i++;
+                hmath::Rect projectile_rect = hmath::create_rect(projectile->P, projectile->dim);
+
+                for (size_t enemy_idx = 0; enemy_idx < state->enemy_chargers.size(); enemy_idx++) {
+                    auto enemy = state->enemy_chargers[enemy_idx];
+                    auto enemy_rect = hmath::create_rect(enemy.P, enemy.dim);
+
+                    if (hmath::intersects(projectile_rect, enemy_rect)) {
+
+                        auto id = get_first_bitmap_id(state->assets, Asset_EnemySpaceShip);
+                        auto enemy_bitmap = get_bitmap(state->assets, id);
+
+                        id = get_first_bitmap_id(state->assets, Asset_Projectile);
+                        auto projectile_bitmap = get_bitmap(state->assets, id);
+
+                        if (enemy_bitmap != nullptr && projectile_bitmap != nullptr) {
+                        }
+                        state->enemy_chargers.remove_safe(&enemy_idx);
+                        state->player_projectiles.remove_safe(&i);
+                        break;
+                    }
+                }
             }
         }
 
@@ -431,6 +455,7 @@ void update_and_render(EngineMemory* memory, EngineInput* app_input, RenderGroup
             render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));
             render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));
             render_el->bitmap_handle = bitmap->texture_handle;
+            render_el->color = vec4(1.0, 0, 0, 0);
         }
     }
 

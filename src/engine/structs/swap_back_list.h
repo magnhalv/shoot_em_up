@@ -80,6 +80,13 @@ template <typename T> struct SwapBackList {
         m_size--;
     }
 
+    auto remove_safe(size_t* index) -> void {
+        HM_ASSERT(*index < m_size);
+        m_data[*index] = m_data[m_size - 1];
+        m_size--;
+        *index--;
+    }
+
     auto inline push_range(const T* value, size_t length) -> T* {
         assert(m_size + length <= m_capacity);
         memcpy(m_data + m_size, value, length);

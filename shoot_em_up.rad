@@ -1,13 +1,13 @@
 // raddbg 0.9.17 project file
 
 recent_file: path: "src/engine/engine.cpp"
+recent_file: path: "src/engine/assets.cpp"
 recent_file: path: "src/win_main.cpp"
 recent_file: path: "src/renderers/opengl_renderer.cpp"
 recent_file: path: "include/platform/user_input.h"
 recent_file: path: "include/platform/platform.h"
 recent_file: path: "src/renderers/gl/gl_shader.cpp"
 recent_file: path: "src/asset_builder_main.cpp"
-recent_file: path: "src/engine/assets.cpp"
 recent_file: path: "src/engine/memory_arena.cpp"
 recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/rtc/error.cpp"
 recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/rtc/stack.cpp"
@@ -26,16 +26,6 @@ target:
 }
 breakpoint:
 {
-  source_location: "src/engine/assets.cpp:34:1"
-  hit_count: 0
-}
-breakpoint:
-{
-  source_location: "src/engine/engine.cpp:147:1"
-  hit_count: 2
-}
-breakpoint:
-{
-  source_location: "src/win_main.cpp:1389:1"
+  source_location: "src/engine/engine.cpp:364:1"
   hit_count: 1
 }
