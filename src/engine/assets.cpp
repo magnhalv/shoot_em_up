@@ -77,6 +77,9 @@ auto get_audio(GameAssets* game_assets, AudioId id) -> LoadedAudio* {
 }
 
 auto load_bitmap(GameAssets* game_assets, BitmapId id) -> void {
+    if (game_assets->asset_files_count == 0) {
+      return;
+    }
     Assert(game_assets->is_initialized);
     Assert(id.value < game_assets->asset_count);
     AssetMeta* meta = game_assets->assets_meta + id.value;

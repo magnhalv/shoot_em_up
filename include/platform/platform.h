@@ -174,8 +174,7 @@ struct PlatformApi {
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
 const u64 Transient_Memory_Block_Size = MegaBytes(10);
-const u64 Assets_Memory_Block_Size = MegaBytes(1);
-const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Assets_Memory_Block_Size;
+const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
 
 struct EngineMemory {
     void* permanent = nullptr; // NOTE: Must be cleared to zero
@@ -204,7 +203,13 @@ struct SoundBuffer {
     i32 tone_hz;
 };
 
-// Functions application MUST support
-typedef void(__cdecl* UPDATE_AND_RENDER_PROC)(EngineMemory*, EngineInput*);
-typedef void(__cdecl* LOAD_PROC)(GLFunctions*, PlatformApi*, EngineMemory*);
-typedef SoundBuffer(__cdecl* GET_SOUND_SAMPLES_PROC)(EngineMemory* memory, i32 num_samples);
+
+#define ENGINE_UPDATE_AND_RENDER(name) void name(EngineMemory* memory, EngineInput* app_input)
+typedef ENGINE_UPDATE_AND_RENDER(update_and_render_fn);
+
+#define ENGINE_LOAD(name) void name(PlatformApi* platform_api, EngineMemory* memory)
+typedef ENGINE_LOAD(load_fn);
+
+#define ENGINE_GET_SOUND_SAMPLES(name) SoundBuffer name(EngineMemory* memory, i32 num_samples)
+typedef ENGINE_GET_SOUND_SAMPLES(get_sound_samples_fn);
+

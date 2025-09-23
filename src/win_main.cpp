@@ -272,9 +272,9 @@ auto win32_add_sound_samples_to_queue(Audio& audio, SoundBuffer& src_buffer) -> 
 struct EngineFunctions {
     HMODULE handle = nullptr;
 
-    UPDATE_AND_RENDER_PROC update_and_render = nullptr;
-    LOAD_PROC load = nullptr;
-    GET_SOUND_SAMPLES_PROC get_sound_samples = nullptr;
+    update_and_render_fn *update_and_render = nullptr;
+    load_fn *load = nullptr;
+    get_sound_samples_fn *get_sound_samples = nullptr;
     FILETIME last_loaded_dll_write_time = { 0, 0 };
 };
 
@@ -463,11 +463,6 @@ bool win32_start_recording(EngineMemory* memory, Recording& recording) {
         return false;
     }
 
-    if (!win32_overwrite_file(Asset_Memory_Block_Recording_File, memory->asset, Assets_Memory_Block_Size)) {
-        printf("[ERROR]: win32_start_recording: Unable to write asset memory.\n");
-        return false;
-    }
-
     HANDLE user_input_record_file =
         CreateFile(User_Input_Recording_File, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (user_input_record_file == INVALID_HANDLE_VALUE) {
@@ -511,14 +506,6 @@ bool win32_init_playback(Playback& playback) {
     if (!win32_read_binary_file(Permanent_Memory_Block_Recording_File, playback.permanent_memory, Permanent_Memory_Block_Size)) {
         printf("[ERROR]: win32_init_playback: Failed to read permanent memory block recording file.\n");
         VirtualFree(playback.permanent_memory, 0, MEM_RELEASE);
-        return false;
-    }
-
-    playback.asset_memory = VirtualAlloc(nullptr, (SIZE_T)Assets_Memory_Block_Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (!win32_read_binary_file(Asset_Memory_Block_Recording_File, playback.asset_memory, Assets_Memory_Block_Size)) {
-        printf("[ERROR]: win32_init_playback: Failed to read asset memory block recording file.\n");
-        VirtualFree(playback.permanent_memory, 0, MEM_RELEASE);
-        VirtualFree(playback.asset_memory, 0, MEM_RELEASE);
         return false;
     }
 
@@ -677,20 +664,20 @@ void win32_load_dll(EngineFunctions* functions) {
         return;
     }
 
-    functions->update_and_render = (UPDATE_AND_RENDER_PROC)GetProcAddress(functions->handle, "update_and_render");
+    functions->update_and_render = (update_and_render_fn*)GetProcAddress(functions->handle, "update_and_render");
     if (functions->update_and_render == nullptr) {
         printf("Unable to load 'update_and_render' function in engine_dyn.dll\n");
         // TODO: Why do I free the handle here?
         FreeLibrary(functions->handle);
     }
 
-    functions->load = (LOAD_PROC)GetProcAddress(functions->handle, "load");
+    functions->load = (load_fn*)GetProcAddress(functions->handle, "load");
     if (functions->load == nullptr) {
         printf("Unable to load 'load' function in engine_dyn.dll\n");
         FreeLibrary(functions->handle);
     }
 
-    functions->get_sound_samples = (GET_SOUND_SAMPLES_PROC)GetProcAddress(functions->handle, "get_sound_samples");
+    functions->get_sound_samples = (get_sound_samples_fn*)GetProcAddress(functions->handle, "get_sound_samples");
     if (functions->get_sound_samples == nullptr) {
         printf("Unable to load 'get_sound_samples' function in engine_dyn.dll\n");
         FreeLibrary(functions->handle);
@@ -1384,7 +1371,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     Playback playback = {};
 
     win32_load_dll(&app_functions);
-    app_functions.load(&gl_funcs, &platform, &memory);
+    app_functions.load(&platform, &memory);
 
     const f32 target_fps = 60;
     const f32 ticks_per_frame = tick_frequency / target_fps;
@@ -1411,7 +1398,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         if (win32_should_reload_dll(&app_functions)) {
             printf("Hot reloading dll...\n");
             win32_load_dll(&app_functions);
-            app_functions.load(&gl_funcs, &platform, &memory);
+            app_functions.load(&platform, &memory);
         }
         RECT client_rect;
         GetClientRect(hwnd, &client_rect);

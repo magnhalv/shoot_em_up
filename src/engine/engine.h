@@ -9,11 +9,9 @@
 #include <math/vec4.h>
 #include <platform/types.h>
 
-#include "cli/cli.h"
 #include "memory_arena.h"
 #include "options.hpp"
 #include "platform/platform.h"
-#include "text_renderer.h"
 #include <engine/audio.hpp>
 #include <engine/structs/swap_back_list.h>
 
@@ -98,14 +96,8 @@ struct EngineState {
 
     TaskSystem task_system;
 
-    Cli cli;
-    bool is_cli_active;
-
     Options graphics_options;
     TimeInfo time;
-
-    TextRenderer text_renderer;
-    Font* font;
 
     Entity player;
     SwapBackList<Explosion> explosions;
@@ -115,6 +107,6 @@ struct EngineState {
     SwapBackList<Entity> enemy_projectiles;
 };
 
-extern "C" __declspec(dllexport) void update_and_render(EngineMemory* memory, EngineInput* app_input);
-extern "C" __declspec(dllexport) void load(GLFunctions* in_gl, PlatformApi* in_platform, EngineMemory* in_memory);
-extern "C" __declspec(dllexport) SoundBuffer get_sound_samples(EngineMemory* memory, i32 num_samples);
+extern "C" __declspec(dllexport) ENGINE_UPDATE_AND_RENDER(update_and_render);
+extern "C" __declspec(dllexport) ENGINE_LOAD(load);
+extern "C" __declspec(dllexport) ENGINE_GET_SOUND_SAMPLES(get_sound_samples);
