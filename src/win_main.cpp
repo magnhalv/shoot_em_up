@@ -164,13 +164,13 @@ auto win32_init_audio(Audio& audio) -> void {
     result = XAudio2Create(&audio.xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
     if (FAILED(result)) {
         DWORD err_code = GetLastError();
-        printf("win32_init_audio::XAudio2Create failed: %lu", err_code);
+        printf("win32_init_audio::XAudio2Create failed: %lu\n", err_code);
         return;
     }
-
-    if (FAILED(audio.xAudio2->CreateMasteringVoice(&audio.masteringVoice))) {
+    result = audio.xAudio2->CreateMasteringVoice(&audio.masteringVoice);
+    if (FAILED(result)) {
         DWORD err_code = GetLastError();
-        printf("win32_init_audio::XAudio2CreateMasteringVoice failed: %lu", err_code);
+        printf("win32_init_audio::XAudio2CreateMasteringVoice failed: %lu\n", err_code);
         return;
     }
 
@@ -712,8 +712,7 @@ void win32_load_renderer_dll(RendererDll* dll) {
     while (!CopyFileW(OpenGlDllPath, dll_to_load_path, FALSE)) {
         DWORD error = GetLastError();
         wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", OpenGlDllPath, dll_to_load_path, error);
-        // exit(1);
-        // TODO: Make this more airtight
+        exit(1);
     }
 
     wchar_t pdb_to_load_path[128];
@@ -721,7 +720,7 @@ void win32_load_renderer_dll(RendererDll* dll) {
     if (!CopyFileW(OpenGLPdbPath, pdb_to_load_path, FALSE)) {
         DWORD error = GetLastError();
         wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", OpenGLPdbPath, pdb_to_load_path, error);
-        exit(1);
+        dll->is_valid = false;
     }
 
     dll->handle = LoadLibraryW(dll_to_load_path);
@@ -733,19 +732,36 @@ void win32_load_renderer_dll(RendererDll* dll) {
     else {
         dll->api.init = (renderer_init_fn*)GetProcAddress(dll->handle, "win32_renderer_init");
         if (dll->api.init == nullptr) {
+            dll->is_valid = false;
             printf("Unable to load 'win32_render_init' function in opengl_renderer.dll\n");
             FreeLibrary(dll->handle);
         }
 
         dll->api.add_texture = (renderer_add_texture_fn*)GetProcAddress(dll->handle, "win32_renderer_add_texture");
         if (dll->api.add_texture == nullptr) {
+            dll->is_valid = false;
             printf("Unable to load 'win32_renderer_add_texture' function in opengl_renderer.dll\n");
             FreeLibrary(dll->handle);
         }
 
         dll->api.render = (renderer_render_fn*)GetProcAddress(dll->handle, "win32_renderer_render");
         if (dll->api.render == nullptr) {
+            dll->is_valid = false;
             printf("Unable to load 'win32_renderer_render' function in opengl_renderer.dll\n");
+            FreeLibrary(dll->handle);
+        }
+
+        dll->api.end_frame = (renderer_end_frame_fn*)GetProcAddress(dll->handle, "win32_renderer_end_frame");
+        if (dll->api.end_frame == nullptr) {
+            dll->is_valid = false;
+            printf("Unable to load 'win32_renderer_end_frame' function in opengl_renderer.dll\n");
+            FreeLibrary(dll->handle);
+        }
+
+        dll->api.delete_context = (renderer_delete_context_fn*)GetProcAddress(dll->handle, "win32_renderer_delete_context");
+        if (dll->api.delete_context == nullptr) {
+            dll->is_valid = false;
+            printf("Unable to load 'win32_renderer_delete_context' function in opengl_renderer.dll\n");
             FreeLibrary(dll->handle);
         }
     }
@@ -754,6 +770,7 @@ void win32_load_renderer_dll(RendererDll* dll) {
     if (GetFileAttributesExW(OpenGlDllPath, GetFileExInfoStandard, &file_info)) {
         dll->last_loaded_dll_write_time = file_info.ftLastWriteTime;
     }
+    dll->is_valid = true;
 }
 
 ////////////// INPUT ///////////////////////
@@ -1206,7 +1223,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     win32_load_renderer_dll(&renderer_dll);
     Win32RenderContext render_context = { 0 };
     render_context.window = hwnd;
-    renderer_dll.api.init(&render_context);
 
     // glEnable(GL_DEBUG_OUTPUT);
     // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Calls to the callback will be synchronous
@@ -1298,6 +1314,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     UpdateWindow(hwnd);
 
     while (is_running) {
+        renderer_dll.api.init(&render_context);
+
         const auto this_tick = win32_get_tick();
 
         app_input.dt_tick = this_tick - last_tick;
@@ -1421,6 +1439,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         previous_input = &inputs[prev_input_idx];
         current_input->frame_clear(*previous_input);
         is_first_frame = false;
+
+        renderer_dll.api.delete_context(&render_context);
     }
 
     return 0;

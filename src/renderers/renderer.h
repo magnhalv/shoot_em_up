@@ -77,8 +77,16 @@ typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 #define RENDERER_RENDER(name) void name(RenderGroup* group, i32 client_width, i32 client_height)
 typedef RENDERER_RENDER(renderer_render_fn);
 
+#define RENDERER_END_FRAME(name) void name()
+typedef RENDERER_END_FRAME(renderer_end_frame_fn);
+
+#define RENDERER_DELETE_CONTEXT(name) void name(void* context)
+typedef RENDERER_DELETE_CONTEXT(renderer_delete_context_fn);
+
 struct RendererApi {
     renderer_init_fn* init;
     renderer_add_texture_fn* add_texture;
     renderer_render_fn* render;
+    renderer_end_frame_fn* end_frame;
+    renderer_delete_context_fn* delete_context;
 };

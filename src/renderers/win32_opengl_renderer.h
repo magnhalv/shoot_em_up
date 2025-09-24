@@ -7,4 +7,5 @@
 struct Win32RenderContext {
     HWND window;
     HDC hdc;
+    HGLRC hglrc;
 };

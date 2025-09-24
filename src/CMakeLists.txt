@@ -78,9 +78,7 @@ find_package(OpenGL REQUIRED)
 
 
 set(OPENGL_RENDERER_SRC_FILES
-  renderers/gl/gl.cpp
   renderers/gl/gl_shader.cpp
-  renderers/gl/gl_vao.cpp
 
   renderers/opengl_renderer.cpp
 

@@ -397,12 +397,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         auto player_bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
         auto bitmap = get_bitmap(state->assets, player_bitmap_id);
         if (bitmap) {
-            if (bitmap->texture_handle == 0) {
-                i32 width = bitmap->width;
-                i32 height = bitmap->height;
-                void* data = bitmap->data;
-                bitmap->texture_handle = renderer->add_texture(data, width, height);
-            }
+            // if (bitmap->texture_handle == 0) {
+            i32 width = bitmap->width;
+            i32 height = bitmap->height;
+            void* data = bitmap->data;
+            bitmap->texture_handle = renderer->add_texture(data, width, height);
+            // }
 
             const auto& player = state->player;
             auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
@@ -415,47 +415,55 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    for (auto& enemy : state->enemy_chargers) {
+    {
 
         auto bitmap_id = get_first_bitmap_id(state->assets, Asset_EnemySpaceShip);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
+
         if (bitmap) {
-            if (bitmap->texture_handle == 0) {
-                i32 width = bitmap->width;
-                i32 height = bitmap->height;
-                void* data = bitmap->data;
-                bitmap->texture_handle = renderer->add_texture(data, width, height);
+            // if (bitmap->texture_handle == 0) {
+            i32 width = bitmap->width;
+            i32 height = bitmap->height;
+            void* data = bitmap->data;
+            bitmap->texture_handle = renderer->add_texture(data, width, height);
+            // }
+
+            for (auto& enemy : state->enemy_chargers) {
+                auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
+                render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
+                render_el->local_origin = 0.5 * enemy.dim;
+                render_el->offset = enemy.P;
+                render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));
+                render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));
+                render_el->bitmap_handle = bitmap->texture_handle;
             }
-            auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
-            render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
-            render_el->local_origin = 0.5 * enemy.dim;
-            render_el->offset = enemy.P;
-            render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));
-            render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));
-            render_el->bitmap_handle = bitmap->texture_handle;
         }
     }
 
-    for (auto& proj : state->player_projectiles) {
+    {
         auto bitmap_id = get_first_bitmap_id(state->assets, Asset_Projectile);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
-            if (bitmap->texture_handle == 0) {
-                i32 width = bitmap->width;
-                i32 height = bitmap->height;
-                void* data = bitmap->data;
-                bitmap->texture_handle = renderer->add_texture(data, width, height);
-            }
-            const vec2 dim = vec2(bitmap->width, bitmap->height);
-            const f32 deg = 0.0f;
+            // if (bitmap->texture_handle == 0) {
+            i32 width = bitmap->width;
+            i32 height = bitmap->height;
+            void* data = bitmap->data;
+            bitmap->texture_handle = renderer->add_texture(data, width, height);
+            // }
+        }
+        for (auto& proj : state->player_projectiles) {
+            if (bitmap) {
+                const vec2 dim = vec2(bitmap->width, bitmap->height);
+                const f32 deg = 0.0f;
 
-            auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
-            rendel_el->quad = rect_to_quadrilateral(proj.P, dim);
-            rendel_el->local_origin = 0.5 * dim;
-            rendel_el->offset = proj.P;
-            rendel_el->basis.x = vec2(cos(deg), -sin(deg));
-            rendel_el->basis.y = vec2(sin(deg), cos(deg));
-            rendel_el->bitmap_handle = bitmap->texture_handle;
+                auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
+                rendel_el->quad = rect_to_quadrilateral(proj.P, dim);
+                rendel_el->local_origin = 0.5 * dim;
+                rendel_el->offset = proj.P;
+                rendel_el->basis.x = vec2(cos(deg), -sin(deg));
+                rendel_el->basis.y = vec2(sin(deg), cos(deg));
+                rendel_el->bitmap_handle = bitmap->texture_handle;
+            }
         }
     }
 

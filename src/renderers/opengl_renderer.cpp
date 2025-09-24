@@ -151,6 +151,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
+    printf("Init context...\n");
     {
         Win32RenderContext* win32_context = (Win32RenderContext*)context;
         win32_context->hdc = GetDC(win32_context->window);
@@ -185,11 +186,11 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
             WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
             0,
         };
-        HGLRC hglrc = wglCreateContextAttribsARB(win32_context->hdc, nullptr, attribList);
+        win32_context->hglrc = wglCreateContextAttribsARB(win32_context->hdc, nullptr, attribList);
 
         wglMakeCurrent(nullptr, nullptr);
         wglDeleteContext(tempRC);
-        wglMakeCurrent(win32_context->hdc, hglrc);
+        wglMakeCurrent(win32_context->hdc, win32_context->hglrc);
 
         if (!gladLoaderLoadGL()) {
             printf("Could not initialize GLAD\n");
@@ -218,7 +219,6 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
         }
     }
 
-    // Quad VAO
     {
         f32 quad_verticies[12] = { -1, -1, -1, 1, 1, 1, -1, -1, 1, 1, 1, -1 };
         glCreateVertexArrays(1, &state.quad_vao);
@@ -299,9 +299,11 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 
         state.texture_shader.initialize(R"(.\shaders\texture_2d.vert)", R"(.\shaders\texture_2d.frag)");
     }
+    printf("Context inited.\n");
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
+    printf("Add texture\n");
     if (state.num_textures >= MaxNumTextures) {
         InvalidCodePath;
     }
@@ -356,4 +358,14 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
         default: InvalidCodePath;
         }
     }
+}
+
+extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
+}
+
+extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
+    Win32RenderContext* win32_context = (Win32RenderContext*)context;
+    wglMakeCurrent(nullptr, nullptr);
+    ReleaseDC(win32_context->window, win32_context->hdc);
+    wglDeleteContext(win32_context->hglrc);
 }
