@@ -161,7 +161,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         state->pointer.x = 200;
         state->pointer.y = 200;
 
-        //renderer_init();
+        // renderer_init();
 
         state->assets = initialize_game_assets(&state->permanent);
 
@@ -395,10 +395,13 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
         auto player_bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
-        auto player_bitmap = get_bitmap(state->assets, player_bitmap_id);
-        if (player_bitmap) {
-            if (player_bitmap->texture_handle == 0) {
-                //player_bitmap->texture_handle = renderer_add_texture(player_bitmap);
+        auto bitmap = get_bitmap(state->assets, player_bitmap_id);
+        if (bitmap) {
+            if (bitmap->texture_handle == 0) {
+                i32 width = bitmap->width;
+                i32 height = bitmap->height;
+                void* data = bitmap->data;
+                bitmap->texture_handle = renderer->add_texture(data, width, height);
             }
 
             const auto& player = state->player;
@@ -408,7 +411,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             render_bm->offset = player.P;
             render_bm->basis.x = vec2(cos(player.direction), -sin(player.direction));
             render_bm->basis.y = vec2(sin(player.direction), cos(player.direction));
-            render_bm->bitmap_handle = player_bitmap->texture_handle;
+            render_bm->bitmap_handle = bitmap->texture_handle;
         }
     }
 
@@ -418,7 +421,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
-                //bitmap->texture_handle = renderer_add_texture(bitmap);
+                i32 width = bitmap->width;
+                i32 height = bitmap->height;
+                void* data = bitmap->data;
+                bitmap->texture_handle = renderer->add_texture(data, width, height);
             }
             auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
             render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
@@ -435,7 +441,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
-                //bitmap->texture_handle = renderer_add_texture(bitmap);
+                i32 width = bitmap->width;
+                i32 height = bitmap->height;
+                void* data = bitmap->data;
+                bitmap->texture_handle = renderer->add_texture(data, width, height);
             }
             const vec2 dim = vec2(bitmap->width, bitmap->height);
             const f32 deg = 0.0f;
@@ -450,7 +459,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    //render(&group, app_input->client_width, app_input->client_height);
+    renderer->render(&group, app_input->client_width, app_input->client_height);
 }
 
 ENGINE_LOAD(load) {

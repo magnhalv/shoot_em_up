@@ -118,22 +118,22 @@ auto load_bitmap_stbi(const char* path) -> Bitmap {
     stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
     unsigned char* stbi_data = stbi_load(path, &result.width, &result.height, &num_channels, 4);
 
+    if (!stbi_data) {
+        printf("Invalid bitmap path: %s\n", path);
+        InvalidCodePath;
+    }
+
     if (num_channels != 4) {
         InvalidCodePath;
     }
 
-    if (stbi_data) {
-        result.pitch = result.width * num_channels;
-        auto size = result.width * result.height * num_channels; // 1 byte per channel
+    result.pitch = result.width * num_channels;
+    auto size = result.width * result.height * num_channels; // 1 byte per channel
 
-        result.data = malloc(size);
-        memcpy(result.data, stbi_data, size);
+    result.data = malloc(size);
+    memcpy(result.data, stbi_data, size);
 
-        stbi_image_free(stbi_data);
-    }
-    else {
-        InvalidCodePath;
-    }
+    stbi_image_free(stbi_data);
 
     return result;
 }
@@ -141,8 +141,12 @@ auto load_bitmap_stbi(const char* path) -> Bitmap {
 auto load_wav_file(const char* path) -> WavFile {
     FILE* file = fopen(path, "rb");
 
-    WavFile wav_file = {};
+    if (!file) {
+        printf("Unable to open wav file: %s\n", path);
+        InvalidCodePath;
+    }
 
+    WavFile wav_file = {};
     fread(&wav_file.riff_chunk, sizeof(WavRiffChunk), 1, file);
 
     while (!feof(file)) {
@@ -304,15 +308,15 @@ static auto write_bitmaps() -> void {
     initialize(assets);
 
     begin_asset_type(assets, Asset_PlayerSpaceShip);
-    add_bitmap_asset(assets, "assets/bitmaps/player_1.png");
+    add_bitmap_asset(assets, "data/bitmaps/player_1.png");
     end_asset_type(assets);
 
     begin_asset_type(assets, Asset_EnemySpaceShip);
-    add_bitmap_asset(assets, "assets/bitmaps/blue_01.png");
+    add_bitmap_asset(assets, "data/bitmaps/blue_01.png");
     end_asset_type(assets);
 
     begin_asset_type(assets, Asset_Projectile);
-    add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
+    add_bitmap_asset(assets, "data/bitmaps/projectile_1.png");
     end_asset_type(assets);
 
     write_asset_file(assets, "bitmaps.haf");
@@ -325,7 +329,7 @@ static auto write_audio() -> void {
     initialize(assets);
 
     begin_asset_type(assets, Asset_Laser);
-    add_audio_asset(assets, "assets/audio/laser_primary.wav");
+    add_audio_asset(assets, "data/audio/laser_primary.wav");
     end_asset_type(assets);
 
     write_asset_file(assets, "audio.haf");

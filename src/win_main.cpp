@@ -16,6 +16,7 @@
 #include <platform/user_input.h>
 
 #include <renderers/renderer.h>
+#include <renderers/win32_opengl_renderer.h>
 
 #include "win_main.hpp"
 
@@ -127,6 +128,7 @@ struct SoundDataBuffer {
 };
 
 struct Audio {
+    bool is_initialized;
     i32 num_channels;
     i32 sample_size;
     i32 samples_per_second;
@@ -141,32 +143,6 @@ struct Audio {
 
     i32 samples_processed;
 };
-
-auto win32_init_opengl(HWND window) -> void {
-    HDC window_dc = GetDC(window);
-
-    PIXELFORMATDESCRIPTOR desired_pixel_format = {};
-    desired_pixel_format.nSize = sizeof(desired_pixel_format);
-    desired_pixel_format.nVersion = 1;
-    desired_pixel_format.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
-    desired_pixel_format.cColorBits = 32;
-    desired_pixel_format.cAlphaShift = 8;
-    desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
-
-    int suggested_pixel_forrmat_index = ChoosePixelFormat(window_dc, &desired_pixel_format);
-    PIXELFORMATDESCRIPTOR suggested_pixel_format;
-    DescribePixelFormat(window_dc, suggested_pixel_forrmat_index, sizeof(suggested_pixel_format), &suggested_pixel_format);
-    SetPixelFormat(window_dc, suggested_pixel_forrmat_index, &suggested_pixel_format);
-
-    HGLRC opengl_rc = wglCreateContext(window_dc);
-    if (wglMakeCurrent(window_dc, opengl_rc)) {
-        // success
-    }
-    else {
-        // Fail
-    }
-    ReleaseDC(window, window_dc);
-}
 
 auto win32_print_error_msg(HRESULT hr) {
     char* errorMessage = nullptr;
@@ -183,19 +159,19 @@ auto win32_print_error_msg(HRESULT hr) {
         std::cerr << "Unknown error (HRESULT: 0x" << std::hex << hr << ")" << std::endl;
     }
 }
-auto win32_init_audio(Audio& audio) -> bool {
+auto win32_init_audio(Audio& audio) -> void {
     HRESULT result;
     result = XAudio2Create(&audio.xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
     if (FAILED(result)) {
         DWORD err_code = GetLastError();
         printf("win32_init_audio::XAudio2Create failed: %lu", err_code);
-        return false;
+        return;
     }
 
     if (FAILED(audio.xAudio2->CreateMasteringVoice(&audio.masteringVoice))) {
         DWORD err_code = GetLastError();
         printf("win32_init_audio::XAudio2CreateMasteringVoice failed: %lu", err_code);
-        return false;
+        return;
     }
 
     audio.num_channels = 1;
@@ -223,9 +199,9 @@ auto win32_init_audio(Audio& audio) -> bool {
     if (FAILED(audio.xAudio2->CreateSourceVoice(&audio.sourceVoice, &waveFormatEx))) {
         DWORD err_code = GetLastError();
         printf("win32_init_audio::CreateSourceVoice failed: %lu", err_code);
-        return false;
+        return;
     }
-    return true;
+    audio.is_initialized = true;
 }
 
 auto win32_add_sound_samples_to_queue(Audio& audio, SoundBuffer& src_buffer) -> bool {
@@ -269,12 +245,12 @@ auto win32_add_sound_samples_to_queue(Audio& audio, SoundBuffer& src_buffer) -> 
     return true;
 }
 
-struct EngineFunctions {
+struct EngineDll {
     HMODULE handle = nullptr;
 
-    update_and_render_fn *update_and_render = nullptr;
-    load_fn *load = nullptr;
-    get_sound_samples_fn *get_sound_samples = nullptr;
+    update_and_render_fn* update_and_render = nullptr;
+    load_fn* load = nullptr;
+    get_sound_samples_fn* get_sound_samples = nullptr;
     FILETIME last_loaded_dll_write_time = { 0, 0 };
 };
 
@@ -580,7 +556,7 @@ bool win32_delete_directory_tree(const wchar_t* path) {
     return true;
 }
 
-bool win32_should_reload_dll(EngineFunctions* app_functions) {
+bool win32_should_reload_dll(EngineDll* app_functions) {
     if (app_functions->update_and_render == nullptr) {
         return true;
     }
@@ -605,7 +581,7 @@ bool win32_is_directory(LPCWSTR path) {
     return ftyp & FILE_ATTRIBUTE_DIRECTORY;
 }
 
-void win32_load_dll(EngineFunctions* functions) {
+void win32_load_dll(EngineDll* functions) {
     if (functions->handle != nullptr) {
         if (!FreeLibrary(functions->handle)) {
             DWORD error = GetLastError();
@@ -689,24 +665,22 @@ void win32_load_dll(EngineFunctions* functions) {
     }
 }
 
-struct RendererApi {
+struct RendererDll {
     HMODULE handle;
     bool is_valid;
     FILETIME last_loaded_dll_write_time = { 0, 0 };
 
-    renderer_init_fn* init;
-    renderer_add_texture_fn* add_texture;
-    renderer_render_fn* render;
+    RendererApi api;
 };
 
-void win32_load_renderer_dll(RendererApi* api) {
-    if (api->handle != nullptr) {
-        if (!FreeLibrary(api->handle)) {
+void win32_load_renderer_dll(RendererDll* dll) {
+    if (dll->handle != nullptr) {
+        if (!FreeLibrary(dll->handle)) {
             DWORD error = GetLastError();
             printf("Failed to unload .dll. Error code: %lu. Exiting...\n", error);
             exit(1);
         }
-        api->handle = nullptr;
+        dll->handle = nullptr;
     }
 
     if (!win32_is_directory(OpenGLDllCopyPath)) {
@@ -750,35 +724,35 @@ void win32_load_renderer_dll(RendererApi* api) {
         exit(1);
     }
 
-    api->handle = LoadLibraryW(dll_to_load_path);
-    if (api->handle == nullptr) {
+    dll->handle = LoadLibraryW(dll_to_load_path);
+    if (dll->handle == nullptr) {
         DWORD error = GetLastError();
         wprintf(L"Unable to load %ls. Error: %lu\n", dll_to_load_path, error);
-        api->is_valid = false;
+        dll->is_valid = false;
     }
     else {
-        api->init = (renderer_init_fn*)GetProcAddress(api->handle, "win32_renderer_init");
-        if (api->init == nullptr) {
+        dll->api.init = (renderer_init_fn*)GetProcAddress(dll->handle, "win32_renderer_init");
+        if (dll->api.init == nullptr) {
             printf("Unable to load 'win32_render_init' function in opengl_renderer.dll\n");
-            FreeLibrary(api->handle);
+            FreeLibrary(dll->handle);
         }
 
-        api->add_texture = (renderer_add_texture_fn*)GetProcAddress(api->handle, "win32_renderer_add_texture");
-        if (api->add_texture == nullptr) {
+        dll->api.add_texture = (renderer_add_texture_fn*)GetProcAddress(dll->handle, "win32_renderer_add_texture");
+        if (dll->api.add_texture == nullptr) {
             printf("Unable to load 'win32_renderer_add_texture' function in opengl_renderer.dll\n");
-            FreeLibrary(api->handle);
+            FreeLibrary(dll->handle);
         }
 
-        api->render = (renderer_render_fn*)GetProcAddress(api->handle, "win32_renderer_render");
-        if (api->render == nullptr) {
+        dll->api.render = (renderer_render_fn*)GetProcAddress(dll->handle, "win32_renderer_render");
+        if (dll->api.render == nullptr) {
             printf("Unable to load 'win32_renderer_render' function in opengl_renderer.dll\n");
-            FreeLibrary(api->handle);
+            FreeLibrary(dll->handle);
         }
     }
 
     WIN32_FILE_ATTRIBUTE_DATA file_info;
     if (GetFileAttributesExW(OpenGlDllPath, GetFileExInfoStandard, &file_info)) {
-        api->last_loaded_dll_write_time = file_info.ftLastWriteTime;
+        dll->last_loaded_dll_write_time = file_info.ftLastWriteTime;
     }
 }
 
@@ -1228,80 +1202,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     HWND hwnd = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
         windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, hInstance, szCmdLine);
 
-    HDC hdc = GetDC(hwnd);
+    RendererDll renderer_dll = {};
+    win32_load_renderer_dll(&renderer_dll);
+    Win32RenderContext render_context = { 0 };
+    render_context.window = hwnd;
+    renderer_dll.api.init(&render_context);
 
-    /*  CREATE OPEN_GL CONTEXT */
-    PIXELFORMATDESCRIPTOR pfd;
-    memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
-    pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
-    pfd.nVersion = 1;
-    pfd.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
-    pfd.iPixelType = PFD_TYPE_RGBA;
-    pfd.cColorBits = 24;
-    pfd.cAlphaBits = 8;
-    pfd.cDepthBits = 32;
-    pfd.cStencilBits = 8;
-    pfd.iLayerType = PFD_MAIN_PLANE;
-    int pixelFormat = ChoosePixelFormat(hdc, &pfd);
-    SetPixelFormat(hdc, pixelFormat, &pfd);
-
-    HGLRC tempRC = wglCreateContext(hdc);
-    wglMakeCurrent(hdc, tempRC);
-    PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = nullptr;
-    wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
-
-    const int attribList[] = {
-        WGL_CONTEXT_MAJOR_VERSION_ARB,
-        4,
-        WGL_CONTEXT_MINOR_VERSION_ARB,
-        3,
-        WGL_CONTEXT_FLAGS_ARB,
-        0,
-        WGL_CONTEXT_PROFILE_MASK_ARB,
-        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-        0,
-    };
-    HGLRC hglrc = wglCreateContextAttribsARB(hdc, nullptr, attribList);
-
-    wglMakeCurrent(nullptr, nullptr);
-    wglDeleteContext(tempRC);
-    wglMakeCurrent(hdc, hglrc);
-
-    GLFunctions gl_funcs = {};
-    if (!gladLoaderLoadGL()) {
-        printf("Could not initialize GLAD\n");
-        exit(1);
-    }
-    else {
-        win32_bind_gl_funcs(&gl_funcs);
-    }
-
-    auto _wglGetExtensionsStringEXT = (PFNWGLGETEXTENSIONSSTRINGEXTPROC)wglGetProcAddress("wglGetExtensionsStringEXT");
-    bool swapControlSupported = strstr(_wglGetExtensionsStringEXT(), "WGL_EXT_swap_control") != 0;
-
-    int vsynch = 0;
-    if (swapControlSupported) {
-        // TODO: Remove auto?
-        auto wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
-        auto wglGetSwapIntervalEXT = (PFNWGLGETSWAPINTERVALEXTPROC)wglGetProcAddress("wglGetSwapIntervalEXT");
-
-        if (wglSwapIntervalEXT(1)) {
-            vsynch = wglGetSwapIntervalEXT();
-        }
-        else {
-            printf("Could not enable vsync\n");
-        }
-    }
-    else { // !swapControlSupported
-        printf("WGL_EXT_swap_control not supported\n");
-    }
-
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
-
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Calls to the callback will be synchronous
-    glDebugMessageCallback(MessageCallback, 0);
+    // glEnable(GL_DEBUG_OUTPUT);
+    // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Calls to the callback will be synchronous
+    // glDebugMessageCallback(MessageCallback, 0);
 
     // region Setup Memory
     EngineMemory memory = {};
@@ -1325,7 +1234,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     printf("Startup before loop: %f seconds.\n", main_to_input);
     // region Setup Input
     EngineInput app_input = {};
-    EngineFunctions app_functions = {};
+    EngineDll engine_dll = {};
 
     /*RAWINPUTDEVICE mouse;*/
     /*mouse.usUsagePage = 0x01;       // HID_USAGE_PAGE_GENERIC*/
@@ -1370,8 +1279,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     Recording recording = {};
     Playback playback = {};
 
-    win32_load_dll(&app_functions);
-    app_functions.load(&platform, &memory);
+    win32_load_dll(&engine_dll);
+    engine_dll.load(&platform, &memory);
 
     const f32 target_fps = 60;
     const f32 ticks_per_frame = tick_frequency / target_fps;
@@ -1384,8 +1293,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick) / tick_frequency;
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
-    RendererApi renderer = {};
-    win32_load_renderer_dll(&renderer);
+
+    ShowWindow(hwnd, SW_SHOW);
+    UpdateWindow(hwnd);
+
     while (is_running) {
         const auto this_tick = win32_get_tick();
 
@@ -1395,10 +1306,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         app_input.t += app_input.dt;
         last_tick = this_tick;
 
-        if (win32_should_reload_dll(&app_functions)) {
+        if (win32_should_reload_dll(&engine_dll)) {
             printf("Hot reloading dll...\n");
-            win32_load_dll(&app_functions);
-            app_functions.load(&platform, &memory);
+            win32_load_dll(&engine_dll);
+            engine_dll.load(&platform, &memory);
         }
         RECT client_rect;
         GetClientRect(hwnd, &client_rect);
@@ -1476,17 +1387,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }*/
         }
 
-        app_functions.update_and_render(&memory, &app_input);
-        SwapBuffers(hdc);
+        engine_dll.update_and_render(&memory, &app_input, &renderer_dll.api);
+        SwapBuffers(render_context.hdc);
 
-        {
+        if (audio.is_initialized) {
             XAUDIO2_VOICE_STATE state;
             audio.sourceVoice->GetState(&state);
             // We make sure there is max 2 frames of sound data available for the sound  card.
             while (state.BuffersQueued < 2) {
                 const auto num_samples_to_add = static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
                 if (num_samples_to_add > 0) {
-                    auto sound_buffer = app_functions.get_sound_samples(&memory, num_samples_to_add);
+                    auto sound_buffer = engine_dll.get_sound_samples(&memory, num_samples_to_add);
                     win32_add_sound_samples_to_queue(audio, sound_buffer);
                 }
                 audio.sourceVoice->GetState(&state);

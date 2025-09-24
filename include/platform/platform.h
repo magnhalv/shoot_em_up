@@ -14,6 +14,8 @@
 
 #include <glad/gl.h>
 
+#include <renderers/renderer.h>
+
 struct GLFunctions {
     PFNGLATTACHSHADERPROC attach_shader;
     PFNGLBINDBUFFERBASEPROC bind_buffer_base;
@@ -203,8 +205,7 @@ struct SoundBuffer {
     i32 tone_hz;
 };
 
-
-#define ENGINE_UPDATE_AND_RENDER(name) void name(EngineMemory* memory, EngineInput* app_input)
+#define ENGINE_UPDATE_AND_RENDER(name) void name(EngineMemory* memory, EngineInput* app_input, RendererApi* renderer)
 typedef ENGINE_UPDATE_AND_RENDER(update_and_render_fn);
 
 #define ENGINE_LOAD(name) void name(PlatformApi* platform_api, EngineMemory* memory)
@@ -212,4 +213,3 @@ typedef ENGINE_LOAD(load_fn);
 
 #define ENGINE_GET_SOUND_SAMPLES(name) SoundBuffer name(EngineMemory* memory, i32 num_samples)
 typedef ENGINE_GET_SOUND_SAMPLES(get_sound_samples_fn);
-

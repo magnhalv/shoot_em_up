@@ -1,11 +1,17 @@
+#include <cstdio>
+#include <glad/gl.h>
+#include <glad/wgl.h>
+
 #include <platform/platform.h>
 
 #include <engine/hm_assert.h>
 
-#include "gl/gl.h"
 #include "gl/gl_shader.h"
 
-#include "renderer.h"
+#include "glad/gl.h"
+
+#include <renderers/renderer.h>
+#include <renderers/win32_opengl_renderer.h>
 
 const u32 MaxNumTextures = 5;
 
@@ -27,9 +33,9 @@ typedef struct {
 static GlRendererState state = {};
 
 static auto clear(i32 client_width, i32 client_height, vec4 color) {
-    gl->viewport(0, 0, client_width, client_height);
-    gl->clear_color(color.x, color.y, color.z, color.w);
-    gl->clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Remove depth buffer?
+    glViewport(0, 0, client_width, client_height);
+    glClearColor(color.x, color.y, color.z, color.w);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Remove depth buffer?
 }
 
 static auto to_gl_x(i32 screen_x_cord, i32 screen_width) -> f32 {
@@ -79,16 +85,16 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
     };
 
     HM_ASSERT(state.quad_vao != 0);
-    gl->bind_vertex_array(state.quad_vao);
-    gl->named_buffer_sub_data(state.quad_vbo, 0, sizeof(quad_verticies), quad_verticies);
+    glBindVertexArray(state.quad_vao);
+    glNamedBufferSubData(state.quad_vbo, 0, sizeof(quad_verticies), quad_verticies);
 
     state.quad_shader.bind();
     state.quad_shader.set_uniform("color", color);
 
-    gl->draw_arrays(GL_TRIANGLES, 0, 6);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     state.quad_shader.unbind();
-    gl->bind_vertex_array(0);
+    glBindVertexArray(0);
 }
 
 static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
@@ -125,44 +131,111 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
       to_gl_x(tl.x, screen_width), to_gl_y(tl.y, screen_height), 0.0f,   color.r, color.g, color.b, color.a,  0.0f, 1.0f   // top left
         // clang-format on
     };
-
     u32* texture = &state.textures[bitmap_handle];
     HM_ASSERT(state.texture_vao != 0);
     HM_ASSERT(*texture != 0);
 
-    gl->enable(GL_BLEND);
-    gl->blend_func(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    gl->bind_vertex_array(state.texture_vao);
-    gl->named_buffer_sub_data(state.texture_vbo, 0, sizeof(vertices), vertices);
-    gl->bind_texture(GL_TEXTURE_2D, *texture);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBindVertexArray(state.texture_vao);
+    glNamedBufferSubData(state.texture_vbo, 0, sizeof(vertices), vertices);
+    glBindTexture(GL_TEXTURE_2D, *texture);
+
     state.texture_shader.bind();
-    gl->draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    gl->bind_vertex_array(0);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
 
     state.texture_shader.unbind();
-    gl->bind_vertex_array(0);
-    gl->disable(GL_BLEND);
+    glBindVertexArray(0);
+    glDisable(GL_BLEND);
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
+    {
+        Win32RenderContext* win32_context = (Win32RenderContext*)context;
+        win32_context->hdc = GetDC(win32_context->window);
+        /*  CREATE OPEN_GL CONTEXT */
+        PIXELFORMATDESCRIPTOR pfd;
+        memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
+        pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+        pfd.nVersion = 1;
+        pfd.dwFlags = PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
+        pfd.iPixelType = PFD_TYPE_RGBA;
+        pfd.cColorBits = 24;
+        pfd.cAlphaBits = 8;
+        pfd.cDepthBits = 32;
+        pfd.cStencilBits = 8;
+        pfd.iLayerType = PFD_MAIN_PLANE;
+        int pixelFormat = ChoosePixelFormat(win32_context->hdc, &pfd);
+        SetPixelFormat(win32_context->hdc, pixelFormat, &pfd);
+
+        HGLRC tempRC = wglCreateContext(win32_context->hdc);
+        wglMakeCurrent(win32_context->hdc, tempRC);
+        PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = nullptr;
+        wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
+
+        const int attribList[] = {
+            WGL_CONTEXT_MAJOR_VERSION_ARB,
+            4,
+            WGL_CONTEXT_MINOR_VERSION_ARB,
+            3,
+            WGL_CONTEXT_FLAGS_ARB,
+            0,
+            WGL_CONTEXT_PROFILE_MASK_ARB,
+            WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+            0,
+        };
+        HGLRC hglrc = wglCreateContextAttribsARB(win32_context->hdc, nullptr, attribList);
+
+        wglMakeCurrent(nullptr, nullptr);
+        wglDeleteContext(tempRC);
+        wglMakeCurrent(win32_context->hdc, hglrc);
+
+        if (!gladLoaderLoadGL()) {
+            printf("Could not initialize GLAD\n");
+            exit(1);
+        }
+
+        auto _wglGetExtensionsStringEXT =
+            (PFNWGLGETEXTENSIONSSTRINGEXTPROC)wglGetProcAddress("wglGetExtensionsStringEXT");
+        bool swapControlSupported = strstr(_wglGetExtensionsStringEXT(), "WGL_EXT_swap_control") != 0;
+
+        int vsynch = 0;
+        if (swapControlSupported) {
+            // TODO: Remove auto?
+            auto wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
+            auto wglGetSwapIntervalEXT = (PFNWGLGETSWAPINTERVALEXTPROC)wglGetProcAddress("wglGetSwapIntervalEXT");
+
+            if (wglSwapIntervalEXT(1)) {
+                vsynch = wglGetSwapIntervalEXT();
+            }
+            else {
+                printf("Could not enable vsync\n");
+            }
+        }
+        else { // !swapControlSupported
+            printf("WGL_EXT_swap_control not supported\n");
+        }
+    }
+
     // Quad VAO
     {
         f32 quad_verticies[12] = { -1, -1, -1, 1, 1, 1, -1, -1, 1, 1, 1, -1 };
-        gl->create_vertex_arrays(1, &state.quad_vao);
-        gl->bind_vertex_array(state.quad_vao);
-        gl->create_buffers(1, &state.quad_vbo);
+        glCreateVertexArrays(1, &state.quad_vao);
+        glBindVertexArray(state.quad_vao);
+        glCreateBuffers(1, &state.quad_vbo);
 
-        gl->named_buffer_storage(state.quad_vbo, sizeof(quad_verticies), quad_verticies, GL_DYNAMIC_STORAGE_BIT);
+        glNamedBufferStorage(state.quad_vbo, sizeof(quad_verticies), quad_verticies, GL_DYNAMIC_STORAGE_BIT);
         auto binding_index = 0;
         auto stride = 2 * sizeof(f32);
         auto offset = 0;
-        gl->vertex_array_vertex_buffer(state.quad_vao, binding_index, state.quad_vbo, offset, stride);
+        glVertexArrayVertexBuffer(state.quad_vao, binding_index, state.quad_vbo, offset, stride);
         auto attrib_index = 0;
 
-        gl->enable_vertex_array_attrib(state.quad_vao, attrib_index);
-        gl->vertex_array_attrib_format(state.quad_vao, attrib_index, 2, GL_FLOAT, GL_FALSE, offset);
-        gl->vertex_array_attrib_binding(state.quad_vao, attrib_index, attrib_index);
-        gl->bind_vertex_array(0);
+        glEnableVertexArrayAttrib(state.quad_vao, attrib_index);
+        glVertexArrayAttribFormat(state.quad_vao, attrib_index, 2, GL_FLOAT, GL_FALSE, offset);
+        glVertexArrayAttribBinding(state.quad_vao, attrib_index, attrib_index);
+        glBindVertexArray(0);
 
         state.quad_shader.initialize(R"(.\shaders\basic_2d.vert)", R"(.\shaders\single_color.frag)");
     }
@@ -192,36 +265,36 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
             1, 2, 3  // second triangle
         };
 
-        gl->create_vertex_arrays(1, vao);
-        gl->create_buffers(1, vbo);
-        gl->create_buffers(1, ebo);
+        glCreateVertexArrays(1, vao);
+        glCreateBuffers(1, vbo);
+        glCreateBuffers(1, ebo);
 
-        gl->bind_vertex_array(*vao);
+        glBindVertexArray(*vao);
 
-        gl->named_buffer_storage(*vbo, sizeof(vertices), vertices, GL_DYNAMIC_STORAGE_BIT);
-        gl->named_buffer_storage(*ebo, sizeof(indices), indices, GL_DYNAMIC_STORAGE_BIT);
-        gl->vertex_array_element_buffer(*vao, *ebo);
+        glNamedBufferStorage(*vbo, sizeof(vertices), vertices, GL_DYNAMIC_STORAGE_BIT);
+        glNamedBufferStorage(*ebo, sizeof(indices), indices, GL_DYNAMIC_STORAGE_BIT);
+        glVertexArrayElementBuffer(*vao, *ebo);
         const u32 VBO_bi = 0;
-        gl->vertex_array_vertex_buffer(*vao, VBO_bi, *vbo, vbo_offset, vbo_stride);
+        glVertexArrayVertexBuffer(*vao, VBO_bi, *vbo, vbo_offset, vbo_stride);
 
         u32 vbo_binding_index = 0;
         u32 attrib_index = 0;
         // position attribute
-        gl->vertex_array_attrib_format(*vao, attrib_index, num_pos, GL_FLOAT, GL_FALSE, 0);
-        gl->vertex_array_attrib_binding(*vao, attrib_index, vbo_binding_index);
-        gl->enable_vertex_array_attrib(*vao, attrib_index);
+        glVertexArrayAttribFormat(*vao, attrib_index, num_pos, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribBinding(*vao, attrib_index, vbo_binding_index);
+        glEnableVertexArrayAttrib(*vao, attrib_index);
         attrib_index++;
 
         // color attribute
-        gl->vertex_array_attrib_format(*vao, attrib_index, num_colors, GL_FLOAT, GL_FALSE, num_pos * sizeof(f32));
-        gl->vertex_array_attrib_binding(*vao, attrib_index, vbo_binding_index);
-        gl->enable_vertex_array_attrib(*vao, attrib_index);
+        glVertexArrayAttribFormat(*vao, attrib_index, num_colors, GL_FLOAT, GL_FALSE, num_pos * sizeof(f32));
+        glVertexArrayAttribBinding(*vao, attrib_index, vbo_binding_index);
+        glEnableVertexArrayAttrib(*vao, attrib_index);
         attrib_index++;
 
         // texture coord attribute
-        gl->vertex_array_attrib_format(*vao, attrib_index, num_uv, GL_FLOAT, GL_FALSE, (num_pos + num_colors) * sizeof(f32));
-        gl->vertex_array_attrib_binding(*vao, attrib_index, vbo_binding_index);
-        gl->enable_vertex_array_attrib(*vao, attrib_index);
+        glVertexArrayAttribFormat(*vao, attrib_index, num_uv, GL_FLOAT, GL_FALSE, (num_pos + num_colors) * sizeof(f32));
+        glVertexArrayAttribBinding(*vao, attrib_index, vbo_binding_index);
+        glEnableVertexArrayAttrib(*vao, attrib_index);
         attrib_index++;
 
         state.texture_shader.initialize(R"(.\shaders\texture_2d.vert)", R"(.\shaders\texture_2d.frag)");
@@ -237,25 +310,24 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     auto handle = state.num_textures;
     state.num_textures++;
 
-    gl->gen_textures(1, texture);
-    gl->bind_texture(GL_TEXTURE_2D, *texture);
+    glGenTextures(1, texture);
+    glBindTexture(GL_TEXTURE_2D, *texture);
     // set the texture wrapping parameters
     // set texture wrapping to GL_REPEAT (default wrapping method)
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     // set texture filtering parameters
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    gl->tex_parameter_i(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // load image, create texture and generate mipmaps
-    gl->tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    gl->generate_mip_map(GL_TEXTURE_2D);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
-    gl->bind_texture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
     return handle;
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
-
     for (u32 base_address = 0; base_address < group->push_buffer_size;) {
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(group->push_buffer + base_address);
         base_address += sizeof(RenderGroupEntryHeader);
