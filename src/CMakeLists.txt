@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)   # Adjust according to your installed version
 
+## Engine 
 project(engine)
 
 option(ENGINE_BUILD_SHARED_LIBS "Build using shared libraries" ON)
@@ -67,7 +68,6 @@ set_target_properties(engine_dyn PROPERTIES
 
 
 ## OpenGL renderer
-
 include_directories(../shared_deps/glad/include)
 set(GLAD_SOURCES ../shared_deps/glad/src/gl.c ../shared_deps/glad/src/vulkan.c)
 if(WIN32)
@@ -76,18 +76,27 @@ endif()
 
 find_package(OpenGL REQUIRED)
 
-
 set(OPENGL_RENDERER_SRC_FILES
   renderers/gl/gl_shader.cpp
-
-  renderers/opengl_renderer.cpp
-
+  renderers/win32_opengl_renderer.cpp
   ${GLAD_SOURCES}
 )
 
 add_library(opengl_renderer SHARED ${OPENGL_RENDERER_SRC_FILES})
 target_link_libraries(opengl_renderer ${OPENGL_gl_LIBRARY} )
 set_target_properties(opengl_renderer PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
+)
+
+## Software renderer
+set(SOFTWARE_RENDERER_SRC_FILES
+  renderers/win32_software_renderer.cpp
+)
+
+add_library(win32_software_renderer SHARED ${SOFTWARE_RENDERER_SRC_FILES})
+set_target_properties(win32_software_renderer PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
   LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app

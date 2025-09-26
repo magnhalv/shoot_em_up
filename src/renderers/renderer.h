@@ -5,6 +5,12 @@
 #include <math/vec4.h>
 
 // Move somewhere else
+//
+
+enum RendererType : i32 {
+    RendererType_Software, //
+    RendererType_OpenGL    //
+};
 
 typedef struct {
     vec2 bl;
@@ -77,7 +83,7 @@ typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 #define RENDERER_RENDER(name) void name(RenderGroup* group, i32 client_width, i32 client_height)
 typedef RENDERER_RENDER(renderer_render_fn);
 
-#define RENDERER_END_FRAME(name) void name()
+#define RENDERER_END_FRAME(name) void name(void* context)
 typedef RENDERER_END_FRAME(renderer_end_frame_fn);
 
 #define RENDERER_DELETE_CONTEXT(name) void name(void* context)

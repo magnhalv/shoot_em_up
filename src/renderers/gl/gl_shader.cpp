@@ -4,6 +4,7 @@
 
 #include <engine/logger.h>
 #include <platform/platform.h>
+#include <engine/hm_assert.h>
 
 #include "gl_shader.h"
 
@@ -137,7 +138,7 @@ auto GLShaderProgram::create_program(const char* vertex_path, const char* fragme
 }
 
 auto GLShaderProgram::initialize(const char* vertex_path, const char* fragment_path) -> bool {
-    assert(_handle == 0);
+    HM_ASSERT(_handle == 0);
 
     const auto vertex_length = strlen(vertex_path);
     const auto fragment_length = strlen(fragment_path);

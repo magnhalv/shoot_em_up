@@ -1,17 +1,31 @@
 #include <cstdio>
+
 #include <glad/gl.h>
 #include <glad/wgl.h>
 
-#include <platform/platform.h>
-
 #include <engine/hm_assert.h>
+#include <platform/platform.h>
 
 #include "gl/gl_shader.h"
 
-#include "glad/gl.h"
-
 #include <renderers/renderer.h>
-#include <renderers/win32_opengl_renderer.h>
+#include <renderers/win32_renderer.h>
+
+// TODO:
+// glEnable(GL_DEBUG_OUTPUT);
+// glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Calls to the callback will be synchronous
+// glDebugMessageCallback(MessageCallback, 0);
+//
+// void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+//     const GLchar* message, const void* userParam) {
+//
+//     if (severity == GL_DEBUG_SEVERITY_MEDIUM || severity == GL_DEBUG_SEVERITY_HIGH) {
+//         fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+//             (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type, severity, message);
+//         // fprintf(stderr, "Exiting...\n");
+//         // exit(1);
+//     }
+// }
 
 const u32 MaxNumTextures = 5;
 
@@ -151,7 +165,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
-    printf("Init context...\n");
+    printf("Init opengl renderer...\n");
     {
         Win32RenderContext* win32_context = (Win32RenderContext*)context;
         win32_context->hdc = GetDC(win32_context->window);
@@ -266,6 +280,7 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
         };
 
         glCreateVertexArrays(1, vao);
+        printf("New VAO: %d\n", *vao);
         glCreateBuffers(1, vbo);
         glCreateBuffers(1, ebo);
 
@@ -299,11 +314,10 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 
         state.texture_shader.initialize(R"(.\shaders\texture_2d.vert)", R"(.\shaders\texture_2d.frag)");
     }
-    printf("Context inited.\n");
+    printf("OpenGL ready to go.\n");
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
-    printf("Add texture\n");
     if (state.num_textures >= MaxNumTextures) {
         InvalidCodePath;
     }
@@ -361,6 +375,8 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
+    Win32RenderContext* win32_context = (Win32RenderContext*)context;
+    SwapBuffers(win32_context->hdc);
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
@@ -368,4 +384,6 @@ extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_c
     wglMakeCurrent(nullptr, nullptr);
     ReleaseDC(win32_context->window, win32_context->hdc);
     wglDeleteContext(win32_context->hglrc);
+
+    state = { 0 };
 }

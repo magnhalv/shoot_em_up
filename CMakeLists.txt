@@ -4,16 +4,6 @@ project(ShootEmUp)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-####### DEPENDENCIES ########
-# GLAD
-include_directories(shared_deps/glad/include)
-set(GLAD_SOURCES shared_deps/glad/src/gl.c shared_deps/glad/src/vulkan.c)
-if(WIN32)
-    set(GLAD_SOURCES ${GLAD_SOURCES} shared_deps/glad/src/wgl.c)
-endif()
-
-find_package(OpenGL REQUIRED)
-
 ####### LOCAL ########
 
 include_directories(include)
@@ -23,7 +13,6 @@ include_directories(src/deps)
 add_executable(
   shoot_em_up
   src/win_main.cpp
-  ${GLAD_SOURCES}
  )
 
 add_executable(
@@ -31,8 +20,6 @@ add_executable(
   src/asset_builder_main.cpp
   src/deps/libs.cpp
 )
-
-target_link_libraries(shoot_em_up ${OPENGL_gl_LIBRARY} )
 
 # This needs to be after the linking of opengl, otherwise we get linking issues against glad
 # Something related to assimp.

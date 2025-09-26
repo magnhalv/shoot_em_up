@@ -9,16 +9,112 @@
 #include <windows.h>
 #include <xaudio2.h>
 
-#include <glad/gl.h>
-#include <glad/wgl.h>
-
 #include <platform/types.h>
 #include <platform/user_input.h>
 
 #include <renderers/renderer.h>
-#include <renderers/win32_opengl_renderer.h>
+#include <renderers/win32_renderer.h>
 
 #include "win_main.hpp"
+
+///////////////// STRUCTS (move to header) ///////////////
+///
+struct Win32_WindowDimension {
+    i32 width;
+    i32 height;
+};
+
+struct Win32_OffscreenBuffer {
+    BITMAPINFO Info;
+    void* memory;
+    i32 memorySize;
+    i32 width;
+    i32 height;
+    i32 bytes_per_pixel;
+    i32 pitch;
+};
+
+////////////////// GLOBALS ///////////////////////////////
+
+bool Is_Running = true;
+bool Global_Debug_Show_Cursor = true;
+
+Win32_OffscreenBuffer global_offscreen_buffer = { 0 };
+
+/////////////////// GRAPHICS /////////////////////////
+
+static void win32_DisplayBufferInWindows(HDC deviceContext, int window_width, int window_height,
+    Win32_OffscreenBuffer buffer, int x, int y, int width, int height) {
+    int offset = 0;
+    StretchDIBits(                   //
+        deviceContext,               //
+        0, 0,                        //
+        buffer.width, buffer.height, //
+        0, 0,                        //
+        buffer.width, buffer.height, //
+        buffer.memory, &buffer.Info, //
+        DIB_RGB_COLORS, SRCCOPY      //
+    );
+}
+
+static void win32_ResizeDIBSection(Win32_OffscreenBuffer* buffer, int width, int height) {
+    // TODO: Bulletproof this
+    // Maybe don't free first, free after, then free first if that fails.
+    if (buffer->memory) {
+        VirtualFree(buffer->memory, 0, MEM_RELEASE);
+    }
+
+    buffer->width = width;
+    buffer->height = height;
+
+    buffer->Info.bmiHeader.biSize = sizeof(buffer->Info.bmiHeader);
+    buffer->Info.bmiHeader.biWidth = buffer->width;
+    buffer->Info.bmiHeader.biHeight = -buffer->height;
+    buffer->Info.bmiHeader.biPlanes = 1;
+    buffer->Info.bmiHeader.biBitCount = 32;
+    buffer->Info.bmiHeader.biCompression = BI_RGB;
+
+    buffer->bytes_per_pixel = 4;
+    buffer->memorySize = buffer->bytes_per_pixel * (buffer->width * buffer->height);
+    buffer->memory = VirtualAlloc(0, buffer->memorySize, MEM_COMMIT, PAGE_READWRITE);
+    buffer->pitch = buffer->width * buffer->bytes_per_pixel;
+}
+
+i32 round_real32_to_int32(f32 real) {
+    return (i32)roundf(real);
+}
+
+static void draw_rectangle(Win32_OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 r, f32 g, f32 b) {
+    i32 min_x = round_real32_to_int32(v_min.x);
+    i32 max_x = round_real32_to_int32(v_max.x);
+    i32 min_y = round_real32_to_int32(v_min.y);
+    i32 max_y = round_real32_to_int32(v_max.y);
+    if (min_x < 0) {
+        min_x = 0;
+    }
+    if (max_x > buffer->width) {
+        max_x = buffer->width;
+    }
+
+    if (min_y < 0) {
+        min_y = 0;
+    }
+    if (max_y > buffer->height) {
+        max_y = buffer->height;
+    }
+
+    u32 color = (round_real32_to_int32(r * 255.0f) << 16) | (round_real32_to_int32(g * 255.0f) << 8) |
+        (round_real32_to_int32(b * 255.0f));
+
+    u8* row = ((u8*)buffer->memory + (min_y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
+    for (int y = min_y; y < max_y; y++) {
+        u32* pixel = (u32*)row;
+        for (int x = min_x; x < max_x; x++) {
+            *pixel++ = color;
+        }
+        row += buffer->pitch;
+    }
+}
 
 ///////////////// FILE HANDLING /////////////////////////////
 
@@ -516,14 +612,15 @@ void win32_stop_playback(Playback& playback) {
 LPCWSTR EngineDllPath = LR"(..\bin\app\engine_dyn.dll)";
 LPCWSTR EnginePdbPath = LR"(..\bin\app\engine_dyn.pdb)";
 
-LPCWSTR OpenGlDllPath = LR"(..\bin\app\opengl_renderer.dll)";
-LPCWSTR OpenGLPdbPath = LR"(..\bin\app\opengl_renderer.pdb)";
+LPCWSTR SoftwareRendererDllPath = LR"(..\bin\app\win32_software_renderer.dll)";
+LPCWSTR SoftwareRendererPdbPath = LR"(..\bin\app\win32_software_renderer.pdb)";
 
 LPCWSTR OpenGlRendererDllPath = LR"(..\bin\app\opengl_renderer.dll)";
 LPCWSTR OpenGlRendererPdbPath = LR"(..\bin\app\opengl_renderer.pdb)";
 
 LPCWSTR EngineDllCopyPath = LR"(..\bin\engine\)";
-LPCWSTR OpenGLDllCopyPath = LR"(..\bin\opengl\)";
+LPCWSTR SoftwareRendererDllCopyPath = LR"(..\bin\software_renderer\)";
+LPCWSTR OpenGlRendererDllCopyPath = LR"(..\bin\opengl_renderer\)";
 
 bool win32_delete_directory_tree(const wchar_t* path) {
     wchar_t search_pattern[256];
@@ -673,7 +770,7 @@ struct RendererDll {
     RendererApi api;
 };
 
-void win32_load_renderer_dll(RendererDll* dll) {
+void win32_load_renderer_dll(RendererDll* dll, RendererType type) {
     if (dll->handle != nullptr) {
         if (!FreeLibrary(dll->handle)) {
             DWORD error = GetLastError();
@@ -683,10 +780,25 @@ void win32_load_renderer_dll(RendererDll* dll) {
         dll->handle = nullptr;
     }
 
-    if (!win32_is_directory(OpenGLDllCopyPath)) {
-        if (!CreateDirectoryW(OpenGLDllCopyPath, nullptr)) {
+    LPCWSTR renderer_dll_path = nullptr;
+    LPCWSTR renderer_dll_copy_path = nullptr;
+    LPCWSTR renderer_pdb_path = nullptr;
+
+    if (type == RendererType_Software) {
+        renderer_dll_path = SoftwareRendererDllPath;
+        renderer_dll_copy_path = SoftwareRendererDllCopyPath;
+        renderer_pdb_path = SoftwareRendererPdbPath;
+    }
+    else if (type == RendererType_OpenGL) {
+        renderer_dll_path = OpenGlRendererDllPath;
+        renderer_dll_copy_path = OpenGlRendererDllCopyPath;
+        renderer_pdb_path = OpenGlRendererPdbPath;
+    }
+
+    if (!win32_is_directory(renderer_dll_copy_path)) {
+        if (!CreateDirectoryW(renderer_dll_copy_path, nullptr)) {
             DWORD error = GetLastError();
-            wprintf(L"[ERROR] Failed to create directory %ls.\n", OpenGLDllCopyPath);
+            wprintf(L"[ERROR] Failed to create directory %ls.\n", renderer_dll_copy_path);
             win32_print_last_error();
             exit(1);
         }
@@ -699,7 +811,7 @@ void win32_load_renderer_dll(RendererDll* dll) {
         curr_time.wHour, curr_time.wMinute, curr_time.wSecond);
 
     wchar_t dir_path[128];
-    swprintf(dir_path, 128, L"%ls%ls", OpenGLDllCopyPath, timestamp);
+    swprintf(dir_path, 128, L"%ls%ls", renderer_dll_copy_path, timestamp);
 
     if (!CreateDirectoryW(dir_path, nullptr)) {
         wprintf(L"[ERROR] Failed to create directory %ls.\n", dir_path);
@@ -709,17 +821,17 @@ void win32_load_renderer_dll(RendererDll* dll) {
 
     wchar_t dll_to_load_path[128];
     swprintf(dll_to_load_path, 128, L"%ls\\%ls", dir_path, L"opengl_renderer.dll");
-    while (!CopyFileW(OpenGlDllPath, dll_to_load_path, FALSE)) {
+    while (!CopyFileW(renderer_dll_path, dll_to_load_path, FALSE)) {
         DWORD error = GetLastError();
-        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", OpenGlDllPath, dll_to_load_path, error);
+        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", renderer_dll_path, dll_to_load_path, error);
         exit(1);
     }
 
     wchar_t pdb_to_load_path[128];
     swprintf(pdb_to_load_path, 128, L"%ls\\%ls", dir_path, L"opengl_renderer.pdb");
-    if (!CopyFileW(OpenGLPdbPath, pdb_to_load_path, FALSE)) {
+    if (!CopyFileW(renderer_pdb_path, pdb_to_load_path, FALSE)) {
         DWORD error = GetLastError();
-        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", OpenGLPdbPath, pdb_to_load_path, error);
+        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", renderer_pdb_path, pdb_to_load_path, error);
         dll->is_valid = false;
     }
 
@@ -767,7 +879,7 @@ void win32_load_renderer_dll(RendererDll* dll) {
     }
 
     WIN32_FILE_ATTRIBUTE_DATA file_info;
-    if (GetFileAttributesExW(OpenGlDllPath, GetFileExInfoStandard, &file_info)) {
+    if (GetFileAttributesExW(renderer_dll_path, GetFileExInfoStandard, &file_info)) {
         dll->last_loaded_dll_write_time = file_info.ftLastWriteTime;
     }
     dll->is_valid = true;
@@ -782,7 +894,7 @@ void win32_process_keyboard_message(ButtonState& new_state, bool is_down) {
     }
 }
 
-void win32_process_pending_messages(HWND hwnd, bool& is_running, UserInput& new_input, UserInput& old_input) {
+void win32_process_pending_messages(HWND hwnd, UserInput& new_input, UserInput& old_input) {
     MSG message;
 
     new_input.mouse_raw.dx = 0;
@@ -790,7 +902,7 @@ void win32_process_pending_messages(HWND hwnd, bool& is_running, UserInput& new_
     while (PeekMessage(&message, hwnd, 0, 0, PM_REMOVE)) {
         switch (message.message) {
         case WM_QUIT: {
-            is_running = false;
+            Is_Running = false;
         } break;
         case WM_INPUT: {
             UINT dwSize;
@@ -942,7 +1054,7 @@ void win32_process_pending_messages(HWND hwnd, bool& is_running, UserInput& new_
                 if (vk_code == VK_LEFT) {
                 }
                 if (vk_code == VK_ESCAPE) {
-                    is_running = false;
+                    Is_Running = false;
                 }
                 if (vk_code == VK_SPACE) {
                     win32_process_keyboard_message(new_input.space, is_down);
@@ -984,8 +1096,51 @@ static inline auto win32_get_tick() -> i64 {
     return ticks.QuadPart;
 }
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam) {
-    return DefWindowProc(hwnd, iMsg, wParam, lParam);
+static Win32_WindowDimension win32_get_window_dimension(HWND window_handle) {
+    Win32_WindowDimension result;
+    RECT clientRect;
+    GetClientRect(window_handle, &clientRect);
+    result.width = clientRect.right - clientRect.left;
+    result.height = clientRect.bottom - clientRect.top;
+    return result;
+}
+
+LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+    LRESULT result = 0;
+    switch (message) {
+    case WM_SIZE: {
+    } break;
+    case WM_CLOSE: {
+        Is_Running = false;
+    } break;
+    case WM_SETCURSOR: {
+        if (Global_Debug_Show_Cursor) {
+            result = DefWindowProc(window, message, wParam, lParam);
+        }
+        else {
+            SetCursor(0);
+        }
+
+    } break;
+    case WM_DESTROY: {
+        Is_Running = false;
+    } break;
+    case WM_ACTIVATEAPP:
+        if (wParam == TRUE) {
+            SetLayeredWindowAttributes(window, RGB(0, 0, 0), 255, LWA_ALPHA);
+        }
+        else {
+            SetLayeredWindowAttributes(window, RGB(0, 0, 0), 64, LWA_ALPHA);
+        }
+        break;
+
+    case WM_SYSKEYDOWN:
+    case WM_SYSKEYUP:
+    case WM_KEYDOWN:
+    case WM_KEYUP: Assert("Keyboard event came through a non-disptach event"); break;
+    default: result = DefWindowProc(window, message, wParam, lParam); break;
+    }
+    return result;
 }
 
 #include <errhandlingapi.h>
@@ -1000,94 +1155,6 @@ int main() {
 #else
 #pragma comment(linker, "/subsystem:windows")
 #endif
-
-void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
-    const GLchar* message, const void* userParam) {
-
-    if (severity == GL_DEBUG_SEVERITY_MEDIUM || severity == GL_DEBUG_SEVERITY_HIGH) {
-        fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
-            (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type, severity, message);
-        // fprintf(stderr, "Exiting...\n");
-        // exit(1);
-    }
-}
-
-void win32_bind_gl_funcs(GLFunctions* gl) {
-    gl->attach_shader = glAttachShader;
-    gl->detach_shader = glDetachShader;
-    gl->bind_buffer_base = glBindBufferBase;
-    gl->bind_vertex_array = glBindVertexArray;
-    gl->clear = glClear;
-    gl->clear_color = glClearColor;
-    gl->compile_shader = glCompileShader;
-    gl->create_buffers = glCreateBuffers;
-    gl->create_program = glCreateProgram;
-    gl->create_shader = glCreateShader;
-    gl->create_vertex_arrays = glCreateVertexArrays;
-    gl->delete_buffers = glDeleteBuffers;
-    gl->delete_program = glDeleteProgram;
-    gl->delete_shader = glDeleteShader;
-    gl->delete_vertex_array = glDeleteVertexArrays;
-    gl->draw_arrays = glDrawArrays;
-    gl->enable = glEnable;
-    gl->enable_vertex_array_attrib = glEnableVertexArrayAttrib;
-    gl->finish = glFinish;
-    gl->get_error = glGetError;
-    gl->get_program_info_log = glGetProgramInfoLog;
-    gl->get_shader_info_log = glGetShaderInfoLog;
-    gl->get_uniform_location = glGetUniformLocation;
-    gl->link_program = glLinkProgram;
-    gl->named_buffer_storage = glNamedBufferStorage;
-    gl->named_buffer_sub_data = glNamedBufferSubData;
-    gl->polygon_mode = glPolygonMode;
-    gl->shader_source = glShaderSource;
-    gl->uniform_4f = glUniform4f;
-    gl->use_program = glUseProgram;
-    gl->vertex_array_attrib_binding = glVertexArrayAttribBinding;
-    gl->vertex_array_attrib_format = glVertexArrayAttribFormat;
-    gl->vertex_array_vertex_buffer = glVertexArrayVertexBuffer;
-    gl->viewport = glViewport;
-    gl->get_programiv = glGetProgramiv;
-    gl->stencil_op = glStencilOp;
-    gl->stencil_func = glStencilFunc;
-    gl->stencil_mask = glStencilMask;
-    gl->disable = glDisable;
-    gl->gen_framebuffers = glGenFramebuffers;
-    gl->bind_framebuffer = glBindFramebuffer;
-    gl->framebuffer_check_status = glCheckFramebufferStatus;
-    gl->delete_framebuffers = glDeleteFramebuffers;
-    gl->textures_gen = glGenTextures;
-    gl->texture_bind = glBindTexture;
-    gl->tex_image_2d = glTexImage2D;
-    gl->tex_parameter_i = glTexParameteri;
-    gl->framebuffer_texture_2d = glFramebufferTexture2D;
-    gl->renderbuffers_gen = glGenRenderbuffers;
-    gl->renderbuffer_bind = glBindRenderbuffer;
-    gl->renderbuffer_storage = glRenderbufferStorage;
-    gl->renderbuffer_storage_multisample = glRenderbufferStorageMultisample;
-    gl->framebuffer_renderbuffer = glFramebufferRenderbuffer;
-    gl->tex_image_2d_multisample = glTexImage2DMultisample;
-    gl->framebuffer_blit = glBlitFramebuffer;
-    gl->bind_buffer = glBindBuffer;
-    gl->buffer_data = glBufferData;
-    gl->enable_vertex_attrib_array = glEnableVertexAttribArray;
-    gl->vertex_attrib_pointer = glVertexAttribPointer;
-    gl->bind_texture = glBindTexture;
-    gl->buffer_sub_data = glBufferSubData;
-    gl->active_texture = glActiveTexture;
-    gl->gen_textures = glGenTextures;
-    gl->pixel_store_i = glPixelStorei;
-    gl->gl_uniform_matrix_4_fv = glUniformMatrix4fv;
-    gl->blend_func = glBlendFunc;
-    gl->uniform_3f = glUniform3f;
-    gl->draw_arrays_instanced_base_instance = glDrawArraysInstancedBaseInstance;
-    gl->vertex_array_element_buffer = glVertexArrayElementBuffer;
-    gl->draw_elements = glDrawElements;
-    gl->get_tex_image = glGetTexImage;
-    gl->copy_tex_sub_image_2d = glCopyTexSubImage2D;
-    gl->tex_sub_image_2d = glTexSubImage2D;
-    gl->generate_mip_map = glGenerateMipmap;
-}
 
 static void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_callback* callback, void* data) {
     // NOTE: This function assumes only a single thread writes to it.
@@ -1179,7 +1246,8 @@ static void win32_make_queue(PlatformWorkQueue* queue, u32 num_threads, win32_th
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
 
     win32_delete_directory_tree(EngineDllCopyPath);
-    win32_delete_directory_tree(OpenGLDllCopyPath);
+    win32_delete_directory_tree(OpenGlRendererDllCopyPath);
+    win32_delete_directory_tree(SoftwareRendererDllCopyPath);
 
     win32_check_ticks_frequency();
     const auto tick_frequency = win32_get_ticks_per_second();
@@ -1190,7 +1258,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     win32_thread_startup thread_startups[NUM_THREADS] = {};
     win32_make_queue(&work_queue, NUM_THREADS, thread_startups);
 
-    /* CREATE WINDOW */
     WNDCLASSEX wndclass;
     wndclass.cbSize = sizeof(WNDCLASSEX);
     wndclass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -1208,27 +1275,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int client_width = 1280;
-    int client_height = 960;
+    int client_width = 960;
+    int client_height = 540;
     RECT windowRect;
     SetRect(&windowRect, (screenWidth / 2) - (client_width / 2), (screenHeight / 2) - (client_height / 2),
         (screenWidth / 2) + (client_width / 2), (screenHeight / 2) + (client_height / 2));
 
     DWORD style = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX); // WS_THICKFRAME to resize
     AdjustWindowRectEx(&windowRect, style, FALSE, 0);
-    HWND hwnd = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
+
+    HWND window = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
         windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, hInstance, szCmdLine);
 
     RendererDll renderer_dll = {};
-    win32_load_renderer_dll(&renderer_dll);
+    win32_load_renderer_dll(&renderer_dll, RendererType_Software);
     Win32RenderContext render_context = { 0 };
-    render_context.window = hwnd;
+    render_context.window = window;
+    renderer_dll.api.init(&render_context);
 
-    // glEnable(GL_DEBUG_OUTPUT);
-    // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Calls to the callback will be synchronous
-    // glDebugMessageCallback(MessageCallback, 0);
-
-    // region Setup Memory
+    // SETUP MEMORY
     EngineMemory memory = {};
 
     void* memory_block = VirtualAlloc(nullptr, // TODO: Might want to set this
@@ -1243,32 +1308,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     memory.asset = (u8*)memory.permanent + Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
 
     memory.work_queue = &work_queue;
-    // endregion
+    // END SETUP MEMORY
 
-    auto main_to_input = static_cast<f32>(win32_get_tick() - main_entry_tick) / tick_frequency;
-
-    printf("Startup before loop: %f seconds.\n", main_to_input);
-    // region Setup Input
     EngineInput app_input = {};
     EngineDll engine_dll = {};
-
-    /*RAWINPUTDEVICE mouse;*/
-    /*mouse.usUsagePage = 0x01;       // HID_USAGE_PAGE_GENERIC*/
-    /*mouse.usUsage = 0x02;           // HID_USAGE_GENERIC_MOUSE*/
-    /*mouse.dwFlags = RIDEV_NOLEGACY; // adds mouse and also ignores legacy mouse messages, which hides the cursor*/
-    /*mouse.hwndTarget = hwnd;*/
-    /*ShowCursor(FALSE);*/
-    /**/
-    /*if (RegisterRawInputDevices(&mouse, 1, sizeof(mouse)) == FALSE) {*/
-    /*    printf("Unable to register raw input device\n");*/
-    /*    exit(1);*/
-    /*}*/
 
     UserInput inputs[2] = {};
     u32 curr_input_idx = 0;
     auto* current_input = &inputs[curr_input_idx];
     auto* previous_input = &inputs[curr_input_idx + 1];
-    // endregion
 
     // region Set platform callbacks
     PlatformApi platform = {};
@@ -1289,7 +1337,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     Audio audio = {};
     win32_init_audio(audio);
     /* MAIN LOOP */
-    auto is_running = true;
     auto is_recording = false;
     auto is_playing_back = false;
     Recording recording = {};
@@ -1310,11 +1357,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
 
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
+    ShowWindow(window, SW_SHOW);
+    UpdateWindow(window);
 
-    while (is_running) {
-        renderer_dll.api.init(&render_context);
+    while (Is_Running) {
 
         const auto this_tick = win32_get_tick();
 
@@ -1330,7 +1376,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_dll.load(&platform, &memory);
         }
         RECT client_rect;
-        GetClientRect(hwnd, &client_rect);
+        GetClientRect(window, &client_rect);
         app_input.client_height = client_rect.bottom - client_rect.top;
         app_input.client_width = client_rect.right - client_rect.left;
 
@@ -1350,7 +1396,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         /*  ClipCursor(&screen_rect);*/
         /*}*/
 
-        win32_process_pending_messages(hwnd, is_running, *current_input, *previous_input);
+        win32_process_pending_messages(window, *current_input, *previous_input);
 
         {
             /*if (current_input->r.is_pressed_this_frame()) {
@@ -1406,7 +1452,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         }
 
         engine_dll.update_and_render(&memory, &app_input, &renderer_dll.api);
-        SwapBuffers(render_context.hdc);
 
         if (audio.is_initialized) {
             XAUDIO2_VOICE_STATE state;
@@ -1440,7 +1485,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         current_input->frame_clear(*previous_input);
         is_first_frame = false;
 
-        renderer_dll.api.delete_context(&render_context);
+        renderer_dll.api.end_frame(&render_context);
+        // renderer_dll.api.delete_context(&render_context);
     }
 
     return 0;
