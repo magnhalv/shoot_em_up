@@ -17,104 +17,10 @@
 
 #include "win_main.hpp"
 
-///////////////// STRUCTS (move to header) ///////////////
-///
-struct Win32_WindowDimension {
-    i32 width;
-    i32 height;
-};
-
-struct Win32_OffscreenBuffer {
-    BITMAPINFO Info;
-    void* memory;
-    i32 memorySize;
-    i32 width;
-    i32 height;
-    i32 bytes_per_pixel;
-    i32 pitch;
-};
-
 ////////////////// GLOBALS ///////////////////////////////
 
 bool Is_Running = true;
 bool Global_Debug_Show_Cursor = true;
-
-Win32_OffscreenBuffer global_offscreen_buffer = { 0 };
-
-/////////////////// GRAPHICS /////////////////////////
-
-static void win32_DisplayBufferInWindows(HDC deviceContext, int window_width, int window_height,
-    Win32_OffscreenBuffer buffer, int x, int y, int width, int height) {
-    int offset = 0;
-    StretchDIBits(                   //
-        deviceContext,               //
-        0, 0,                        //
-        buffer.width, buffer.height, //
-        0, 0,                        //
-        buffer.width, buffer.height, //
-        buffer.memory, &buffer.Info, //
-        DIB_RGB_COLORS, SRCCOPY      //
-    );
-}
-
-static void win32_ResizeDIBSection(Win32_OffscreenBuffer* buffer, int width, int height) {
-    // TODO: Bulletproof this
-    // Maybe don't free first, free after, then free first if that fails.
-    if (buffer->memory) {
-        VirtualFree(buffer->memory, 0, MEM_RELEASE);
-    }
-
-    buffer->width = width;
-    buffer->height = height;
-
-    buffer->Info.bmiHeader.biSize = sizeof(buffer->Info.bmiHeader);
-    buffer->Info.bmiHeader.biWidth = buffer->width;
-    buffer->Info.bmiHeader.biHeight = -buffer->height;
-    buffer->Info.bmiHeader.biPlanes = 1;
-    buffer->Info.bmiHeader.biBitCount = 32;
-    buffer->Info.bmiHeader.biCompression = BI_RGB;
-
-    buffer->bytes_per_pixel = 4;
-    buffer->memorySize = buffer->bytes_per_pixel * (buffer->width * buffer->height);
-    buffer->memory = VirtualAlloc(0, buffer->memorySize, MEM_COMMIT, PAGE_READWRITE);
-    buffer->pitch = buffer->width * buffer->bytes_per_pixel;
-}
-
-i32 round_real32_to_int32(f32 real) {
-    return (i32)roundf(real);
-}
-
-static void draw_rectangle(Win32_OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 r, f32 g, f32 b) {
-    i32 min_x = round_real32_to_int32(v_min.x);
-    i32 max_x = round_real32_to_int32(v_max.x);
-    i32 min_y = round_real32_to_int32(v_min.y);
-    i32 max_y = round_real32_to_int32(v_max.y);
-    if (min_x < 0) {
-        min_x = 0;
-    }
-    if (max_x > buffer->width) {
-        max_x = buffer->width;
-    }
-
-    if (min_y < 0) {
-        min_y = 0;
-    }
-    if (max_y > buffer->height) {
-        max_y = buffer->height;
-    }
-
-    u32 color = (round_real32_to_int32(r * 255.0f) << 16) | (round_real32_to_int32(g * 255.0f) << 8) |
-        (round_real32_to_int32(b * 255.0f));
-
-    u8* row = ((u8*)buffer->memory + (min_y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
-    for (int y = min_y; y < max_y; y++) {
-        u32* pixel = (u32*)row;
-        for (int x = min_x; x < max_x; x++) {
-            *pixel++ = color;
-        }
-        row += buffer->pitch;
-    }
-}
 
 ///////////////// FILE HANDLING /////////////////////////////
 
@@ -1094,15 +1000,6 @@ static inline auto win32_get_tick() -> i64 {
         printf("Error retrieving QueryPerformanceCounter\n");
     }
     return ticks.QuadPart;
-}
-
-static Win32_WindowDimension win32_get_window_dimension(HWND window_handle) {
-    Win32_WindowDimension result;
-    RECT clientRect;
-    GetClientRect(window_handle, &clientRect);
-    result.width = clientRect.right - clientRect.left;
-    result.height = clientRect.bottom - clientRect.top;
-    return result;
 }
 
 LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {

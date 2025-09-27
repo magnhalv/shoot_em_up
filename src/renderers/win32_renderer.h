@@ -6,6 +6,6 @@
 
 struct Win32RenderContext {
     HWND window;
-    HDC hdc;
+    HDC hdc; // To I need this?
     HGLRC hglrc;
 };
