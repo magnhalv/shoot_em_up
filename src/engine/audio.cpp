@@ -1,7 +1,8 @@
+#include <core/logger.h>
+
 #include "audio.hpp"
 #include "engine/assets.h"
 #include "engine/hm_assert.h"
-#include <engine/logger.h>
 
 auto init_audio_system(AudioSystemState* state, MemoryArena* init_arena) -> void {
     HM_ASSERT(state->is_initialized == false);

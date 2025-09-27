@@ -2,25 +2,25 @@
 #include <cmath>
 #include <cstdio>
 
-#include "engine/assets.h"
-#include "platform/platform.h"
+#include <platform/platform.h>
+#include <platform/types.h>
 
 #include <math/math.h>
+#include <math/transform.h>
 #include <math/util.hpp>
+#include <math/vec2.h>
 #include <math/vec3.h>
 
-#include "engine.h"
-#include "engine/audio.hpp"
-#include "engine/gameplay.h"
-#include "engine/hm_assert.h"
-#include "globals.hpp"
-#include "logger.h"
-#include "math/vec2.h"
-#include "memory_arena.h"
-#include "platform/types.h"
-#include <math/transform.h>
+#include <core/logger.h>
 
 #include <renderers/renderer.h>
+
+#include "assets.h"
+#include "audio.hpp"
+#include "engine.h"
+#include "gameplay.h"
+#include "globals.hpp"
+#include "hm_assert.h"
 
 // Only works without rotation
 auto rect_to_quadrilateral(const vec2& p, const vec2& dim) -> Quadrilateral {

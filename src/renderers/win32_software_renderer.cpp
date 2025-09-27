@@ -160,7 +160,6 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
 
 static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
     u32 bitmap_handle, i32 screen_width, i32 screen_height) {
-    printf("Draw bitmap\n");
     vec2 bl = quad.bl - local_origin;
     vec2 tr = quad.tr - local_origin;
 
@@ -181,8 +180,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
 
     vec2 min{ min_x, min_y };
     vec2 max{ max_x, max_y };
-
-    printf("--------\n");
 
     draw_rectangle(                     //
         &state.global_offscreen_buffer, //

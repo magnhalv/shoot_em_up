@@ -4,8 +4,9 @@
 
 #include <platform/types.h>
 
+#include <core/memory_arena.h>
+
 #include <engine/hm_assert.h>
-#include <engine/memory_arena.h>
 
 // Growable list with a given capacity, that provides
 // instant removal of elements, at the cost of not

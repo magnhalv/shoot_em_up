@@ -2,9 +2,11 @@
 #include <cinttypes>
 #include <cstring>
 
-#include "engine/hm_assert.h"
-#include "logger.h"
-#include "memory.h"
+#include <core/logger.h>
+#include <core/memory.h>
+
+#include <engine/hm_assert.h>
+
 #include "memory_arena.h"
 
 MemoryArena* g_transient = nullptr;

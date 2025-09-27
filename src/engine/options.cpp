@@ -1,7 +1,8 @@
-#include "options.hpp"
+#include <core/logger.h>
+#include <core/memory_arena.h>
+
 #include "globals.hpp"
-#include "logger.h"
-#include "memory_arena.h"
+#include "options.hpp"
 
 auto line_in_buffer(const char* line, LineBuffer& line_buffer) {
     for (auto& line_in_buffer : line_buffer._lines) {

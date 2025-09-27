@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <core/memory_arena.h>
 
 #include <engine/assets.h>
 #include <engine/globals.hpp>
@@ -9,7 +9,6 @@
 #include <math/vec4.h>
 #include <platform/types.h>
 
-#include "memory_arena.h"
 #include "options.hpp"
 #include "platform/platform.h"
 #include <engine/audio.hpp>

@@ -3,10 +3,11 @@
 
 #include <platform/platform.h>
 
+#include <core/logger.h>
+#include <core/memory.h>
+#include <core/memory_arena.h>
+
 #include <engine/globals.hpp>
-#include <engine/logger.h>
-#include <engine/memory.h>
-#include <engine/memory_arena.h>
 
 #include "assets.h"
 #include "engine/hugin_file_formats.h"
@@ -78,7 +79,7 @@ auto get_audio(GameAssets* game_assets, AudioId id) -> LoadedAudio* {
 
 auto load_bitmap(GameAssets* game_assets, BitmapId id) -> void {
     if (game_assets->asset_files_count == 0) {
-      return;
+        return;
     }
     Assert(game_assets->is_initialized);
     Assert(id.value < game_assets->asset_count);

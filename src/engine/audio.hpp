@@ -1,10 +1,11 @@
 #pragma once
 
+#include <core/memory_arena.h>
+
 #include <engine/array.h>
 #include <engine/assets.h>
 #include <engine/globals.hpp>
 #include <engine/hugin_file_formats.h>
-#include <engine/memory_arena.h>
 #include <engine/structs/swap_back_list.h>
 
 struct PlayingSound {

@@ -3,9 +3,10 @@
 #include <platform/platform.h>
 #include <platform/types.h>
 
+#include <core/memory_arena.h>
+
 #include <engine/array.h>
 #include <engine/hugin_file_formats.h>
-#include <engine/memory_arena.h>
 
 const u32 BitmapBytePerPixel = 4;
 const u32 BytesPerAudioSample = 2;

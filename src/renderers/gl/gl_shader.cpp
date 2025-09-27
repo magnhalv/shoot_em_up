@@ -1,10 +1,12 @@
 #include <cassert>
 #include <cstdio>
+
 #include <glad/gl.h>
 
-#include <engine/logger.h>
-#include <platform/platform.h>
+#include <core/logger.h>
+
 #include <engine/hm_assert.h>
+#include <platform/platform.h>
 
 #include "gl_shader.h"
 

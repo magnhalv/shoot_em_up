@@ -5,20 +5,21 @@ project(engine)
 
 option(ENGINE_BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
+set(CORE_SOURCE_FILES
+  core/memory.cpp
+  core/memory_arena.cpp
+  core/logger.cpp
+)
+
 set(SOURCE_FILES
-        engine/array.cpp
-
-        engine/engine.cpp
-
-        engine/audio.cpp
-        engine/assets.cpp
-        engine/logger.cpp
-        engine/memory.cpp
-        engine/memory_arena.cpp
-        engine/globals.cpp
-        engine/options.cpp
-
-        )
+    engine/array.cpp
+    engine/engine.cpp
+    engine/audio.cpp
+    engine/assets.cpp
+    engine/globals.cpp
+    engine/options.cpp
+    ${CORE_SOURCE_FILES}
+)
 
 add_library(engine_dyn SHARED ${SOURCE_FILES})
 add_library(engine_static ${SOURCE_FILES} )
@@ -93,6 +94,7 @@ set_target_properties(opengl_renderer PROPERTIES
 ## Software renderer
 set(SOFTWARE_RENDERER_SRC_FILES
   renderers/win32_software_renderer.cpp
+  ${CORE_SOURCE_FILES}
 )
 
 add_library(win32_software_renderer SHARED ${SOFTWARE_RENDERER_SRC_FILES})
