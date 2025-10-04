@@ -38,6 +38,11 @@ constexpr u64 GigaBytes(u64 num_gb) noexcept {
     return MegaBytes(1024 * num_gb);
 }
 
+struct MemoryBlock {
+    void* data;
+    u32 size;
+};
+
 const i32 Max_Path_Length = 128;
 
 // Returns the length of a static array

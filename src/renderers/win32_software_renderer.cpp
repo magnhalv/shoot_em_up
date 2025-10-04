@@ -1,7 +1,12 @@
 #include <platform/platform.h>
 
-#include <engine/hm_assert.h>
 #include <math/math.h>
+
+// TODO: Move to core
+#include <core/logger.h>
+#include <core/memory.h>
+#include <core/memory_arena.h>
+#include <engine/hm_assert.h>
 
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
@@ -23,9 +28,21 @@ struct OffscreenBuffer {
     i32 pitch;
 };
 
+struct Win32Texture {
+    void* data;
+    i32 width;
+    i32 height;
+    i32 size;
+};
+
+const i32 MaxTexturesCount = 5;
 // TODO: This should probably go to an arena
 struct SWRendererState {
     OffscreenBuffer global_offscreen_buffer;
+    MemoryArena permanent;
+
+    Win32Texture textures[5];
+    i32 textures_count;
 };
 
 static SWRendererState state = { 0 };
@@ -119,6 +136,43 @@ static void draw_rectangle(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 
     }
 }
 
+static void draw_texture(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, Win32Texture* texture) {
+    i32 min_x = round_real32_to_int32(v_min.x);
+    i32 max_x = round_real32_to_int32(v_max.x);
+    i32 min_y = round_real32_to_int32(v_min.y);
+    i32 max_y = round_real32_to_int32(v_max.y);
+    if (min_x < 0) {
+        min_x = 0;
+    }
+    if (max_x > buffer->width) {
+        max_x = buffer->width;
+    }
+
+    if (min_y < 0) {
+        min_y = 0;
+    }
+    if (max_y > buffer->height) {
+        max_y = buffer->height;
+    }
+
+    // Flip coordinate system
+    min_y = buffer->height - min_y;
+    max_y = buffer->height - max_y;
+    auto temp = min_y;
+    min_y = max_y;
+    max_y = temp;
+
+    u32* color = (u32*)texture->data;
+    u8* row = ((u8*)buffer->memory + (min_y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
+    for (int y = min_y; y < max_y; y++) {
+        u32* pixel = (u32*)row;
+        for (int x = min_x; x < max_x; x++) {
+            *pixel++ = *color++ >> 8;
+        }
+        row += buffer->pitch;
+    }
+}
+
 static auto clear(i32 client_width, i32 client_height, vec4 color) {
     vec2 min = vec2(0, 0);
     vec2 max = vec2(client_width, client_height);
@@ -181,11 +235,12 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
     vec2 min{ min_x, min_y };
     vec2 max{ max_x, max_y };
 
-    draw_rectangle(                     //
+    Win32Texture* texture = &state.textures[bitmap_handle - 1];
+
+    draw_texture(                       //
         &state.global_offscreen_buffer, //
         min, max,                       //
-        1.0, 0, 0                       //
-    );
+        texture);
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
@@ -194,11 +249,27 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     // TODO: Get dimensions as input
     resize_dib_section(&state.global_offscreen_buffer, 960, 540);
 
+    HM_ASSERT(memory != nullptr);
+    HM_ASSERT(memory->data != nullptr);
+    state.permanent.init(memory->data, memory->size);
+
     printf("Software renderer ready to go.\n");
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
-    return 0;
+    if (state.textures_count == MaxTexturesCount) {
+        // TODO: Return empty texture
+        crash_and_burn("Too many textures");
+    }
+    Win32Texture* texture = &state.textures[state.textures_count];
+    texture->height = height;
+    texture->width = width;
+    texture->size = width * height;
+    texture->data = state.permanent.allocate(texture->size);
+
+    copy_memory_from_to(data, texture->data, texture->size);
+    state.textures_count++;
+    return state.textures_count;
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
@@ -246,7 +317,6 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
         width, height                  //
     );
     ReleaseDC(win32_context->window, device_context);
-    printf("---- END FRAME ---- \n");
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {

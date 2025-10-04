@@ -1184,12 +1184,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     HWND window = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
         windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, hInstance, szCmdLine);
 
-    RendererDll renderer_dll = {};
-    win32_load_renderer_dll(&renderer_dll, RendererType_Software);
-    Win32RenderContext render_context = { 0 };
-    render_context.window = window;
-    renderer_dll.api.init(&render_context);
-
     // SETUP MEMORY
     EngineMemory memory = {};
 
@@ -1205,7 +1199,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     memory.asset = (u8*)memory.permanent + Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
 
     memory.work_queue = &work_queue;
+
+    MemoryBlock renderer_memory = { 0 };
+    renderer_memory.size = MegaBytes(1);
+    renderer_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
+        (SIZE_T)renderer_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (renderer_memory.data == nullptr) {
+        auto error = GetLastError();
+        printf("Unable to allocate renderer memory: %lu", error);
+        return -1;
+    }
     // END SETUP MEMORY
+
+    // INIT RENDERER //
+    RendererDll renderer_dll = {};
+    win32_load_renderer_dll(&renderer_dll, RendererType_Software);
+    Win32RenderContext render_context = { 0 };
+    render_context.window = window;
+    renderer_dll.api.init(&render_context, &renderer_memory);
 
     EngineInput app_input = {};
     EngineDll engine_dll = {};

@@ -100,9 +100,9 @@ const u64 Transient_Memory_Block_Size = MegaBytes(10);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
 
 struct EngineMemory {
-    void* permanent = nullptr; // NOTE: Must be cleared to zero
-    void* transient = nullptr; // NOTE: Must be cleared to zero
-    void* asset = nullptr;     // NOTE: Must be cleared to zero
+    void* permanent = nullptr;
+    void* transient = nullptr;
+    void* asset = nullptr;
 
     PlatformWorkQueue* work_queue = nullptr;
 };

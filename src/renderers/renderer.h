@@ -74,7 +74,7 @@ struct RenderGroup {
 
 #define RENDERER_API __cdecl
 
-#define RENDERER_INIT(name) void name(void* context)
+#define RENDERER_INIT(name) void name(void* context, MemoryBlock* memory)
 typedef RENDERER_INIT(renderer_init_fn);
 
 #define RENDERER_ADD_TEXTURE(name) u32 name(void* data, i32 width, i32 height)

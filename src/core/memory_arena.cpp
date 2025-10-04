@@ -66,6 +66,7 @@ auto MemoryArena::allocate_arena(u64 request_size) -> MemoryArena* {
 
 auto MemoryArena::clear() -> void {
     debug_set_memory(memory, size);
+
     used = sizeof(ArenaGuard);
     auto* first_guard = reinterpret_cast<ArenaGuard*>(memory);
     first_guard->guard_pattern = GUARD_PATTERN;
@@ -95,7 +96,7 @@ auto MemoryArena::check_integrity() const -> void {
 }
 
 auto MemoryArena::init(void* in_memory, u32 in_size) -> void {
-    memory = static_cast<u8*>(in_memory);
+    memory = (u8*)in_memory;
     size = in_size;
     clear();
 }

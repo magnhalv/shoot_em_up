@@ -13,6 +13,6 @@ inline void ZeroSize(memory_index Size, void* Ptr) {
 }
 
 void debug_set_memory(void* memory, u64 size);
-void mem_copy(void* src, void* dest, u64 size);
+void copy_memory_from_to(void* src, void* dest, u64 size);
 
 void DEBUG_print_memory_as_hex(void* memory, u64 size);
