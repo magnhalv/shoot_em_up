@@ -235,6 +235,18 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
     return game_assets;
 }
 
+auto unload_all_assets(GameAssets* game_assets) -> void {
+    for (auto i = 0; i < AssetGroup_Count; i++) {
+        auto asset = game_assets->assets[i];
+        if (asset.asset_memory) {
+            auto type = game_assets->assets[i].asset_memory->asset_type;
+            if (type == AssetType_Bitmap) {
+                game_assets->assets[i].asset_memory->bitmap.texture_handle = 0;
+            }
+        }
+    }
+}
+
 auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId {
     u32 result = 0;
 

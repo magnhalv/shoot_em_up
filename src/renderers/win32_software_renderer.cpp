@@ -33,6 +33,7 @@ struct Win32Texture {
     i32 width;
     i32 height;
     i32 size;
+    i32 bytes_per_pixel;
 };
 
 const i32 MaxTexturesCount = 5;
@@ -58,16 +59,6 @@ static WindowDimension get_window_dimension(HWND window) {
 
 static void render_buffer_in_window(HDC deviceContext, int window_width, int window_height, OffscreenBuffer buffer,
     int x, int y, int width, int height) {
-    int offset = 0;
-    StretchDIBits(                   //
-        deviceContext,               //
-        0, 0,                        //
-        buffer.width, buffer.height, //
-        0, 0,                        //
-        buffer.width, buffer.height, //
-        buffer.memory, &buffer.Info, //
-        DIB_RGB_COLORS, SRCCOPY      //
-    );
 }
 
 static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
@@ -167,7 +158,19 @@ static void draw_texture(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, Win32T
     for (int y = min_y; y < max_y; y++) {
         u32* pixel = (u32*)row;
         for (int x = min_x; x < max_x; x++) {
-            *pixel++ = *color++ >> 8;
+            u8 a = *color >> 24;
+            u8 b = *color >> 16;
+            u8 g = *color >> 8;
+            u8 r = *color >> 0;
+
+            // TODO: Proper alpha blending
+            if (a != 0) {
+                // TODO: Can we change the expected format for windows?
+                u32 c = a << 24 | r << 16 | g << 8 | b;
+                *pixel = c;
+            }
+            pixel++;
+            color++;
         }
         row += buffer->pitch;
     }
@@ -264,7 +267,8 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     Win32Texture* texture = &state.textures[state.textures_count];
     texture->height = height;
     texture->width = width;
-    texture->size = width * height;
+    texture->bytes_per_pixel = 4;
+    texture->size = width * height * texture->bytes_per_pixel;
     texture->data = state.permanent.allocate(texture->size);
 
     copy_memory_from_to(data, texture->data, texture->size);
@@ -305,24 +309,31 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
 extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     Win32RenderContext* win32_context = (Win32RenderContext*)context;
-    // draw_rectangle(&global_offscreen_buffer, vec2(5, 5), vec2(100, 100), 1.0, 0.0, 0.0);
     HDC device_context = GetDC(win32_context->window);
+
     i32 width = state.global_offscreen_buffer.width;
     i32 height = state.global_offscreen_buffer.height;
-    render_buffer_in_window(           //
-        device_context,                //
-        width, height,                 //
-        state.global_offscreen_buffer, //
-        0, 0,                          //
-        width, height                  //
+    int offset = 0;
+    auto result = StretchDIBits(              //
+        device_context,                       //
+        0, 0,                                 //
+        width, height, 0, 0,                  //
+        width, height,                        //
+        state.global_offscreen_buffer.memory, //
+        &state.global_offscreen_buffer.Info,  //
+        DIB_RGB_COLORS, SRCCOPY               //
     );
+    if (result == 0 || result == GDI_ERROR) {
+        log_error("StretchDIBits failed\n");
+    }
+
     ReleaseDC(win32_context->window, device_context);
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
 }
 
-// TODO: Not sure if I need this
+// TODO: I need this to handle redraw calls from windows, e.g. if you move the window, or move a window above it
 // case WM_PAINT: {
 //     PAINTSTRUCT paint;
 //     HDC deviceContext = BeginPaint(window, &paint);

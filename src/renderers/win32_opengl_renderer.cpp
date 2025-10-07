@@ -382,6 +382,7 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
     Win32RenderContext* win32_context = (Win32RenderContext*)context;
     wglMakeCurrent(nullptr, nullptr);
+    SwapBuffers(win32_context->hdc);
     ReleaseDC(win32_context->window, win32_context->hdc);
     wglDeleteContext(win32_context->hglrc);
 

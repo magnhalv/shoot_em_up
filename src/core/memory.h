@@ -5,7 +5,6 @@
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
 #define ZeroArray(Count, Pointer) ZeroSize(Count * sizeof((Pointer)[0]), Pointer)
 inline void ZeroSize(memory_index Size, void* Ptr) {
-    // TODO(casey): Check this guy for performance
     u8* Byte = (u8*)Ptr;
     while (Size--) {
         *Byte++ = 0;

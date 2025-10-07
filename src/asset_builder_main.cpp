@@ -308,15 +308,15 @@ static auto write_bitmaps() -> void {
     initialize(assets);
 
     begin_asset_type(assets, Asset_PlayerSpaceShip);
-    add_bitmap_asset(assets, "data/bitmaps/player_1.png");
+    add_bitmap_asset(assets, "assets/bitmaps/player_1.png");
     end_asset_type(assets);
 
     begin_asset_type(assets, Asset_EnemySpaceShip);
-    add_bitmap_asset(assets, "data/bitmaps/blue_01.png");
+    add_bitmap_asset(assets, "assets/bitmaps/blue_01.png");
     end_asset_type(assets);
 
     begin_asset_type(assets, Asset_Projectile);
-    add_bitmap_asset(assets, "data/bitmaps/projectile_1.png");
+    add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
     end_asset_type(assets);
 
     write_asset_file(assets, "bitmaps.haf");
@@ -329,7 +329,7 @@ static auto write_audio() -> void {
     initialize(assets);
 
     begin_asset_type(assets, Asset_Laser);
-    add_audio_asset(assets, "data/audio/laser_primary.wav");
+    add_audio_asset(assets, "assets/audio/laser_primary.wav");
     end_asset_type(assets);
 
     write_asset_file(assets, "audio.haf");

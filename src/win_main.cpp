@@ -12,6 +12,8 @@
 #include <platform/types.h>
 #include <platform/user_input.h>
 
+#include <core/memory.h>
+
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
@@ -19,7 +21,8 @@
 
 ////////////////// GLOBALS ///////////////////////////////
 
-bool Is_Running = true;
+bool global_is_running = true;
+bool global_is_reloading_renderer = false;
 bool Global_Debug_Show_Cursor = true;
 
 ///////////////// FILE HANDLING /////////////////////////////
@@ -121,7 +124,7 @@ static PLATFORM_READ_FILE(win32_read_file) {
     }
 }
 
-/////////////////////////// SOUND/OPENGL /////////////////////
+/////////////////////////// SOUND /////////////////////
 
 struct SoundDataBuffer {
     u8* data;
@@ -421,8 +424,6 @@ bool win32_read_binary_file(const char* path, void* destination_buffer, const u6
         return false;
     }
 
-    // Read one character less than the buffer size to save room for
-    // the terminating NULL character.
     DWORD bytes_read = 0;
     if (!ReadFile(file_handle, destination_buffer, buffer_size, &bytes_read, nullptr)) {
         printf("[ERROR] win32_read_binary file: Unable to read file '%s'.\nWindows error code=%lu\n", path, GetLastError());
@@ -683,7 +684,7 @@ void win32_load_renderer_dll(RendererDll* dll, RendererType type) {
             printf("Failed to unload .dll. Error code: %lu. Exiting...\n", error);
             exit(1);
         }
-        dll->handle = nullptr;
+        *dll = { 0 };
     }
 
     LPCWSTR renderer_dll_path = nullptr;
@@ -699,6 +700,9 @@ void win32_load_renderer_dll(RendererDll* dll, RendererType type) {
         renderer_dll_path = OpenGlRendererDllPath;
         renderer_dll_copy_path = OpenGlRendererDllCopyPath;
         renderer_pdb_path = OpenGlRendererPdbPath;
+    }
+    else {
+        InvalidCodePath;
     }
 
     if (!win32_is_directory(renderer_dll_copy_path)) {
@@ -808,7 +812,7 @@ void win32_process_pending_messages(HWND hwnd, UserInput& new_input, UserInput& 
     while (PeekMessage(&message, hwnd, 0, 0, PM_REMOVE)) {
         switch (message.message) {
         case WM_QUIT: {
-            Is_Running = false;
+            global_is_running = false;
         } break;
         case WM_INPUT: {
             UINT dwSize;
@@ -960,7 +964,7 @@ void win32_process_pending_messages(HWND hwnd, UserInput& new_input, UserInput& 
                 if (vk_code == VK_LEFT) {
                 }
                 if (vk_code == VK_ESCAPE) {
-                    Is_Running = false;
+                    global_is_running = false;
                 }
                 if (vk_code == VK_SPACE) {
                     win32_process_keyboard_message(new_input.space, is_down);
@@ -1008,7 +1012,9 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
     case WM_SIZE: {
     } break;
     case WM_CLOSE: {
-        Is_Running = false;
+        if (!global_is_reloading_renderer) {
+            global_is_running = false;
+        }
     } break;
     case WM_SETCURSOR: {
         if (Global_Debug_Show_Cursor) {
@@ -1020,7 +1026,7 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
 
     } break;
     case WM_DESTROY: {
-        Is_Running = false;
+        // global_is_running = false;
     } break;
     case WM_ACTIVATEAPP:
         if (wParam == TRUE) {
@@ -1031,6 +1037,11 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
         }
         break;
 
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        BeginPaint(window, &ps);
+        EndPaint(window, &ps);
+    } break;
     case WM_SYSKEYDOWN:
     case WM_SYSKEYUP:
     case WM_KEYDOWN:
@@ -1039,19 +1050,6 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
     }
     return result;
 }
-
-#include <errhandlingapi.h>
-
-#if _DEBUG
-#pragma comment(linker, "/subsystem:console")
-
-int main() {
-    return WinMain(GetModuleHandle(nullptr), nullptr, GetCommandLineA(), SW_SHOWDEFAULT);
-}
-
-#else
-#pragma comment(linker, "/subsystem:windows")
-#endif
 
 static void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_callback* callback, void* data) {
     // NOTE: This function assumes only a single thread writes to it.
@@ -1140,25 +1138,12 @@ static void win32_make_queue(PlatformWorkQueue* queue, u32 num_threads, win32_th
     }
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
-
-    win32_delete_directory_tree(EngineDllCopyPath);
-    win32_delete_directory_tree(OpenGlRendererDllCopyPath);
-    win32_delete_directory_tree(SoftwareRendererDllCopyPath);
-
-    win32_check_ticks_frequency();
-    const auto tick_frequency = win32_get_ticks_per_second();
-    auto main_entry_tick = win32_get_tick();
-
-    const u32 NUM_THREADS = 4;
-    PlatformWorkQueue work_queue = {};
-    win32_thread_startup thread_startups[NUM_THREADS] = {};
-    win32_make_queue(&work_queue, NUM_THREADS, thread_startups);
+auto win32_create_window(HINSTANCE hInstance, PSTR szCmdLine) -> HWND {
 
     WNDCLASSEX wndclass;
     wndclass.cbSize = sizeof(WNDCLASSEX);
     wndclass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
-    wndclass.lpfnWndProc = WndProc; // Needed, otherwise it crashes
+    wndclass.lpfnWndProc = WndProc; // Window events handler
     wndclass.cbClsExtra = 0;
     wndclass.cbWndExtra = 0;
     wndclass.hInstance = hInstance;
@@ -1183,9 +1168,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     HWND window = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
         windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, hInstance, szCmdLine);
+    return window;
+}
 
+#include <errhandlingapi.h>
+
+#if _DEBUG
+#pragma comment(linker, "/subsystem:console")
+
+int main() {
+    return WinMain(GetModuleHandle(nullptr), nullptr, GetCommandLineA(), SW_SHOWDEFAULT);
+}
+
+#else
+#pragma comment(linker, "/subsystem:windows")
+#endif
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
+
+    win32_delete_directory_tree(EngineDllCopyPath);
+    win32_delete_directory_tree(OpenGlRendererDllCopyPath);
+    win32_delete_directory_tree(SoftwareRendererDllCopyPath);
+
+    win32_check_ticks_frequency();
+    const auto tick_frequency = win32_get_ticks_per_second();
+    auto main_entry_tick = win32_get_tick();
+
+    const u32 NUM_THREADS = 4;
+    PlatformWorkQueue work_queue = {};
+    win32_thread_startup thread_startups[NUM_THREADS] = {};
+    win32_make_queue(&work_queue, NUM_THREADS, thread_startups);
+
+    HWND window = win32_create_window(hInstance, szCmdLine);
     // SETUP MEMORY
-    EngineMemory memory = {};
+    EngineMemory engine_memory = {};
 
     void* memory_block = VirtualAlloc(nullptr, // TODO: Might want to set this
         (SIZE_T)Total_Memory_Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -1194,14 +1210,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         printf("Unable to allocate memory: %lu", error);
         return -1;
     }
-    memory.permanent = memory_block;
-    memory.transient = (u8*)memory.permanent + Permanent_Memory_Block_Size;
-    memory.asset = (u8*)memory.permanent + Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
+    engine_memory.permanent = memory_block;
+    engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
+    engine_memory.asset = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
 
-    memory.work_queue = &work_queue;
+    engine_memory.work_queue = &work_queue;
 
     MemoryBlock renderer_memory = { 0 };
-    renderer_memory.size = MegaBytes(1);
+    renderer_memory.size = Renderer_Memory_Block_Size;
     renderer_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
         (SIZE_T)renderer_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (renderer_memory.data == nullptr) {
@@ -1213,7 +1229,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     // INIT RENDERER //
     RendererDll renderer_dll = {};
-    win32_load_renderer_dll(&renderer_dll, RendererType_Software);
+    RendererType renderer_type = RendererType_Software;
+    win32_load_renderer_dll(&renderer_dll, renderer_type);
     Win32RenderContext render_context = { 0 };
     render_context.window = window;
     renderer_dll.api.init(&render_context, &renderer_memory);
@@ -1251,7 +1268,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     Playback playback = {};
 
     win32_load_dll(&engine_dll);
-    engine_dll.load(&platform, &memory);
+    engine_dll.load(&platform, &engine_memory);
 
     const f32 target_fps = 60;
     const f32 ticks_per_frame = tick_frequency / target_fps;
@@ -1268,7 +1285,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     ShowWindow(window, SW_SHOW);
     UpdateWindow(window);
 
-    while (Is_Running) {
+    while (global_is_running) {
 
         const auto this_tick = win32_get_tick();
 
@@ -1278,34 +1295,35 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         app_input.t += app_input.dt;
         last_tick = this_tick;
 
+        win32_process_pending_messages(window, *current_input, *previous_input);
+
         if (win32_should_reload_dll(&engine_dll)) {
             printf("Hot reloading dll...\n");
             win32_load_dll(&engine_dll);
-            engine_dll.load(&platform, &memory);
+            engine_dll.load(&platform, &engine_memory);
         }
-        RECT client_rect;
-        GetClientRect(window, &client_rect);
-        app_input.client_height = client_rect.bottom - client_rect.top;
-        app_input.client_width = client_rect.right - client_rect.left;
 
-        /*{*/
-        /*  // Lock cursor to screen*/
-        /*  POINT top_left = { client_rect.left, client_rect.top };*/
-        /*  POINT bottom_right = { client_rect.right, client_rect.bottom };*/
-        /**/
-        /*  ClientToScreen(hwnd, &top_left);*/
-        /*  ClientToScreen(hwnd, &bottom_right);*/
-        /*  RECT screen_rect = {*/
-        /*    .left = top_left.x,*/
-        /*    .top = top_left.y,*/
-        /*    .right = bottom_right.x,*/
-        /*    .bottom = bottom_right.y,*/
-        /*  };*/
-        /*  ClipCursor(&screen_rect);*/
-        /*}*/
+        engine_memory.is_renderer_reloaded = false;
+        if (current_input->o.is_pressed_this_frame()) {
+            global_is_reloading_renderer = true;
 
-        win32_process_pending_messages(window, *current_input, *previous_input);
+            ZeroSize(Renderer_Memory_Block_Size, renderer_memory.data);
+            renderer_type = renderer_type == RendererType_Software ? RendererType_OpenGL : RendererType_Software;
 
+            // NOTE: We destroy and recreate he window, since OpenGL will
+            // permanently set the pixel format of the window to a software incompatible format.
+            DestroyWindow(window);
+            window = win32_create_window(hInstance, szCmdLine);
+            ShowWindow(window, SW_SHOW);
+            UpdateWindow(window);
+
+            render_context.window = window;
+            win32_load_renderer_dll(&renderer_dll, renderer_type);
+            renderer_dll.api.init(&render_context, &renderer_memory);
+            engine_memory.is_renderer_reloaded = true;
+
+            global_is_reloading_renderer = false;
+        }
         {
             /*if (current_input->r.is_pressed_this_frame()) {
                 if (!is_recording) {
@@ -1359,7 +1377,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }*/
         }
 
-        engine_dll.update_and_render(&memory, &app_input, &renderer_dll.api);
+        RECT client_rect;
+        GetClientRect(window, &client_rect);
+        app_input.client_height = client_rect.bottom - client_rect.top;
+        app_input.client_width = client_rect.right - client_rect.left;
+        engine_dll.update_and_render(&engine_memory, &app_input, &renderer_dll.api);
 
         if (audio.is_initialized) {
             XAUDIO2_VOICE_STATE state;
@@ -1368,7 +1390,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             while (state.BuffersQueued < 2) {
                 const auto num_samples_to_add = static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
                 if (num_samples_to_add > 0) {
-                    auto sound_buffer = engine_dll.get_sound_samples(&memory, num_samples_to_add);
+                    auto sound_buffer = engine_dll.get_sound_samples(&engine_memory, num_samples_to_add);
                     win32_add_sound_samples_to_queue(audio, sound_buffer);
                 }
                 audio.sourceVoice->GetState(&state);
@@ -1394,7 +1416,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         is_first_frame = false;
 
         renderer_dll.api.end_frame(&render_context);
-        // renderer_dll.api.delete_context(&render_context);
     }
 
     return 0;
