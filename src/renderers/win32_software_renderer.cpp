@@ -1,11 +1,12 @@
+#include <cstdlib>
 #include <platform/platform.h>
 
 #include <math/math.h>
 
-// TODO: Move to core
 #include <core/logger.h>
 #include <core/memory.h>
 #include <core/memory_arena.h>
+// TODO: Move to core
 #include <engine/hm_assert.h>
 
 #include <renderers/renderer.h>
@@ -21,7 +22,7 @@ struct WindowDimension {
 struct OffscreenBuffer {
     BITMAPINFO Info;
     void* memory;
-    i32 memorySize;
+    i32 memory_size;
     i32 width;
     i32 height;
     i32 bytes_per_pixel;
@@ -57,10 +58,6 @@ static WindowDimension get_window_dimension(HWND window) {
     return result;
 }
 
-static void render_buffer_in_window(HDC deviceContext, int window_width, int window_height, OffscreenBuffer buffer,
-    int x, int y, int width, int height) {
-}
-
 static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
     // TODO: Bulletproof this
     // Maybe don't free first, free after, then free first if that fails.
@@ -79,8 +76,8 @@ static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
     buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     buffer->bytes_per_pixel = 4;
-    buffer->memorySize = buffer->bytes_per_pixel * (buffer->width * buffer->height);
-    buffer->memory = VirtualAlloc(0, buffer->memorySize, MEM_COMMIT, PAGE_READWRITE);
+    buffer->memory_size = buffer->bytes_per_pixel * (buffer->width * buffer->height);
+    buffer->memory = VirtualAlloc(0, buffer->memory_size, MEM_COMMIT, PAGE_READWRITE);
     buffer->pitch = buffer->width * buffer->bytes_per_pixel;
 }
 
@@ -146,12 +143,8 @@ static void draw_texture(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, Win32T
         max_y = buffer->height;
     }
 
-    // Flip coordinate system
-    min_y = buffer->height - min_y;
-    max_y = buffer->height - max_y;
-    auto temp = min_y;
-    min_y = max_y;
-    max_y = temp;
+    u32 t_width = texture->width;
+    u32 t_height = texture->height;
 
     u32* color = (u32*)texture->data;
     u8* row = ((u8*)buffer->memory + (min_y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
@@ -271,7 +264,7 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     texture->size = width * height * texture->bytes_per_pixel;
     texture->data = state.permanent.allocate(texture->size);
 
-    copy_memory_from_to(data, texture->data, texture->size);
+    copy_memory(data, texture->data, texture->size);
     state.textures_count++;
     return state.textures_count;
 }
@@ -313,21 +306,31 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
 
     i32 width = state.global_offscreen_buffer.width;
     i32 height = state.global_offscreen_buffer.height;
+    i32 bytes_per_pixel = state.global_offscreen_buffer.bytes_per_pixel;
+
+    u8* buffer = (u8*)malloc(state.global_offscreen_buffer.memory_size);
+    for (i32 y = 0; y < height; y++) {
+        u8* src_row = (u8*)state.global_offscreen_buffer.memory + (y * width * bytes_per_pixel);
+        u8* dest_row = buffer + ((height - y - 1) * width * bytes_per_pixel);
+        copy_memory(src_row, dest_row, width * bytes_per_pixel);
+    }
+
     int offset = 0;
-    auto result = StretchDIBits(              //
-        device_context,                       //
-        0, 0,                                 //
-        width, height, 0, 0,                  //
-        width, height,                        //
-        state.global_offscreen_buffer.memory, //
-        &state.global_offscreen_buffer.Info,  //
-        DIB_RGB_COLORS, SRCCOPY               //
+    auto result = StretchDIBits(             //
+        device_context,                      //
+        0, 0,                                //
+        width, height, 0, 0,                 //
+        width, height,                       //
+        buffer,                              //
+        &state.global_offscreen_buffer.Info, //
+        DIB_RGB_COLORS, SRCCOPY              //
     );
     if (result == 0 || result == GDI_ERROR) {
         log_error("StretchDIBits failed\n");
     }
 
     ReleaseDC(win32_context->window, device_context);
+    free(buffer);
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {

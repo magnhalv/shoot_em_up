@@ -278,6 +278,12 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 
                 Assert((bitmap.width * 4) == bitmap.pitch);
                 fwrite(bitmap.data, bitmap.pitch * bitmap.height, 1, out);
+                printf("Howdy\n");
+                u32* data = (u32*)bitmap.data;
+                for (int i = 0; i < 10; i++) {
+                    printf("0x%x, ", *(data + i));
+                }
+                printf("\n");
 
                 free(bitmap.data);
             }
@@ -317,6 +323,10 @@ static auto write_bitmaps() -> void {
 
     begin_asset_type(assets, Asset_Projectile);
     add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
+    end_asset_type(assets);
+
+    begin_asset_type(assets, Asset_Test);
+    add_bitmap_asset(assets, "assets/bitmaps/test.png");
     end_asset_type(assets);
 
     write_asset_file(assets, "bitmaps.haf");

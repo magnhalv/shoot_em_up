@@ -165,7 +165,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         state->assets = initialize_game_assets(&state->permanent);
 
-        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
+        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_Test);
         auto player = get_bitmap_meta(state->assets, bitmap_id);
         state->player.dim = vec2(player.dim[0], player.dim[1]);
         state->player.P = vec2(100, 100);
@@ -398,7 +398,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
     {
-        auto player_bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
+        auto player_bitmap_id = get_first_bitmap_id(state->assets, Asset_Test);
         auto bitmap = get_bitmap(state->assets, player_bitmap_id);
         if (bitmap) {
             if (bitmap->texture_handle == 0) {
