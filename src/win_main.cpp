@@ -166,17 +166,19 @@ auto win32_print_error_msg(HRESULT hr) {
     }
 }
 auto win32_init_audio(Audio& audio) -> void {
-    HRESULT result;
+    HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    if (FAILED(result) && result != RPC_E_CHANGED_MODE) {
+        printf("COM init failed: 0x%08lx\n", result);
+    }
+
     result = XAudio2Create(&audio.xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
     if (FAILED(result)) {
-        DWORD err_code = GetLastError();
-        printf("win32_init_audio::XAudio2Create failed: %lu\n", err_code);
+        printf("XAudio2Create failed: 0x%08lx\n", result);
         return;
     }
     result = audio.xAudio2->CreateMasteringVoice(&audio.masteringVoice);
     if (FAILED(result)) {
-        DWORD err_code = GetLastError();
-        printf("win32_init_audio::XAudio2CreateMasteringVoice failed: %lu\n", err_code);
+        printf("CreateMasteringVoice failed, HRESULT = 0x%08lx\n", result);
         return;
     }
 
@@ -1193,7 +1195,6 @@ int main() {
 #endif
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
-
     win32_delete_directory_tree(EngineDllCopyPath);
     win32_delete_directory_tree(OpenGlRendererDllCopyPath);
     win32_delete_directory_tree(SoftwareRendererDllCopyPath);
@@ -1266,7 +1267,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     platform.complete_all_work = &win32_complete_all_work;
     // endregion
 
-    Audio audio = {};
+    Audio audio = { 0 };
     win32_init_audio(audio);
     /* MAIN LOOP */
     auto is_recording = false;
