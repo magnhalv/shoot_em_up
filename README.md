@@ -14,9 +14,12 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 ## TODO 
 
 - Figure a better way to deal with textures and other resources when switching between renderers.
+    - Use void* as handles?
+    - Have an id per asset, which is defined by the user. Add a texture with a given id which already exists is a no-op.
 - Make record work again
 - Add freeze
 - Software renderer:
+    - Probably have to start using matrices
     - Make texture UV coordinates work
 - Consider start using perspective matrices
 - Load assets as background tasks
@@ -34,5 +37,4 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
     * [X] Load asset from asset file in a background task
     * [X] Add platform function for reading file and opening File handles
     * [X] Load sound from asset file
-    * [ ] When hot reloading, wait for all current tasks to be completed.
 * Move the renderer to a separate .dll

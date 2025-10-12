@@ -98,7 +98,6 @@ auto load_bitmap(GameAssets* game_assets, BitmapId id) -> void {
             asset->asset_memory->bitmap.width = meta->bitmap.dim[0];
             asset->asset_memory->bitmap.height = meta->bitmap.dim[1];
             asset->asset_memory->bitmap.align_percentage = meta->bitmap.align_percentage;
-            asset->asset_memory->bitmap.texture_handle = 0;
             auto size = meta->bitmap.dim[0] * meta->bitmap.dim[1] * BitmapBytePerPixel;
             asset->asset_memory->bitmap.data = allocate<u8>(game_assets->memory, size);
 
@@ -233,18 +232,6 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
 
     game_assets->is_initialized = true;
     return game_assets;
-}
-
-auto unload_all_assets(GameAssets* game_assets) -> void {
-    for (auto i = 0; i < AssetGroup_Count; i++) {
-        auto asset = game_assets->assets[i];
-        if (asset.asset_memory) {
-            auto type = game_assets->assets[i].asset_memory->asset_type;
-            if (type == AssetType_Bitmap) {
-                game_assets->assets[i].asset_memory->bitmap.texture_handle = 0;
-            }
-        }
-    }
 }
 
 auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId {

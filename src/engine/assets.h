@@ -18,8 +18,6 @@ struct LoadedBitmap {
 
     vec2 align_percentage;
 
-    // TODO: Make this a void pointer, to support multiple renderers
-    u32 texture_handle;
     void* data;
 };
 
@@ -68,7 +66,6 @@ struct GameAssets {
 };
 
 auto initialize_game_assets(MemoryArena* arena) -> GameAssets*;
-auto unload_all_assets(GameAssets* game_assets) -> void;
 
 auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> HuginBitmap;
 auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap*;

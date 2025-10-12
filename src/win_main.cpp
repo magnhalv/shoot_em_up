@@ -17,6 +17,7 @@
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
+#include "platform/platform.h"
 #include "win_main.hpp"
 
 ////////////////// GLOBALS ///////////////////////////////
@@ -773,6 +774,13 @@ void win32_load_renderer_dll(RendererDll* dll, RendererType type) {
             FreeLibrary(dll->handle);
         }
 
+        dll->api.begin_frame = (renderer_begin_frame_fn*)GetProcAddress(dll->handle, "win32_renderer_begin_frame");
+        if (dll->api.begin_frame == nullptr) {
+            dll->is_valid = false;
+            printf("Unable to load 'win32_renderer_begin_frame' function in opengl_renderer.dll\n");
+            FreeLibrary(dll->handle);
+        }
+
         dll->api.end_frame = (renderer_end_frame_fn*)GetProcAddress(dll->handle, "win32_renderer_end_frame");
         if (dll->api.end_frame == nullptr) {
             dll->is_valid = false;
@@ -1212,12 +1220,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     }
     engine_memory.permanent = memory_block;
     engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
-    engine_memory.asset = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
 
     engine_memory.work_queue = &work_queue;
 
     MemoryBlock renderer_memory = { 0 };
-    renderer_memory.size = Renderer_Memory_Block_Size;
+    renderer_memory.size = Renderer_Total_Memory_Size;
     renderer_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
         (SIZE_T)renderer_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (renderer_memory.data == nullptr) {
@@ -1303,11 +1310,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_dll.load(&platform, &engine_memory);
         }
 
-        engine_memory.is_renderer_reloaded = false;
         if (current_input->o.is_pressed_this_frame()) {
             global_is_reloading_renderer = true;
 
-            ZeroSize(Renderer_Memory_Block_Size, renderer_memory.data);
+            ZeroSize(Renderer_Total_Memory_Size, renderer_memory.data);
             renderer_type = renderer_type == RendererType_Software ? RendererType_OpenGL : RendererType_Software;
 
             // NOTE: We destroy and recreate he window, since OpenGL will
@@ -1320,62 +1326,67 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             render_context.window = window;
             win32_load_renderer_dll(&renderer_dll, renderer_type);
             renderer_dll.api.init(&render_context, &renderer_memory);
-            engine_memory.is_renderer_reloaded = true;
 
             global_is_reloading_renderer = false;
         }
         {
-            /*if (current_input->r.is_pressed_this_frame()) {
+            if (current_input->r.is_pressed_this_frame()) {
                 if (!is_recording) {
-                    auto is_success = win32_start_recording(&memory, recording);
+                    auto is_success = win32_start_recording(&engine_memory, recording);
                     if (is_success) {
                         is_recording = true;
                         printf("Started recording.\n");
-                    } else {
+                    }
+                    else {
                         printf("Failed to start recording.\n");
                     }
-                } else {
+                }
+                else {
                     is_recording = false;
                     win32_stop_recording(recording);
                     printf("Recording successfully stopped.\n");
                 }
-            }*/
+            }
 
-            /*if (current_input->p.is_pressed_this_frame() && !is_recording) {
+            if (current_input->p.is_pressed_this_frame() && !is_recording) {
                 if (!is_playing_back) {
                     auto is_success = win32_init_playback(playback);
                     if (is_success) {
                         printf("Started playback.\n");
                         is_playing_back = true;
-                        memcpy(memory.permanent, playback.permanent_memory, Permanent_Memory_Block_Size);
-                        memcpy(memory.asset, playback.asset_memory, Assets_Memory_Block_Size);
-                    } else {
+                        copy_memory(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
+                    }
+                    else {
                         printf("Failed to start playback.\n");
                     }
-                } else {
+                }
+                else {
                     win32_stop_playback(playback);
                     is_playing_back = false;
                 }
-            }*/
+            }
 
-            /*if (is_playing_back) {
+            if (is_playing_back) {
                 if (playback.current_playback_frame == playback.num_frames_recorded) {
-                    memcpy(memory.permanent, playback.permanent_memory, Permanent_Memory_Block_Size);
+                    copy_memory(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
                     playback.current_playback_frame = 0;
                 }
                 app_input = playback.input[playback.current_playback_frame++];
-            } else {*/
-            app_input.input = *current_input;
-            //}
+            }
+            else {
+                app_input.input = *current_input;
+            }
 
-            /*if (is_recording) {
+            if (is_recording) {
                 if (!win32_record_frame_input(&app_input, recording)) {
                     printf("Recording failed. Stopping.\n");
                     win32_stop_recording(recording);
                     is_recording = false;
                 }
-            }*/
+            }
         }
+
+        renderer_dll.api.begin_frame(&render_context);
 
         RECT client_rect;
         GetClientRect(window, &client_rect);
@@ -1397,12 +1408,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }
         }
 
+        renderer_dll.api.end_frame(&render_context);
+
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
         if (ticks_used_this_frame > ticks_per_frame && !is_first_frame) {
             printf("Failed to hit ticks per frame target!\n");
             printf("Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
         }
         else {
+            // TODO: Not very power friendly, should probably sleep.
             while (ticks_used_this_frame < ticks_per_frame) {
                 ticks_used_this_frame = win32_get_tick() - last_tick;
             }
@@ -1414,8 +1428,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         previous_input = &inputs[prev_input_idx];
         current_input->frame_clear(*previous_input);
         is_first_frame = false;
-
-        renderer_dll.api.end_frame(&render_context);
     }
 
     return 0;

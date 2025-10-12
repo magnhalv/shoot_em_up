@@ -13,6 +13,10 @@ include_directories(src/deps)
 add_executable(
   shoot_em_up
   src/win_main.cpp
+
+  src/core/memory.cpp
+  src/core/memory_arena.cpp
+  src/core/logger.cpp
  )
 
 add_executable(

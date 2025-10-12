@@ -27,8 +27,6 @@
 //     }
 // }
 
-const u32 MaxNumTextures = 5;
-
 typedef struct {
     u32 quad_vao;
     u32 quad_vbo;
@@ -39,8 +37,7 @@ typedef struct {
     u32 texture_ebo;
     GLShaderProgram texture_shader;
 
-    u32 textures[5];
-    u32 num_textures;
+    u32 texture_handles[MaxTextureId];
 
 } GlRendererState;
 
@@ -112,7 +109,7 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
 }
 
 static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
-    u32 bitmap_handle, i32 screen_width, i32 screen_height) {
+    BitmapId bitmap_id, i32 screen_width, i32 screen_height) {
     vec2 bl = quad.bl - local_origin;
     vec2 tl = quad.tl - local_origin;
     vec2 tr = quad.tr - local_origin;
@@ -145,7 +142,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
       to_gl_x(tl.x, screen_width), to_gl_y(tl.y, screen_height), 0.0f,   color.r, color.g, color.b, color.a,  0.0f, 1.0f   // top left
         // clang-format on
     };
-    u32* texture = &state.textures[bitmap_handle];
+    u32* texture = &state.texture_handles[bitmap_id.value];
     HM_ASSERT(state.texture_vao != 0);
     HM_ASSERT(*texture != 0);
 
@@ -318,29 +315,29 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
-    if (state.num_textures >= MaxNumTextures) {
+    if (bitmap_id.value >= MaxTextureId) {
         InvalidCodePath;
     }
 
-    auto* texture = &state.textures[state.num_textures];
-    auto handle = state.num_textures;
-    state.num_textures++;
+    u32* texture = &state.texture_handles[bitmap_id.value];
+    if (*texture == 0) {
+        glGenTextures(1, texture);
+        glBindTexture(GL_TEXTURE_2D, *texture);
+        // set the texture wrapping parameters
+        // set texture wrapping to GL_REPEAT (default wrapping method)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // set texture filtering parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        // load image, create texture and generate mipmaps
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
 
-    glGenTextures(1, texture);
-    glBindTexture(GL_TEXTURE_2D, *texture);
-    // set the texture wrapping parameters
-    // set texture wrapping to GL_REPEAT (default wrapping method)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // load image, create texture and generate mipmaps
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    return handle;
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return true;
+    }
+    return false;
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
@@ -372,6 +369,9 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
         default: InvalidCodePath;
         }
     }
+}
+
+extern "C" __declspec(dllexport) RENDERER_BEGIN_FRAME(win32_renderer_begin_frame) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {

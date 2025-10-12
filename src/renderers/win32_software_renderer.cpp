@@ -12,8 +12,6 @@
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
-const u32 MaxNumTextures = 5;
-
 struct WindowDimension {
     i32 width;
     i32 height;
@@ -37,14 +35,13 @@ struct Win32Texture {
     i32 bytes_per_pixel;
 };
 
-const i32 MaxTexturesCount = 5;
 // TODO: This should probably go to an arena
 struct SWRendererState {
     OffscreenBuffer global_offscreen_buffer;
     MemoryArena permanent;
+    MemoryArena transient;
 
-    Win32Texture textures[5];
-    i32 textures_count;
+    Win32Texture textures[MaxTextureId];
 };
 
 static SWRendererState state = { 0 };
@@ -209,7 +206,7 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
 }
 
 static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
-    u32 bitmap_handle, i32 screen_width, i32 screen_height) {
+    BitmapId bitmap_id, i32 screen_width, i32 screen_height) {
     vec2 bl = quad.bl - local_origin;
     vec2 tr = quad.tr - local_origin;
 
@@ -231,7 +228,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
     vec2 min{ min_x, min_y };
     vec2 max{ max_x, max_y };
 
-    Win32Texture* texture = &state.textures[bitmap_handle - 1];
+    Win32Texture* texture = &state.textures[bitmap_id.value];
 
     draw_texture(                       //
         &state.global_offscreen_buffer, //
@@ -240,33 +237,45 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
-    printf("Init software renderer...\n");
+    log_info("Init software renderer...\n");
 
-    // TODO: Get dimensions as input
+    // TODO: We should check for need of resizing on every draw call.
     resize_dib_section(&state.global_offscreen_buffer, 960, 540);
 
     HM_ASSERT(memory != nullptr);
     HM_ASSERT(memory->data != nullptr);
     state.permanent.init(memory->data, memory->size);
+    state.transient = *state.permanent.allocate_arena(MegaBytes(10));
 
-    printf("Software renderer ready to go.\n");
+    log_info("Software renderer ready to go.\n");
+}
+
+extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
-    if (state.textures_count == MaxTexturesCount) {
+    if (bitmap_id.value >= MaxTextureId) {
         // TODO: Return empty texture
-        crash_and_burn("Too many textures");
+        log_error("Max texture id is %d, %d provided.", MaxTextureId, bitmap_id.value);
+        HM_ASSERT(false);
+        return false;
     }
-    Win32Texture* texture = &state.textures[state.textures_count];
-    texture->height = height;
-    texture->width = width;
-    texture->bytes_per_pixel = 4;
-    texture->size = width * height * texture->bytes_per_pixel;
-    texture->data = state.permanent.allocate(texture->size);
 
-    copy_memory(data, texture->data, texture->size);
-    state.textures_count++;
-    return state.textures_count;
+    Win32Texture* texture = &state.textures[bitmap_id.value];
+    if (texture->data == nullptr) {
+        texture->height = height;
+        texture->width = width;
+        texture->bytes_per_pixel = 4;
+        texture->size = width * height * texture->bytes_per_pixel;
+        texture->data = state.permanent.allocate(texture->size);
+
+        copy_memory(data, texture->data, texture->size);
+        log_info("Texture added");
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
@@ -300,6 +309,10 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
     }
 }
 
+extern "C" __declspec(dllexport) RENDERER_BEGIN_FRAME(win32_renderer_begin_frame) {
+    state.transient.clear();
+}
+
 extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     Win32RenderContext* win32_context = (Win32RenderContext*)context;
     HDC device_context = GetDC(win32_context->window);
@@ -308,7 +321,8 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     i32 height = state.global_offscreen_buffer.height;
     i32 bytes_per_pixel = state.global_offscreen_buffer.bytes_per_pixel;
 
-    u8* buffer = (u8*)malloc(state.global_offscreen_buffer.memory_size);
+    // Flip the y-axis.
+    u8* buffer = allocate<u8>(state.transient, state.global_offscreen_buffer.memory_size);
     for (i32 y = 0; y < height; y++) {
         u8* src_row = (u8*)state.global_offscreen_buffer.memory + (y * width * bytes_per_pixel);
         u8* dest_row = buffer + ((height - y - 1) * width * bytes_per_pixel);
@@ -330,10 +344,6 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     }
 
     ReleaseDC(win32_context->window, device_context);
-    free(buffer);
-}
-
-extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
 }
 
 // TODO: I need this to handle redraw calls from windows, e.g. if you move the window, or move a window above it

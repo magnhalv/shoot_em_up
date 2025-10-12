@@ -98,15 +98,15 @@ struct PlatformApi {
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
 const u64 Transient_Memory_Block_Size = MegaBytes(10);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
-const u64 Renderer_Memory_Block_Size = MegaBytes(10);
+const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);
+const u64 Renderer_Transient_Memory_Size = MegaBytes(10);
+const u64 Renderer_Total_Memory_Size = Renderer_Permanent_Memory_Size + Renderer_Transient_Memory_Size;
 
 struct EngineMemory {
     void* permanent = nullptr;
     void* transient = nullptr;
-    void* asset = nullptr;
 
     PlatformWorkQueue* work_queue = nullptr;
-    bool is_renderer_reloaded = false;
 };
 
 struct EngineInput {
