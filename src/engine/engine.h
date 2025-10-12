@@ -30,14 +30,6 @@ struct Pointer {
     }
 };
 
-typedef struct {
-    vec2 p;
-    f32 deg; // rotation
-
-    f32 progress;
-    vec2 speed;
-} Sprite;
-
 struct Explosion {
     i32 frames_per_sprite = 0;
     i32 curr_frame = 0;
@@ -78,10 +70,6 @@ struct Entity {
     f32 direction;
     vec2 speed;
     f32 progress;
-};
-
-struct GameState {
-    Sprite player;
 };
 
 struct EngineState {
