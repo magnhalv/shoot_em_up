@@ -121,51 +121,6 @@ static void draw_rectangle(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 
     }
 }
 
-static void draw_texture(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, Win32Texture* texture) {
-    i32 min_x = round_real32_to_int32(v_min.x);
-    i32 max_x = round_real32_to_int32(v_max.x);
-    i32 min_y = round_real32_to_int32(v_min.y);
-    i32 max_y = round_real32_to_int32(v_max.y);
-    if (min_x < 0) {
-        min_x = 0;
-    }
-    if (max_x > buffer->width) {
-        max_x = buffer->width;
-    }
-
-    if (min_y < 0) {
-        min_y = 0;
-    }
-    if (max_y > buffer->height) {
-        max_y = buffer->height;
-    }
-
-    u32 t_width = texture->width;
-    u32 t_height = texture->height;
-
-    u32* color = (u32*)texture->data;
-    u8* row = ((u8*)buffer->memory + (min_y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
-    for (int y = min_y; y < max_y; y++) {
-        u32* pixel = (u32*)row;
-        for (int x = min_x; x < max_x; x++) {
-            u8 a = *color >> 24;
-            u8 b = *color >> 16;
-            u8 g = *color >> 8;
-            u8 r = *color >> 0;
-
-            // TODO: Proper alpha blending
-            if (a != 0) {
-                // TODO: Can we change the expected format for windows?
-                u32 c = a << 24 | r << 16 | g << 8 | b;
-                *pixel = c;
-            }
-            pixel++;
-            color++;
-        }
-        row += buffer->pitch;
-    }
-}
-
 static auto clear(i32 client_width, i32 client_height, vec4 color) {
     vec2 min = vec2(0, 0);
     vec2 max = vec2(client_width, client_height);
@@ -208,32 +163,50 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
 static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
     BitmapId bitmap_id, i32 screen_width, i32 screen_height) {
     vec2 bl = quad.bl - local_origin;
+    vec2 tl = quad.tl - local_origin;
     vec2 tr = quad.tr - local_origin;
+    vec2 br = quad.br - local_origin;
 
     bl = bl.x * x_axis + bl.y * y_axis;
+    tl = tl.x * x_axis + tl.y * y_axis;
     tr = tr.x * x_axis + tr.y * y_axis;
+    br = br.x * x_axis + br.y * y_axis;
 
     bl = bl + local_origin;
+    tl = tl + local_origin;
     tr = tr + local_origin;
+    br = br + local_origin;
 
     bl = bl + offset;
+    tl = tl + offset;
     tr = tr + offset;
+    br = br + offset;
 
-    f32 min_y = hm::min(bl.y, tr.y);
-    f32 max_y = hm::max(bl.y, tr.y);
+    vec2 edge1 = tl - bl;
+    vec2 edge2 = tr - tl;
+    vec2 edge3 = br - tr;
+    vec2 edge4 = bl - br;
 
-    f32 min_x = hm::min(bl.x, tr.x);
-    f32 max_x = hm::max(bl.x, tr.x);
+    OffscreenBuffer* buffer = &state.global_offscreen_buffer;
+    for (int y = 0; y < buffer->height; y++) {
+        for (int x = 0; x < buffer->width; x++) {
 
-    vec2 min{ min_x, min_y };
-    vec2 max{ max_x, max_y };
+            u32 color = 0xFFF00FFF;
 
-    Win32Texture* texture = &state.textures[bitmap_id.value];
+            u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
+            u32* pixel = (u32*)dest;
 
-    draw_texture(                       //
-        &state.global_offscreen_buffer, //
-        min, max,                       //
-        texture);
+            vec2 point{ (f32)x, (f32)y };
+            f32 dot1 = dot(point, edge1);
+            f32 dot2 = dot(point, edge2);
+            f32 dot3 = dot(point, edge3);
+            f32 dot4 = dot(point, edge4);
+
+            if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
+                *pixel = color;
+            }
+        }
+    }
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
