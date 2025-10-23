@@ -1,4 +1,4 @@
-#include <cstdlib>
+#include <cstdio>
 #include <platform/platform.h>
 
 #include <math/math.h>
@@ -78,15 +78,11 @@ static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
     buffer->pitch = buffer->width * buffer->bytes_per_pixel;
 }
 
-i32 round_real32_to_int32(f32 real) {
-    return (i32)roundf(real);
-}
-
 static void draw_rectangle(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 r, f32 g, f32 b) {
-    i32 min_x = round_real32_to_int32(v_min.x);
-    i32 max_x = round_real32_to_int32(v_max.x);
-    i32 min_y = round_real32_to_int32(v_min.y);
-    i32 max_y = round_real32_to_int32(v_max.y);
+    i32 min_x = round_f32_to_i32(v_min.x);
+    i32 max_x = round_f32_to_i32(v_max.x);
+    i32 min_y = round_f32_to_i32(v_min.y);
+    i32 max_y = round_f32_to_i32(v_max.y);
     if (min_x < 0) {
         min_x = 0;
     }
@@ -108,8 +104,7 @@ static void draw_rectangle(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 
     min_y = max_y;
     max_y = temp;
 
-    u32 color = (round_real32_to_int32(r * 255.0f) << 16) | (round_real32_to_int32(g * 255.0f) << 8) |
-        (round_real32_to_int32(b * 255.0f));
+    u32 color = (round_f32_to_i32(r * 255.0f) << 16) | (round_f32_to_i32(g * 255.0f) << 8) | (round_f32_to_i32(b * 255.0f));
 
     u8* row = ((u8*)buffer->memory + (min_y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
     for (int y = min_y; y < max_y; y++) {
@@ -182,31 +177,92 @@ static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2
     tr = tr + offset;
     br = br + offset;
 
+    f32 min_x = hm::min(bl.x, tl.x, tr.x, br.x);
+    f32 max_x = hm::max(bl.x, tl.x, tr.x, br.x);
+    f32 min_y = hm::min(bl.y, tl.y, tr.y, br.y);
+    f32 max_y = hm::max(bl.y, tl.y, tr.y, br.y);
+
     vec2 edge1 = tl - bl;
     vec2 edge2 = tr - tl;
     vec2 edge3 = br - tr;
     vec2 edge4 = bl - br;
 
     OffscreenBuffer* buffer = &state.global_offscreen_buffer;
-    for (int y = 0; y < buffer->height; y++) {
-        for (int x = 0; x < buffer->width; x++) {
+
+    // u32* texel = (u32*)state.textures[bitmap_id.value].data;
+    for (int y = min_y; y < max_y; y++) {
+        for (int x = min_x; x < max_x; x++) {
 
             u32 color = 0xFFF00FFF;
+            u32* texel = &color;
 
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
             vec2 point{ (f32)x, (f32)y };
-            f32 dot1 = dot(point, edge1);
-            f32 dot2 = dot(point, edge2);
-            f32 dot3 = dot(point, edge3);
-            f32 dot4 = dot(point, edge4);
+            f32 dot1 = dot(point - bl, edge1);
+            f32 dot2 = dot(point - tl, edge2);
+            f32 dot3 = dot(point - tr, edge3);
+            f32 dot4 = dot(point - br, edge4);
 
             if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
+                u8 red = *texel >> 24;
+                u8 green = *texel >> 16;
+                u8 blue = *texel >> 8;
+                u8 alpha = *texel >> 0;
+                u32 color = alpha << 24 | red << 16 | green << 8 | blue;
                 *pixel = color;
+                // texel++;
             }
         }
     }
+
+    /*auto width = quad.br.x - quad.bl.x;*/
+    /*auto height = quad.tl.y - quad.bl.y;*/
+    /*auto dim = vec2(width, height);*/
+    /**/
+    /*OffscreenBuffer* buffer = &state.global_offscreen_buffer;*/
+    /**/
+    /*Win32Texture* texture = &state.textures[bitmap_id.value];*/
+    /*u64 points_inside = 0;*/
+    /*for (auto y = 0; y < height; y++) {*/
+    /*    for (auto x = 0; x < width; x++) {*/
+    /**/
+    /*        vec2 point = vec2(x, y) - local_origin;*/
+    /*        point = point.x * x_axis + point.y * y_axis;*/
+    /*        point = point + local_origin;*/
+    /*        point = point + offset;*/
+    /**/
+    /*        f32 u = (f32)x / ((f32)width - 1);*/
+    /*        f32 v = (f32)y / ((f32)height - 1);*/
+    /**/
+    /*        i32 texel_x = round_f32_to_i32(u * (texture->width - 1));*/
+    /*        i32 texel_y = round_f32_to_i32(v * (texture->height - 1));*/
+    /**/
+    /*        texel_x = clamp(texel_x, 0, texture->width - 1);*/
+    /*        texel_y = clamp(texel_y, 0, texture->height - 1);*/
+    /**/
+    /*        u32* texel = (u32*)texture->data + (texel_y * texture->width) + (texel_x);*/
+    /*        if ((point.x >= 0 && point.x < buffer->width) && (point.y >= 0 && point.y < buffer->height)) {*/
+    /*            u8* dest = ((u8*)buffer->memory + (round_f32_to_i32(point.y) * buffer->pitch) +*/
+    /*                (round_f32_to_i32(point.x) * buffer->bytes_per_pixel));*/
+    /*            u32* pixel = (u32*)dest;*/
+    /**/
+    /*            u8 a = *texel >> 24;*/
+    /*            u8 b = *texel >> 16;*/
+    /*            u8 g = *texel >> 8;*/
+    /*            u8 r = *texel >> 0;*/
+    /**/
+    /*            u8 red = *texel >> 24;*/
+    /*            u8 green = *texel >> 16;*/
+    /*            u8 blue = *texel >> 8;*/
+    /*            u8 alpha = *texel >> 0;*/
+    /*            u32 color = a << 24 | r << 16 | g << 8 | b;*/
+    /*            *pixel = color;*/
+    /*            points_inside++;*/
+    /*        }*/
+    /*    }*/
+    /*}*/
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {

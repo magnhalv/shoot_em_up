@@ -167,7 +167,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         auto bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
         auto player = get_bitmap_meta(state->assets, bitmap_id);
-        state->player.dim = vec2(player.dim[0], player.dim[1]);
+        state->player.dim = vec2(4 * player.dim[0], 4 * player.dim[1]);
         state->player.P = vec2(100, 100);
         state->player.direction = 0.0f;
 
@@ -393,6 +393,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* clear = PushRenderElement(&group, RenderEntryClear);
     clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
+    state->player.direction += app_input->dt;
+
     {
         auto bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
@@ -413,57 +415,55 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    /*
-      {
-
-          auto bitmap_id = get_first_bitmap_id(state->assets, Asset_EnemySpaceShip);
-          auto bitmap = get_bitmap(state->assets, bitmap_id);
-
-          if (bitmap) {
-              i32 width = bitmap->width;
-              i32 height = bitmap->height;
-              void* data = bitmap->data;
-              renderer->add_texture(bitmap_id, data, width, height);
-
-              for (auto& enemy : state->enemy_chargers) {
-                  auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
-                  render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);
-                  render_el->local_origin = 0.5 * enemy.dim;
-                  render_el->offset = enemy.P;
-                  render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));
-                  render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));
-                  render_el->bitmap_handle = bitmap_id;
-              }
-          }
-      }
-
-      {
-          if (state->player_projectiles.size() != 0) {
-              auto bitmap_id = get_first_bitmap_id(state->assets, Asset_Projectile);
-              auto bitmap = get_bitmap(state->assets, bitmap_id);
-              if (bitmap) {
-                  i32 width = bitmap->width;
-                  i32 height = bitmap->height;
-                  void* data = bitmap->data;
-                  renderer->add_texture(bitmap_id, data, width, height);
-              }
-              for (auto& proj : state->player_projectiles) {
-                  if (bitmap) {
-                      const vec2 dim = vec2(bitmap->width, bitmap->height);
-                      const f32 deg = 0.0f;
-
-                      auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
-                      rendel_el->quad = rect_to_quadrilateral(proj.P, dim);
-                      rendel_el->local_origin = 0.5 * dim;
-                      rendel_el->offset = proj.P;
-                      rendel_el->basis.x = vec2(cos(deg), -sin(deg));
-                      rendel_el->basis.y = vec2(sin(deg), cos(deg));
-                      rendel_el->bitmap_handle = bitmap_id;
-                  }
-              }
-          }
-      }
-    */
+    /*{*/
+    /**/
+    /*    auto bitmap_id = get_first_bitmap_id(state->assets, Asset_EnemySpaceShip);*/
+    /*    auto bitmap = get_bitmap(state->assets, bitmap_id);*/
+    /**/
+    /*    if (bitmap) {*/
+    /*        i32 width = bitmap->width;*/
+    /*        i32 height = bitmap->height;*/
+    /*        void* data = bitmap->data;*/
+    /*        renderer->add_texture(bitmap_id, data, width, height);*/
+    /**/
+    /*        for (auto& enemy : state->enemy_chargers) {*/
+    /*            auto* render_el = PushRenderElement(&group, RenderEntryBitmap);*/
+    /*            render_el->quad = rect_to_quadrilateral(enemy.P, enemy.dim);*/
+    /*            render_el->local_origin = 0.5 * enemy.dim;*/
+    /*            render_el->offset = enemy.P;*/
+    /*            render_el->basis.x = vec2(cos(enemy.direction), -sin(enemy.direction));*/
+    /*            render_el->basis.y = vec2(sin(enemy.direction), cos(enemy.direction));*/
+    /*            render_el->bitmap_handle = bitmap_id;*/
+    /*        }*/
+    /*    }*/
+    /*}*/
+    /**/
+    /*{*/
+    /*    if (state->player_projectiles.size() != 0) {*/
+    /*        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_Projectile);*/
+    /*        auto bitmap = get_bitmap(state->assets, bitmap_id);*/
+    /*        if (bitmap) {*/
+    /*            i32 width = bitmap->width;*/
+    /*            i32 height = bitmap->height;*/
+    /*            void* data = bitmap->data;*/
+    /*            renderer->add_texture(bitmap_id, data, width, height);*/
+    /*        }*/
+    /*        for (auto& proj : state->player_projectiles) {*/
+    /*            if (bitmap) {*/
+    /*                const vec2 dim = vec2(bitmap->width, bitmap->height);*/
+    /*                const f32 deg = 0.0f;*/
+    /**/
+    /*                auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);*/
+    /*                rendel_el->quad = rect_to_quadrilateral(proj.P, dim);*/
+    /*                rendel_el->local_origin = 0.5 * dim;*/
+    /*                rendel_el->offset = proj.P;*/
+    /*                rendel_el->basis.x = vec2(cos(deg), -sin(deg));*/
+    /*                rendel_el->basis.y = vec2(sin(deg), cos(deg));*/
+    /*                rendel_el->bitmap_handle = bitmap_id;*/
+    /*            }*/
+    /*        }*/
+    /*    }*/
+    /*}*/
 
     renderer->render(&group, app_input->client_width, app_input->client_height);
 }
