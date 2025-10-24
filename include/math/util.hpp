@@ -1,6 +1,7 @@
 #include <platform/types.h>
 
 #include "math/transform.h"
+#include <math/math.h>
 #include <math/vec2.h>
 
 namespace hmath {

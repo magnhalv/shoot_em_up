@@ -11,6 +11,13 @@ set(CORE_SOURCE_FILES
   core/logger.cpp
 )
 
+set(MATH_SOURCE_FILES
+  math/mat3.cpp
+  math/mat4.cpp
+  math/vec2.cpp
+  math/vec3.cpp
+)
+
 set(SOURCE_FILES
     engine/array.cpp
     engine/engine.cpp
@@ -95,6 +102,7 @@ set_target_properties(opengl_renderer PROPERTIES
 set(SOFTWARE_RENDERER_SRC_FILES
   renderers/win32_software_renderer.cpp
   ${CORE_SOURCE_FILES}
+  ${MATH_SOURCE_FILES}
 )
 
 add_library(win32_software_renderer SHARED ${SOFTWARE_RENDERER_SRC_FILES})

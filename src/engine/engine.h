@@ -66,8 +66,9 @@ enum class InputMode { Game = 0, Gui };
 
 struct Entity {
     vec2 P;
-    vec2 dim;
-    f32 direction;
+    vec2 scale;
+    f32 rotation;
+    vec2 vertices[4];
     vec2 speed;
     f32 progress;
 };

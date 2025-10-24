@@ -68,7 +68,7 @@ bool operator!=(const mat3& a, const mat3& b);
 mat3 operator*(const mat3& m, f32 f);
 mat3 operator+(const mat3& a, const mat3& b);
 mat3 operator*(const mat3& a, const mat3& b);
-vec4 operator*(const mat3& m, const vec4& v);
+vec3 operator*(const mat3& m, const vec3& v);
 vec3 transform_vector(const mat3& m, const vec3& v);
 vec3 transform_point(const mat3& m, const vec3& v);
 vec3 transformPoint(const mat3& m, const vec3& v, f32& w);
@@ -83,5 +83,12 @@ mat3 perspective(f32 fov_degrees, f32 aspect, f32 znear, f32 zfar);
 mat3 create_ortho(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f);
 mat3 lookAt(const vec3& position, const vec3& target, const vec3& up);
 auto identity() -> mat3;
+
+auto mat3_rotate(f32 theta) -> mat3;
+auto mat3_scale(vec2 scale) -> mat3;
+
+auto inline vec2_to_vec3(vec2 v) -> vec3 {
+    return vec3(v.x, v.y, 0.0);
+}
 
 void print(const mat3& m);

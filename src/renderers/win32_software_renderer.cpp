@@ -1,3 +1,4 @@
+#include "math/mat3.h"
 #include <cstdio>
 #include <platform/platform.h>
 
@@ -126,93 +127,117 @@ static auto clear(i32 client_width, i32 client_height, vec4 color) {
     );
 }
 
-static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
-    i32 screen_width, i32 screen_height) {
-    vec2 bl = quad.bl - local_origin;
-    vec2 tl = quad.tl - local_origin;
-    vec2 tr = quad.tr - local_origin;
-    vec2 br = quad.br - local_origin;
-
-    bl = bl.x * x_axis + bl.y * y_axis;
-    tl = tl.x * x_axis + tl.y * y_axis;
-    tr = tr.x * x_axis + tr.y * y_axis;
-    br = br.x * x_axis + br.y * y_axis;
-
-    bl = bl + local_origin;
-    tl = tl + local_origin;
-    tr = tr + local_origin;
-    br = br + local_origin;
-
-    bl = bl + offset;
-    tl = tl + offset;
-    tr = tr + offset;
-    br = br + offset;
-
-    draw_rectangle(                     //
-        &state.global_offscreen_buffer, //
-        bl, tr,                         //
-        1.0, 0, 0                       //
-    );
+static auto draw_quad(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 screen_width, i32 screen_height) {
+    /*vec2 bl = quad.bl - local_origin;*/
+    /*vec2 tl = quad.tl - local_origin;*/
+    /*vec2 tr = quad.tr - local_origin;*/
+    /*vec2 br = quad.br - local_origin;*/
+    /**/
+    /*bl = bl.x * x_axis + bl.y * y_axis;*/
+    /*tl = tl.x * x_axis + tl.y * y_axis;*/
+    /*tr = tr.x * x_axis + tr.y * y_axis;*/
+    /*br = br.x * x_axis + br.y * y_axis;*/
+    /**/
+    /*bl = bl + local_origin;*/
+    /*tl = tl + local_origin;*/
+    /*tr = tr + local_origin;*/
+    /*br = br + local_origin;*/
+    /**/
+    /*bl = bl + offset;*/
+    /*tl = tl + offset;*/
+    /*tr = tr + offset;*/
+    /*br = br + offset;*/
+    /**/
+    /*draw_rectangle(                     //*/
+    /*    &state.global_offscreen_buffer, //*/
+    /*    bl, tr,                         //*/
+    /*    1.0, 0, 0                       //*/
+    /*);*/
 }
 
-static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
-    BitmapId bitmap_id, i32 screen_width, i32 screen_height) {
-    vec2 bl = quad.bl - local_origin;
-    vec2 tl = quad.tl - local_origin;
-    vec2 tr = quad.tr - local_origin;
-    vec2 br = quad.br - local_origin;
+static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, BitmapId bitmap_id,
+    i32 screen_width, i32 screen_height) {
+    vec3 bl = vec2_to_vec3(quad.bl);
+    vec3 tl = vec2_to_vec3(quad.tl);
+    vec3 tr = vec2_to_vec3(quad.tr);
+    vec3 br = vec2_to_vec3(quad.br);
 
-    bl = bl.x * x_axis + bl.y * y_axis;
-    tl = tl.x * x_axis + tl.y * y_axis;
-    tr = tr.x * x_axis + tr.y * y_axis;
-    br = br.x * x_axis + br.y * y_axis;
+    auto model_width = br.x - bl.x;
+    auto model_height = tr.y - br.y;
+    vec3 translation = vec2_to_vec3(offset);
 
-    bl = bl + local_origin;
-    tl = tl + local_origin;
-    tr = tr + local_origin;
-    br = br + local_origin;
+    mat3 rot_mat = mat3_rotate(rotation);
+    mat3 scale_mat = mat3_scale(scale);
 
-    bl = bl + offset;
-    tl = tl + offset;
-    tr = tr + offset;
-    br = br + offset;
+    mat3 model = rot_mat * scale_mat;
+    mat3 inv_model = inverse(model);
 
-    f32 min_x = hm::min(bl.x, tl.x, tr.x, br.x);
-    f32 max_x = hm::max(bl.x, tl.x, tr.x, br.x);
-    f32 min_y = hm::min(bl.y, tl.y, tr.y, br.y);
-    f32 max_y = hm::max(bl.y, tl.y, tr.y, br.y);
+    bl = model * bl;
+    tl = model * tl;
+    tr = model * tr;
+    br = model * br;
 
-    vec2 edge1 = tl - bl;
-    vec2 edge2 = tr - tl;
-    vec2 edge3 = br - tr;
-    vec2 edge4 = bl - br;
+    bl = bl + translation;
+    tl = tl + translation;
+    tr = tr + translation;
+    br = br + translation;
+
+    i32 min_x = round_f32_to_i32(hm::min(bl.x, tl.x, tr.x, br.x));
+    i32 max_x = round_f32_to_i32(hm::max(bl.x, tl.x, tr.x, br.x));
+    i32 min_y = round_f32_to_i32(hm::min(bl.y, tl.y, tr.y, br.y));
+    i32 max_y = round_f32_to_i32(hm::max(bl.y, tl.y, tr.y, br.y));
+
+    vec3 edge1 = tl - bl;
+    vec3 edge2 = tr - tl;
+    vec3 edge3 = br - tr;
+    vec3 edge4 = bl - br;
 
     OffscreenBuffer* buffer = &state.global_offscreen_buffer;
 
-    // u32* texel = (u32*)state.textures[bitmap_id.value].data;
+    Win32Texture* texture = &state.textures[bitmap_id.value];
     for (int y = min_y; y < max_y; y++) {
         for (int x = min_x; x < max_x; x++) {
 
             u32 color = 0xFFF00FFF;
-            u32* texel = &color;
 
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
-            vec2 point{ (f32)x, (f32)y };
-            f32 dot1 = dot(point - bl, edge1);
-            f32 dot2 = dot(point - tl, edge2);
-            f32 dot3 = dot(point - tr, edge3);
-            f32 dot4 = dot(point - br, edge4);
+            vec3 screen_point{ (f32)x, (f32)y, 0.0 };
+            if (screen_point.x < 0 || screen_point.x >= buffer->width) {
+                continue;
+            }
+            if (screen_point.y < 0 || screen_point.y >= buffer->height) {
+                continue;
+            }
+
+            f32 dot1 = dot(screen_point - bl, edge1);
+            f32 dot2 = dot(screen_point - tl, edge2);
+            f32 dot3 = dot(screen_point - tr, edge3);
+            f32 dot4 = dot(screen_point - br, edge4);
 
             if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
-                u8 red = *texel >> 24;
-                u8 green = *texel >> 16;
-                u8 blue = *texel >> 8;
-                u8 alpha = *texel >> 0;
+
+                vec3 texel_point = inv_model * (screen_point - translation);
+                texel_point = texel_point + (vec3(model_width, model_height, 0) * 0.5);
+
+                f32 u = (f32)texel_point.x / ((f32)model_width - 1);
+                f32 v = (f32)texel_point.y / ((f32)model_height - 1);
+                v = 1.0f - v;
+
+                i32 texel_x = round_f32_to_i32(u * (texture->width - 1));
+                i32 texel_y = round_f32_to_i32(v * (texture->height - 1));
+
+                texel_x = clamp(texel_x, 0, texture->width - 1);
+                texel_y = clamp(texel_y, 0, texture->height - 1);
+                u32* texel = (u32*)state.textures[bitmap_id.value].data + (texel_y * texture->width) + texel_x;
+
+                u8 red = *texel >> 0;
+                u8 green = *texel >> 8;
+                u8 blue = *texel >> 16;
+                u8 alpha = *texel >> 24;
                 u32 color = alpha << 24 | red << 16 | green << 8 | blue;
                 *pixel = color;
-                // texel++;
             }
         }
     }
@@ -321,15 +346,15 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
         } break;
         case RenderCommands_RenderEntryQuadrilateral: {
             auto* entry = (RenderEntryQuadrilateral*)data;
-            draw_quad(entry->quad, entry->local_origin, entry->offset, entry->basis.x, entry->basis.y, entry->color,
-                group->screen_width, group->screen_height);
+            draw_quad(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, group->screen_width,
+                group->screen_height);
 
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(entry->quad, entry->local_origin, entry->offset, entry->basis.x, entry->basis.y, entry->color,
-                entry->bitmap_handle, group->screen_width, group->screen_height);
+            draw_bitmap(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->bitmap_handle,
+                group->screen_width, group->screen_height);
 
             base_address += sizeof(*entry);
         } break;

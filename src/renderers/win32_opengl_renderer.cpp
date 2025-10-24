@@ -354,15 +354,15 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
         } break;
         case RenderCommands_RenderEntryQuadrilateral: {
             auto* entry = (RenderEntryQuadrilateral*)data;
-            draw_quad(entry->quad, entry->local_origin, entry->offset, entry->basis.x, entry->basis.y, entry->color,
-                group->screen_width, group->screen_height);
+            /*draw_quad(entry->quad, entry->local_origin, entry->offset, entry->basis.x, entry->basis.y, entry->color,*/
+            /*    group->screen_width, group->screen_height);*/
 
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(entry->quad, entry->local_origin, entry->offset, entry->basis.x, entry->basis.y, entry->color,
-                entry->bitmap_handle, group->screen_width, group->screen_height);
+            /*draw_bitmap(entry->quad, entry->local_origin, entry->offset, entry->basis.x, entry->basis.y, entry->color,*/
+            /*    entry->bitmap_handle, group->screen_width, group->screen_height);*/
 
             base_address += sizeof(*entry);
         } break;

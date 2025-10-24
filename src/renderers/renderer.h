@@ -39,18 +39,13 @@ struct RenderEntryClear {
     vec4 color; // r,g,b,a
 };
 
-struct CoordSystem {
-    vec2 x;
-    vec2 y;
-};
-
 struct RenderEntryQuadrilateral {
     RenderEntityBasis render_basis;
     Quadrilateral quad;
     vec4 color;
-    vec2 local_origin;
     vec2 offset;
-    CoordSystem basis;
+    f32 rotation;
+    vec2 scale;
 };
 
 typedef struct {
@@ -58,9 +53,9 @@ typedef struct {
     Quadrilateral quad;
     Quadrilateral uv;
     vec4 color;
-    vec2 local_origin;
     vec2 offset;
-    CoordSystem basis;
+    f32 rotation;
+    vec2 scale;
     BitmapId bitmap_handle;
 } RenderEntryBitmap;
 

@@ -103,15 +103,15 @@ mat3 adjugate(const mat3& m) {
     mat3 c;
 
     c.v[0] = M3_2X2MINOR(1, 2, 1, 2);
-    c.v[1] = -M3_2X2MINOR(0, 2, 1, 2);
-    c.v[2] = M3_2X2MINOR(0, 1, 1, 2);
+    c.v[1] = -M3_2X2MINOR(1, 2, 0, 2);
+    c.v[2] = M3_2X2MINOR(1, 2, 0, 1);
 
-    c.v[3] = -M3_2X2MINOR(1, 2, 0, 2);
+    c.v[3] = -M3_2X2MINOR(0, 2, 1, 2);
     c.v[4] = M3_2X2MINOR(0, 2, 0, 2);
-    c.v[5] = -M3_2X2MINOR(0, 1, 0, 2);
+    c.v[5] = -M3_2X2MINOR(0, 2, 0, 1);
 
-    c.v[6] = M3_2X2MINOR(1, 2, 0, 1);
-    c.v[7] = -M3_2X2MINOR(0, 2, 0, 1);
+    c.v[6] = M3_2X2MINOR(0, 1, 1, 2);
+    c.v[7] = -M3_2X2MINOR(0, 1, 0, 2);
     c.v[8] = M3_2X2MINOR(0, 1, 0, 1);
 
     return transposed(c);
@@ -137,9 +137,26 @@ void invert(mat3& m) {
 }
 
 mat3 identity() {
-    return mat3(1.0f, 0.0f, 0.0f, //
-        0.0f, 1.0f, 0.0f,         //
-        0.0f, 0.0f, 1.0f          //
+    return mat3(          //
+        1.0f, 0.0f, 0.0f, //
+        0.0f, 1.0f, 0.0f, //
+        0.0f, 0.0f, 1.0f  //
+    );
+}
+
+auto mat3_rotate(f32 theta) -> mat3 {
+    return mat3(                    //
+        cos(theta), sin(theta), 0,  //
+        -sin(theta), cos(theta), 0, //
+        0, 0, 1                     //
+    );
+}
+
+auto mat3_scale(vec2 scale) -> mat3 {
+    return mat3(       //
+        scale.x, 0, 0, //
+        0, scale.y, 0, //
+        0, 0, 1        //
     );
 }
 

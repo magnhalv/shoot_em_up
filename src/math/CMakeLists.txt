@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)   # Adjust according to your installed vers
 project(Math)
 
 add_library(math STATIC
+        mat3.cpp
         mat4.cpp
         quat.cpp
         transform.cpp
