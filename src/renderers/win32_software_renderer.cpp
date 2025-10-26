@@ -33,6 +33,7 @@ struct Win32Texture {
     i32 width;
     i32 height;
     i32 size;
+    i32 pitch;
     i32 bytes_per_pixel;
 };
 
@@ -155,6 +156,12 @@ static auto draw_quad(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation,
     /*);*/
 }
 
+static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
+    x = clamp(x, 0, texture->width - 1);
+    y = clamp(y, 0, texture->width - 1);
+    return *((u8*)texture->data + (y * texture->pitch) + (x * texture->bytes_per_pixel));
+}
+
 static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, BitmapId bitmap_id,
     i32 screen_width, i32 screen_height) {
     vec3 bl = vec2_to_vec3(quad.bl);
@@ -223,14 +230,27 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
                 f32 u = (f32)texel_point.x / ((f32)model_width - 1);
                 f32 v = (f32)texel_point.y / ((f32)model_height - 1);
-                v = 1.0f - v;
 
+                // This is texel00
                 i32 texel_x = round_f32_to_i32(u * (texture->width - 1));
                 i32 texel_y = round_f32_to_i32(v * (texture->height - 1));
 
-                texel_x = clamp(texel_x, 0, texture->width - 1);
+                f32 u_frac = f32_get_fraction(u);
+                f32 v_frac = f32_get_fraction(v);
+
+                // Bilinear filtering
+                u32 texel00 = *((u32*)state.textures[bitmap_id.value].data + (texel_y * texture->width) + texel_x);
+                u32 texel10 = *((u32*)state.textures[bitmap_id.value].data + (texel_y * texture->width) + texel_x + 1);
+                u32 texel01 = *((u32*)state.textures[bitmap_id.value].data + (texel_y * texture->width) + texel_x);
+                u32 texel11 = *((u32*)state.textures[bitmap_id.value].data + (texel_y * texture->width) + texel_x);
+
+                f32 color = texel00 * (1.0 - u_frac) * (1.0 - v_frac) //
+                    + texel10 * (u_frac) * (1.0 - v_frac)             //
+                    + texel01 * (1.0 - u_frac) *
+                        (v_frac) //
+
+                        texel_x = clamp(texel_x, 0, texture->width - 1);
                 texel_y = clamp(texel_y, 0, texture->height - 1);
-                u32* texel = (u32*)state.textures[bitmap_id.value].data + (texel_y * texture->width) + texel_x;
 
                 u8 red = *texel >> 0;
                 u8 green = *texel >> 8;
@@ -321,6 +341,7 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         texture->width = width;
         texture->bytes_per_pixel = 4;
         texture->size = width * height * texture->bytes_per_pixel;
+        texture->pitch = width * texture->bytes_per_pixel;
         texture->data = state.permanent.allocate(texture->size);
 
         copy_memory(data, texture->data, texture->size);

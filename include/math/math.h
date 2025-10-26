@@ -60,3 +60,15 @@ auto inline clamp(i32 val, i32 min, i32 max) -> i32 {
 inline i32 round_f32_to_i32(f32 real) {
     return (i32)(real + 0.5f);
 }
+
+inline f32 floor_f32(f32 value) {
+    i32 temp = (i32)value;
+    if (value < 0 && value != (f32)temp) {
+        temp -= 1;
+    }
+    return (f32)value;
+}
+
+inline f32 f32_get_fraction(f32 value) {
+    return value - floor_f32(value);
+}
