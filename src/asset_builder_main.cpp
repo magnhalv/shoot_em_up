@@ -325,9 +325,9 @@ static auto write_bitmaps() -> void {
     add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
     end_asset_type(assets);
 
-    /*begin_asset_type(assets, Asset_Test);*/
-    /*add_bitmap_asset(assets, "assets/bitmaps/test.png");*/
-    /*end_asset_type(assets);*/
+    begin_asset_type(assets, Asset_Test);
+    add_bitmap_asset(assets, "assets/bitmaps/test.png");
+    end_asset_type(assets);
 
     write_asset_file(assets, "bitmaps.haf");
 }

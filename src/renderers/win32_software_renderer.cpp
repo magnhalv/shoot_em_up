@@ -278,8 +278,9 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 f32 u_frac = sx - (f32)x0;
                 f32 v_frac = sy - (f32)y0;
 
+                u32* data = (u32*)state.textures[bitmap_id.value].data;
                 // Bilinear filtering
-                u32 texel00 = *((u32*)state.textures[bitmap_id.value].data + (y0 * texture->width) + x0);
+                u32 texel00 = *(data + (y0 * texture->width) + x0);
                 u32 texel10 = *((u32*)state.textures[bitmap_id.value].data + (y0 * texture->width) + x1); //
                 u32 texel01 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x0); //
                 u32 texel11 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x1); //
@@ -295,7 +296,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 f32 a = ch(texel00, 24) * w00 + ch(texel10, 24) * w10 + ch(texel01, 24) * w01 + ch(texel11, 24) * w11;
 
                 *pixel = pack_f32_color_to_u32(r, g, b, a);
-                //*pixel = texel00;
             }
         }
     }
@@ -383,18 +383,18 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         texture->pitch_bytes = width * texture->bytes_per_pixel;
         texture->data = state.permanent.allocate(texture->size_bytes);
 
+        printf("Bitmap id: %d, size: %d", bitmap_id.value, texture->size);
         u32* source = (u32*)data;
         u32* dest = (u32*)texture->data;
         for (auto i = 0; i < texture->size; i++) {
-            u8 red = *source >> 0;
-            u8 green = *source >> 8;
-            u8 blue = *source >> 16;
-            u8 alpha = *source >> 24;
+            u8 red = (*source >> 0) & 0xFF;
+            u8 green = (*source >> 8) & 0xFF;
+            u8 blue = (*source >> 16) & 0xFF;
+            u8 alpha = (*source >> 24) & 0xFF;
             *dest++ = alpha << 24 | red << 16 | green << 8 | blue;
             source++;
         }
 
-        copy_memory(data, texture->data, texture->size);
         log_info("Texture added");
         return true;
     }

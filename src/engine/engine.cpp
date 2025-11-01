@@ -210,11 +210,22 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             state->enemy_timer = 0;
 
             auto enemy_meta = get_first_bitmap_meta(state->assets, Asset_EnemySpaceShip);
-            Entity enemy = {};
-            enemy.P = vec2(100.0, app_input->client_height);
-            enemy.scale.x = enemy_meta.dim[0];
-            enemy.scale.y = enemy_meta.dim[1];
-            enemy.rotation = PI;
+
+            f32 width = enemy_meta.dim[0];
+            f32 height = enemy_meta.dim[1];
+            f32 align_x = enemy_meta.align_percentage.x;
+            f32 align_y = enemy_meta.align_percentage.y;
+            Entity enemy = {
+            .P = vec2(100.0, app_input->client_height),
+            .scale = vec2(1.0, 1.0),
+            .rotation = PI,
+            .vertices = {
+                    vec2(-width*align_x, -height*align_y),
+                    vec2(-width*align_x, height*(1.0-align_y)),
+                    vec2(width*(1-align_x), height*(1.0-align_y)),
+                    vec2(width*(1-align_x), -height*align_y),
+                },
+            };
 
             state->enemy_chargers.push(enemy);
         }
@@ -229,10 +240,21 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             pos.y = pos.y + state->player.scale.y;
             pos.x = pos.x + 0.5 * state->player.scale.x - 0.5 * proj_meta.dim[0];
 
-            Entity p = {};
-            p.P = pos;
-            p.scale.x = proj_meta.dim[0];
-            p.scale.y = proj_meta.dim[1];
+            f32 width = proj_meta.dim[0];
+            f32 height = proj_meta.dim[1];
+            f32 align_x = proj_meta.align_percentage.x;
+            f32 align_y = proj_meta.align_percentage.y;
+            Entity p = {
+            .P = pos,
+            .scale = vec2(1.0, 1.0),
+            .rotation = 0,
+            .vertices = {
+                    vec2(-width*align_x, -height*align_y),
+                    vec2(-width*align_x, height*(1.0-align_y)),
+                    vec2(width*(1-align_x), height*(1.0-align_y)),
+                    vec2(width*(1-align_x), -height*align_y),
+                },
+            };
 
             state->player_projectiles.push(p);
         }
@@ -382,6 +404,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* clear = PushRenderElement(&group, RenderEntryClear);
     clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
+    state->player.rotation += app_input->dt;
     {
         auto bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
         auto bitmap = get_bitmap(state->assets, bitmap_id);

@@ -1311,6 +1311,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_dll.load(&platform, &engine_memory);
         }
 
+        if (current_input->p.ended_down) {
+            continue;
+        }
+
         if (current_input->o.is_pressed_this_frame()) {
             global_is_reloading_renderer = true;
 

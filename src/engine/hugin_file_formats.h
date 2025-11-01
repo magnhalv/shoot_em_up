@@ -26,7 +26,7 @@ enum AssetGroupId : u32 {
     Asset_PlayerSpaceShip,
     Asset_EnemySpaceShip,
     Asset_Projectile,
-    // Asset_Test,
+    Asset_Test,
 
     // Audio
     Asset_Laser,
