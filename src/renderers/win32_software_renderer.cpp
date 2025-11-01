@@ -262,29 +262,31 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 f32 v = (f32)texel_point.y / ((f32)model_height - 1);
 
                 // This is texel00
-                i32 texel_x = round_f32_to_i32(u * (texture->width - 1));
-                i32 texel_y = round_f32_to_i32(v * (texture->height - 1));
+                f32 sx = u * texture->width - 0.5f;
+                f32 sy = v * texture->height - 0.5f;
 
-                f32 u_frac = f32_get_fraction(u);
-                f32 v_frac = f32_get_fraction(v);
+                i32 x0 = floor(sx);
+                i32 y0 = floor(sy);
+                i32 x1 = x0 + 1;
+                i32 y1 = y0 + 1;
+
+                x0 = clamp(x0, 0, texture->width - 1);
+                y0 = clamp(y0, 0, texture->height - 1);
+                x1 = clamp(x1, 0, texture->width - 1);
+                y1 = clamp(y1, 0, texture->height - 1);
+
+                f32 u_frac = sx - (f32)x0;
+                f32 v_frac = sy - (f32)y0;
 
                 // Bilinear filtering
-                u32 texel00 = *((u32*)state.textures[bitmap_id.value].data          //
-                    + (clamp(texel_y, 0, texture->height - 1) * texture->width)     //
-                    + clamp(texel_x, 0, texture->width - 1));                       //
-                u32 texel10 = *((u32*)state.textures[bitmap_id.value].data          //
-                    + (clamp(texel_y, 0, texture->height - 1) * texture->width)     //
-                    + clamp(texel_x + 1, 0, texture->width - 1));                   //
-                u32 texel01 = *((u32*)state.textures[bitmap_id.value].data          //
-                    + (clamp(texel_y + 1, 0, texture->height - 1) * texture->width) //
-                    + clamp(texel_x, 0, texture->width - 1));                       //
-                u32 texel11 = *((u32*)state.textures[bitmap_id.value].data          //
-                    + (clamp(texel_y + 1, 0, texture->height - 1) * texture->width) //
-                    + clamp(texel_x + 1, 0, texture->width - 1));                   //
+                u32 texel00 = *((u32*)state.textures[bitmap_id.value].data + (y0 * texture->width) + x0);
+                u32 texel10 = *((u32*)state.textures[bitmap_id.value].data + (y0 * texture->width) + x1); //
+                u32 texel01 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x0); //
+                u32 texel11 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x1); //
 
                 f32 w00 = (1.0f - u_frac) * (1.0f - v_frac);
-                f32 w10 = (1.0f) * (1.0f - v_frac);
-                f32 w01 = (1.0f - u_frac) * (1.0f);
+                f32 w10 = (u_frac) * (1.0f - v_frac);
+                f32 w01 = (1.0f - u_frac) * (v_frac);
                 f32 w11 = (u_frac) * (v_frac);
 
                 f32 r = ch(texel00, 16) * w00 + ch(texel10, 16) * w10 + ch(texel01, 16) * w01 + ch(texel11, 16) * w11;

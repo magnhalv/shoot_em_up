@@ -78,11 +78,7 @@ f32 determinant(const mat3& m);
 mat3 adjugate(const mat3& m);
 mat3 inverse(const mat3& m);
 void invert(mat3& m);
-mat3 frustum(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f);
-mat3 perspective(f32 fov_degrees, f32 aspect, f32 znear, f32 zfar);
-mat3 create_ortho(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f);
-mat3 lookAt(const vec3& position, const vec3& target, const vec3& up);
-auto identity() -> mat3;
+auto mat3_identity() -> mat3; // Is this neccessary?
 
 auto mat3_rotate(f32 theta) -> mat3;
 auto mat3_scale(vec2 scale) -> mat3;

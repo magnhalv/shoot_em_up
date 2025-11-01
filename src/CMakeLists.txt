@@ -87,6 +87,8 @@ find_package(OpenGL REQUIRED)
 set(OPENGL_RENDERER_SRC_FILES
   renderers/gl/gl_shader.cpp
   renderers/win32_opengl_renderer.cpp
+  ${MATH_SOURCE_FILES}
+  ${CORE_SOURCE_FILES}
   ${GLAD_SOURCES}
 )
 

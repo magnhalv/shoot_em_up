@@ -136,7 +136,7 @@ void invert(mat3& m) {
     m = adjugate(m) * (1.0f / det);
 }
 
-mat3 identity() {
+mat3 mat3_identity() {
     return mat3(          //
         1.0f, 0.0f, 0.0f, //
         0.0f, 1.0f, 0.0f, //

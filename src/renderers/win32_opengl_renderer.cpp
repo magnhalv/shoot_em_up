@@ -7,6 +7,7 @@
 #include <platform/platform.h>
 
 #include "gl/gl_shader.h"
+#include "math/mat3.h"
 
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
@@ -108,27 +109,25 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
     glBindVertexArray(0);
 }
 
-static auto draw_bitmap(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
-    BitmapId bitmap_id, i32 screen_width, i32 screen_height) {
-    vec2 bl = quad.bl - local_origin;
-    vec2 tl = quad.tl - local_origin;
-    vec2 tr = quad.tr - local_origin;
-    vec2 br = quad.br - local_origin;
+static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, BitmapId bitmap_id,
+    i32 screen_width, i32 screen_height) {
+    vec3 bl = vec3(quad.bl, 0.0f);
+    vec3 tl = vec3(quad.tl, 0.0f);
+    vec3 tr = vec3(quad.tr, 0.0f);
+    vec3 br = vec3(quad.br, 0.0f);
 
-    bl = bl.x * x_axis + bl.y * y_axis;
-    tl = tl.x * x_axis + tl.y * y_axis;
-    tr = tr.x * x_axis + tr.y * y_axis;
-    br = br.x * x_axis + br.y * y_axis;
+    mat3 model = mat3_rotate(rotation) * mat3_scale(scale);
 
-    bl = bl + local_origin;
-    tl = tl + local_origin;
-    tr = tr + local_origin;
-    br = br + local_origin;
+    bl = model * bl;
+    tl = model * tl;
+    tr = model * tr;
+    br = model * br;
 
-    bl = bl + offset;
-    tl = tl + offset;
-    tr = tr + offset;
-    br = br + offset;
+    vec3 translation = vec3(offset, 0.0);
+    bl = bl + translation;
+    tl = tl + translation;
+    tr = tr + translation;
+    br = br + translation;
 
     f32 vertices[] = {
         // clang-format off
@@ -361,8 +360,8 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            /*draw_bitmap(entry->quad, entry->local_origin, entry->offset, entry->basis.x, entry->basis.y, entry->color,*/
-            /*    entry->bitmap_handle, group->screen_width, group->screen_height);*/
+            draw_bitmap(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->bitmap_handle,
+                group->screen_width, group->screen_height);
 
             base_address += sizeof(*entry);
         } break;

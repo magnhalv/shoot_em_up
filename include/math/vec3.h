@@ -22,6 +22,9 @@ struct vec3 {
     inline explicit vec3(f32* fv) : x(fv[0]), y(fv[1]), z(fv[2]) {
     }
 
+    inline vec3(vec2 xy, f32 z) : x(xy.x), y(xy.y), z(z) {
+    }
+
     auto xy() -> vec2 {
         return vec2(x, y);
     }
