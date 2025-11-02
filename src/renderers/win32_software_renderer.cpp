@@ -163,11 +163,6 @@ static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
     return *((u8*)texture->data + (y * texture->pitch_bytes) + (x * texture->bytes_per_pixel));
 }
 
-/*auto pack(u8 r, u8 g, u8 b, u8 a) -> u32 {*/
-/*    u32 result = a << 24 | r << 16 | g << 8 | b << 0;*/
-/*    return result;*/
-/*}*/
-
 auto color_channel_f32_to_u8(f32 channel) {
     u8 result = 0;
     if (channel < 0) {
@@ -235,8 +230,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     for (int y = min_y; y < max_y; y++) {
         for (int x = min_x; x < max_x; x++) {
 
-            u32 color = 0xFFF00FFF;
-
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
@@ -299,53 +292,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             }
         }
     }
-
-    /*auto width = quad.br.x - quad.bl.x;*/
-    /*auto height = quad.tl.y - quad.bl.y;*/
-    /*auto dim = vec2(width, height);*/
-    /**/
-    /*OffscreenBuffer* buffer = &state.global_offscreen_buffer;*/
-    /**/
-    /*Win32Texture* texture = &state.textures[bitmap_id.value];*/
-    /*u64 points_inside = 0;*/
-    /*for (auto y = 0; y < height; y++) {*/
-    /*    for (auto x = 0; x < width; x++) {*/
-    /**/
-    /*        vec2 point = vec2(x, y) - local_origin;*/
-    /*        point = point.x * x_axis + point.y * y_axis;*/
-    /*        point = point + local_origin;*/
-    /*        point = point + offset;*/
-    /**/
-    /*        f32 u = (f32)x / ((f32)width - 1);*/
-    /*        f32 v = (f32)y / ((f32)height - 1);*/
-    /**/
-    /*        i32 texel_x = round_f32_to_i32(u * (texture->width - 1));*/
-    /*        i32 texel_y = round_f32_to_i32(v * (texture->height - 1));*/
-    /**/
-    /*        texel_x = clamp(texel_x, 0, texture->width - 1);*/
-    /*        texel_y = clamp(texel_y, 0, texture->height - 1);*/
-    /**/
-    /*        u32* texel = (u32*)texture->data + (texel_y * texture->width) + (texel_x);*/
-    /*        if ((point.x >= 0 && point.x < buffer->width) && (point.y >= 0 && point.y < buffer->height)) {*/
-    /*            u8* dest = ((u8*)buffer->memory + (round_f32_to_i32(point.y) * buffer->pitch) +*/
-    /*                (round_f32_to_i32(point.x) * buffer->bytes_per_pixel));*/
-    /*            u32* pixel = (u32*)dest;*/
-    /**/
-    /*            u8 a = *texel >> 24;*/
-    /*            u8 b = *texel >> 16;*/
-    /*            u8 g = *texel >> 8;*/
-    /*            u8 r = *texel >> 0;*/
-    /**/
-    /*            u8 red = *texel >> 24;*/
-    /*            u8 green = *texel >> 16;*/
-    /*            u8 blue = *texel >> 8;*/
-    /*            u8 alpha = *texel >> 0;*/
-    /*            u32 color = a << 24 | r << 16 | g << 8 | b;*/
-    /*            *pixel = color;*/
-    /*            points_inside++;*/
-    /*        }*/
-    /*    }*/
-    /*}*/
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
