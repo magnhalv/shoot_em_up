@@ -13,14 +13,21 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 
 ## TODO 
 
-- Figure a better way to deal with textures and other resources when switching between renderers.
-    - Use void* as handles?
-    - Have an id per asset, which is defined by the user. Add a texture with a given id which already exists is a no-op.
-- Make record work again
-- Add freeze
-- Software renderer:
-    - Probably have to start using matrices
-    - Make texture UV coordinates work
+### IMGUI
+
+- Text rendering <---
+- Buttons 
+- Sliders
+- Window
+
+### Features
+
+- CLI
+- Mix background music and other sounds
+- Background texture moving
+- Make a slider through the level
+- Make an editor (i.e. being able to add enemies at certain points)
+
 - Consider start using perspective matrices
 - Load assets as background tasks
     - [ ] When hot reloading, wait for all current tasks to be completed.
@@ -30,11 +37,20 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 - Blink if hit
 - Three lives
 
-### Done
+### Core
 
+- Make matrix row major
+- Support matrix operations using SIMD
+- Hashmap
+
+### Build system
+
+- Unity build
+- Remove all references to C++ stdlib
+
+### Compelted features
+
+- Hot reload Engine
+- Record and replay
 - Hot switch between SW and OpenGL renderer
-* Load assets as background tasks
-    * [X] Load asset from asset file in a background task
-    * [X] Add platform function for reading file and opening File handles
-    * [X] Load sound from asset file
-* Move the renderer to a separate .dll
+- Load assets as background tasks
