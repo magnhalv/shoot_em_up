@@ -179,6 +179,7 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
         }
 
         if (header->version != HAF_VERSION) {
+            log_error("Asset file version mismatch. File: %d. Engine: %d", header->version, HAF_VERSION);
             InvalidCodePath;
         }
         asset_count += header->asset_count - 1;
@@ -193,7 +194,7 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
 
     game_assets->asset_groups[Asset_None].first_asset_index = 0;
     game_assets->asset_groups[Asset_None].one_past_last_asset_index = 1;
-    game_assets->asset_groups[Asset_None].type_id = Asset_None;
+    game_assets->asset_groups[Asset_None].group_id = Asset_None;
 
     ZeroStruct(*(game_assets->assets + game_assets->asset_count));
     ZeroStruct(*(game_assets->assets_meta + game_assets->asset_count));
@@ -217,9 +218,9 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
                 {
                     auto asset_index = game_assets->asset_count++;
                     Assert(group->first_asset_index == group->one_past_last_asset_index - 1);
-                    game_assets->asset_groups[group->type_id].type_id = group->type_id;
-                    game_assets->asset_groups[group->type_id].first_asset_index = asset_index;
-                    game_assets->asset_groups[group->type_id].one_past_last_asset_index = asset_index + 1;
+                    game_assets->asset_groups[group->group_id].group_id = group->group_id;
+                    game_assets->asset_groups[group->group_id].first_asset_index = asset_index;
+                    game_assets->asset_groups[group->group_id].one_past_last_asset_index = asset_index + 1;
 
                     game_assets->assets_meta[asset_index] = *meta;
                     game_assets->assets[asset_index].asset_file_index = file_idx;

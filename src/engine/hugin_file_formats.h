@@ -37,10 +37,24 @@ enum AssetGroupId : u32 {
 
 enum AssetType { AssetType_Invalid = 0, AssetType_Audio, AssetType_Bitmap };
 
+enum AssetTagId {
+    AssetTag_SpaceShipDirection = 0, //
+    AssetTag_Count                   //
+};
+
+struct AssetTag {
+    AssetTagId type;
+    f32 value;
+    u32 asset_index;
+};
+
 struct AssetGroup {
-    u32 type_id;
+    u32 group_id;
     u32 first_asset_index;
     u32 one_past_last_asset_index;
+
+    u32 first_asset_tag_index;
+    u32 one_past_last_asset_tag_index;
 };
 
 struct HuginBitmap {
@@ -68,12 +82,14 @@ struct AssetMeta {
 struct HafHeader {
 #define HAF_MAGIC_VALUE HAF_CODE('h', 'a', 'f', 'c')
     u32 magic_value;
-#define HAF_VERSION 0
+#define HAF_VERSION 1
     u32 version;
 
     u32 asset_group_count;
     u32 asset_count;
+    u32 asset_tag_count;
 
     u64 asset_groups_block;
     u64 assets_block;
+    u64 assets_tag_block;
 };

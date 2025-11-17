@@ -28,6 +28,7 @@ struct AssetSource {
 };
 
 const u32 MAX_ASSETS_COUNT = 4096;
+const u32 MAX_TAGS_COUNT = 4096;
 struct GameAssetsWrite {
     u32 asset_group_count;
     AssetGroup asset_groups[AssetGroup_Count];
@@ -36,8 +37,11 @@ struct GameAssetsWrite {
     AssetSource asset_sources[MAX_ASSETS_COUNT];
     AssetMeta assets[MAX_ASSETS_COUNT];
 
+    u32 asset_tag_count;
+    AssetTag asset_tags[MAX_TAGS_COUNT];
+
     AssetGroup* current_asset_group;
-    u32 asset_index;
+    u32 curr_asset_index;
 };
 
 // Start external file format
@@ -174,13 +178,17 @@ auto load_wav_file(const char* path) -> WavFile {
     return wav_file;
 }
 
-static void begin_asset_type(GameAssetsWrite* assets, AssetGroupId type_id) {
+static void begin_asset_group(GameAssetsWrite* assets, AssetGroupId group_id) {
     Assert(assets->current_asset_group == NULL);
 
-    assets->current_asset_group = assets->asset_groups + type_id;
-    assets->current_asset_group->type_id = type_id;
+    assets->current_asset_group = assets->asset_groups + group_id;
+    assets->current_asset_group->group_id = group_id;
+
     assets->current_asset_group->first_asset_index = assets->asset_count;
-    assets->current_asset_group->one_past_last_asset_index = assets->current_asset_group->first_asset_index;
+    assets->current_asset_group->one_past_last_asset_index = assets->asset_count;
+
+    assets->current_asset_group->first_asset_tag_index = assets->asset_tag_count;
+    assets->current_asset_group->one_past_last_asset_tag_index = assets->asset_tag_count;
 }
 
 struct AddedAsset {
@@ -198,7 +206,7 @@ static auto add_asset(GameAssetsWrite* assets) -> AddedAsset {
     AssetSource* source = assets->asset_sources + index;
     AssetMeta* ha = assets->assets + index;
 
-    assets->asset_index = index;
+    assets->curr_asset_index = index;
     AddedAsset result;
     result.id = index;
     result.hugin_asset = assets->assets + index;
@@ -226,17 +234,27 @@ static auto add_audio_asset(GameAssetsWrite* assets, const char* file_name) -> A
     return AudioId{ asset.id };
 }
 
-static auto end_asset_type(GameAssetsWrite* assets) -> void {
+static auto add_tag(GameAssetsWrite* assets, AssetTagId tag_id, f32 value) -> void {
+    u32 tag_index = assets->current_asset_group->one_past_last_asset_tag_index++;
+    Assert(tag_index < MAX_TAGS_COUNT);
+    AssetTag* tag = &assets->asset_tags[tag_index];
+    tag->type = tag_id;
+    tag->value = value;
+    tag->asset_index = assets->curr_asset_index;
+}
+
+static auto end_asset_group(GameAssetsWrite* assets) -> void {
     Assert(assets->current_asset_group);
     assets->asset_count = assets->current_asset_group->one_past_last_asset_index;
+    assets->asset_tag_count = assets->current_asset_group->one_past_last_asset_tag_index;
     assets->current_asset_group = 0;
-    assets->asset_index = 0;
+    assets->curr_asset_index = 0;
 }
 
 static auto initialize(GameAssetsWrite* assets) -> void {
     assets->asset_count = 1;
     assets->current_asset_group = 0;
-    assets->asset_index = 0;
+    assets->curr_asset_index = 0;
 
     assets->asset_group_count = AssetGroup_Count;
     memset(assets->asset_groups, 0, sizeof(assets->asset_groups));
@@ -278,12 +296,6 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 
                 Assert((bitmap.width * 4) == bitmap.pitch);
                 fwrite(bitmap.data, bitmap.pitch * bitmap.height, 1, out);
-                printf("Howdy\n");
-                u32* data = (u32*)bitmap.data;
-                for (int i = 0; i < 10; i++) {
-                    printf("0x%x, ", *(data + i));
-                }
-                printf("\n");
 
                 free(bitmap.data);
             }
@@ -300,6 +312,8 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
             }
         }
 
+        // TODO: Write tags here
+
         fseek(out, (u32)header.assets_block, SEEK_SET);
         fwrite(assets->assets, asset_array_size, 1, out);
     }
@@ -313,21 +327,26 @@ static auto write_bitmaps() -> void {
 
     initialize(assets);
 
-    begin_asset_type(assets, Asset_PlayerSpaceShip);
+    begin_asset_group(assets, Asset_PlayerSpaceShip);
     add_bitmap_asset(assets, "assets/bitmaps/player_1.png");
-    end_asset_type(assets);
+    add_tag(assets, AssetTag_SpaceShipDirection, 0.0);
+    add_bitmap_asset(assets, "assets/bitmaps/player_left-1.png");
+    add_tag(assets, AssetTag_SpaceShipDirection, -1.0);
+    add_bitmap_asset(assets, "assets/bitmaps/player_right-1.png");
+    add_tag(assets, AssetTag_SpaceShipDirection, 1.0);
+    end_asset_group(assets);
 
-    begin_asset_type(assets, Asset_EnemySpaceShip);
+    begin_asset_group(assets, Asset_EnemySpaceShip);
     add_bitmap_asset(assets, "assets/bitmaps/blue_01.png");
-    end_asset_type(assets);
+    end_asset_group(assets);
 
-    begin_asset_type(assets, Asset_Projectile);
+    begin_asset_group(assets, Asset_Projectile);
     add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
-    end_asset_type(assets);
+    end_asset_group(assets);
 
-    begin_asset_type(assets, Asset_Test);
+    begin_asset_group(assets, Asset_Test);
     add_bitmap_asset(assets, "assets/bitmaps/test.png");
-    end_asset_type(assets);
+    end_asset_group(assets);
 
     write_asset_file(assets, "bitmaps.haf");
 }
@@ -338,9 +357,9 @@ static auto write_audio() -> void {
 
     initialize(assets);
 
-    begin_asset_type(assets, Asset_Laser);
+    begin_asset_group(assets, Asset_Laser);
     add_audio_asset(assets, "assets/audio/laser_primary.wav");
-    end_asset_type(assets);
+    end_asset_group(assets);
 
     write_asset_file(assets, "audio.haf");
 }
