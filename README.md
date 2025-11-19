@@ -23,7 +23,7 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 ### Features
 
 - Support tags and animations
-    - Next: write_asset_file
+    - Next: read_asset_file
 - CLI
 - Mix background music and other sounds
 - Background texture moving

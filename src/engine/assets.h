@@ -59,6 +59,9 @@ struct GameAssets {
     AssetMeta* assets_meta;
     Asset* assets;
 
+    u32 asset_tag_count;
+    AssetTag* asset_tags;
+
     u32 asset_files_count;
     PlatformFileHandle asset_files[ASSET_FILES_MAX_COUNT];
 
@@ -75,5 +78,6 @@ auto load_bitmap(GameAssets* game_assets, BitmapId id) -> void;
 auto load_audio(GameAssets* game_assets, AudioId id) -> void;
 
 auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId;
+auto get_closest_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id, AssetTagId tag_id, f32 value) -> BitmapId;
 auto get_first_bitmap_meta(GameAssets* game_assets, AssetGroupId asset_group_id) -> HuginBitmap;
 auto get_first_audio(GameAssets* game_assets, AssetGroupId asset_group_id) -> AudioId;

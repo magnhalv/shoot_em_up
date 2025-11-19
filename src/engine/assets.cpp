@@ -11,6 +11,7 @@
 
 #include "assets.h"
 #include "engine/hugin_file_formats.h"
+#include "math/math.h"
 #include "platform/types.h"
 
 struct LoadAssetWork {
@@ -163,8 +164,9 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
     PlatformFileGroup file_group = Platform->get_all_files_of_type_begin(PlatformFileType_AssetFile);
     assert(file_group.file_count <= ASSET_FILES_MAX_COUNT);
 
-    i32 asset_count = 1;
+    i32 asset_count = 1; // Empty asset
     i32 asset_group_count = 1;
+    i32 asset_tag_count = 0;
 
     HafHeader headers[ASSET_FILES_MAX_COUNT];
     for (auto i = 0; i < file_group.file_count; i++) {
@@ -184,6 +186,7 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
         }
         asset_count += header->asset_count - 1;
         asset_group_count += header->asset_group_count - 1;
+        asset_tag_count += header->asset_tag_count;
 
         game_assets->asset_files[game_assets->asset_files_count++] = file_handle;
     }
@@ -191,45 +194,63 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
 
     game_assets->assets_meta = allocate<AssetMeta>(permanent, asset_count);
     game_assets->assets = allocate<Asset>(permanent, asset_count);
+    game_assets->asset_tags = allocate<AssetTag>(permanent, asset_tag_count);
 
     game_assets->asset_groups[Asset_None].first_asset_index = 0;
     game_assets->asset_groups[Asset_None].one_past_last_asset_index = 1;
     game_assets->asset_groups[Asset_None].group_id = Asset_None;
-
-    ZeroStruct(*(game_assets->assets + game_assets->asset_count));
-    ZeroStruct(*(game_assets->assets_meta + game_assets->asset_count));
-    game_assets->asset_count++;
+    ZeroStruct(*game_assets->assets);
+    ZeroStruct(*game_assets->assets_meta);
+    game_assets->asset_count = 1;
 
     for (auto file_idx = 0; file_idx < game_assets->asset_files_count; file_idx++) {
         HafHeader* header = headers + file_idx;
         PlatformFileHandle* file_handle = &game_assets->asset_files[file_idx];
 
-        AssetMeta* assets_meta = allocate<AssetMeta>(g_transient, header->asset_count);
-        AssetGroup* asset_groups = allocate<AssetGroup>(g_transient, header->asset_group_count);
-        Platform->read_file(file_handle, header->assets_block, header->asset_count * sizeof(AssetMeta), assets_meta);
-        Platform->read_file(file_handle, header->asset_groups_block, header->asset_group_count * sizeof(AssetGroup), asset_groups);
+        AssetMeta* file_assets_meta = allocate<AssetMeta>(g_transient, header->asset_count);
+        AssetGroup* file_asset_groups = allocate<AssetGroup>(g_transient, header->asset_group_count);
+        AssetTag* file_asset_tags = allocate<AssetTag>(g_transient, header->asset_tag_count);
+
+        Platform->read_file(file_handle, header->assets_block, header->asset_count * sizeof(AssetMeta), file_assets_meta);
+        Platform->read_file(file_handle, header->asset_groups_block, header->asset_group_count * sizeof(AssetGroup), file_asset_groups);
+        Platform->read_file(file_handle, header->assets_tag_block, header->asset_tag_count * sizeof(AssetTag), file_asset_tags);
 
         for (auto group_idx = 1; group_idx < header->asset_group_count; group_idx++) {
-            AssetGroup* group = asset_groups + group_idx;
+            AssetGroup* file_group = file_asset_groups + group_idx;
             // If this file has any assets for this group
-            if (group->first_asset_index != 0) {
-                AssetMeta* meta = assets_meta + group->first_asset_index;
-                // NOTE: Until we support tags
+            if (file_group->first_asset_index != 0) {
                 {
-                    auto asset_index = game_assets->asset_count++;
-                    Assert(group->first_asset_index == group->one_past_last_asset_index - 1);
-                    game_assets->asset_groups[group->group_id].group_id = group->group_id;
-                    game_assets->asset_groups[group->group_id].first_asset_index = asset_index;
-                    game_assets->asset_groups[group->group_id].one_past_last_asset_index = asset_index + 1;
+                    // Use this diff to add to the local asset_id for the tags.
+                    i32 local_to_global_asset_idx = game_assets->asset_count - file_group->first_asset_index;
 
-                    game_assets->assets_meta[asset_index] = *meta;
-                    game_assets->assets[asset_index].asset_file_index = file_idx;
+                    AssetGroup* mem_group = game_assets->asset_groups + file_group->group_id;
+                    mem_group->group_id = file_group->group_id;
+                    mem_group->first_asset_index = game_assets->asset_count;
+
+                    // HERE!
+                    for (auto asset_idx = file_group->first_asset_index;
+                        asset_idx < file_group->one_past_last_asset_index; asset_idx++) {
+                        AssetMeta* file_meta = file_assets_meta + asset_idx;
+                        game_assets->assets_meta[game_assets->asset_count] = *file_meta;
+                        game_assets->assets[game_assets->asset_count].asset_file_index = file_idx;
+                        game_assets->asset_count++;
+                    }
+                    if (file_group->group_id == Asset_PlayerSpaceShip) {
+                        printf("Howdy\n");
+                    }
+                    mem_group->first_asset_tag_index = game_assets->asset_tag_count;
+                    for (auto file_asset_tag_idx = file_group->first_asset_tag_index;
+                        file_asset_tag_idx < file_group->one_past_last_asset_tag_index; file_asset_tag_idx++) {
+                        AssetTag* tag = game_assets->asset_tags + game_assets->asset_tag_count++;
+                        *tag = *(file_asset_tags + file_asset_tag_idx);
+                        tag->asset_index += local_to_global_asset_idx;
+                    }
+                    mem_group->one_past_last_asset_tag_index = game_assets->asset_tag_count;
+                    game_assets->asset_groups[file_group->group_id].one_past_last_asset_index = game_assets->asset_count;
                 }
             }
         }
     }
-
-    Assert(game_assets->asset_count == asset_count);
 
     game_assets->is_initialized = true;
     return game_assets;
@@ -238,10 +259,36 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
 auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId {
     u32 result = 0;
 
-    AssetGroup* type = game_assets->asset_groups + asset_group_id;
-    if (type->first_asset_index != type->one_past_last_asset_index) {
-        result = type->first_asset_index;
+    AssetGroup* group = game_assets->asset_groups + asset_group_id;
+    if (group->first_asset_index != group->one_past_last_asset_index) {
+        result = group->first_asset_index;
     }
+
+    return BitmapId{ result };
+}
+
+auto get_closest_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id, AssetTagId tag_id, f32 value) -> BitmapId {
+    Assert(value <= 1.0 && value >= -1.0); // perhaps clamp instead?
+    u32 result = 0;
+
+    AssetGroup* group = game_assets->asset_groups + asset_group_id;
+    f32 diff = 2.0; // biggest diff;
+
+    result = group->first_asset_index;
+    for (i32 tag_idx = group->first_asset_tag_index; tag_idx < group->one_past_last_asset_tag_index; tag_idx++) {
+        AssetTag* tag = game_assets->asset_tags + tag_idx;
+        if (tag->id == tag_id) {
+            // TODO: HERE!!
+            f32 curr_diff = hm::f32_abs(tag->value - value);
+            printf("%f\n", curr_diff);
+            if (curr_diff < diff) {
+                result = tag->asset_index;
+                diff = curr_diff;
+            }
+        }
+    }
+    printf("Result: %f\n", diff);
+    printf("---------\n");
 
     return BitmapId{ result };
 }

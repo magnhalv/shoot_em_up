@@ -43,7 +43,7 @@ enum AssetTagId {
 };
 
 struct AssetTag {
-    AssetTagId type;
+    AssetTagId id;
     f32 value;
     u32 asset_index;
 };

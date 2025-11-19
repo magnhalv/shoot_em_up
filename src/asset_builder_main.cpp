@@ -238,7 +238,7 @@ static auto add_tag(GameAssetsWrite* assets, AssetTagId tag_id, f32 value) -> vo
     u32 tag_index = assets->current_asset_group->one_past_last_asset_tag_index++;
     Assert(tag_index < MAX_TAGS_COUNT);
     AssetTag* tag = &assets->asset_tags[tag_index];
-    tag->type = tag_id;
+    tag->id = tag_id;
     tag->value = value;
     tag->asset_index = assets->curr_asset_index;
 }
@@ -273,12 +273,15 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
         header.version = HAF_VERSION;
         header.asset_group_count = assets->asset_group_count;
         header.asset_count = assets->asset_count;
+        header.asset_tag_count = assets->asset_tag_count;
 
         u32 asset_group_array_size = header.asset_group_count * sizeof(AssetGroup);
         u32 asset_array_size = header.asset_count * sizeof(AssetMeta);
+        u32 asset_tag_array_size = header.asset_tag_count * sizeof(AssetTag);
 
         header.asset_groups_block = sizeof(HafHeader);
         header.assets_block = header.asset_groups_block + asset_group_array_size;
+        header.assets_tag_block = header.assets_block + asset_array_size;
 
         fwrite(&header, sizeof(header), 1, out);
         fwrite(&assets->asset_groups, asset_group_array_size, 1, out);
@@ -316,6 +319,9 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 
         fseek(out, (u32)header.assets_block, SEEK_SET);
         fwrite(assets->assets, asset_array_size, 1, out);
+
+        fseek(out, (u32)header.assets_tag_block, SEEK_SET);
+        fwrite(assets->asset_tags, asset_tag_array_size, 1, out);
     }
     fclose(out);
 }

@@ -404,9 +404,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* clear = PushRenderElement(&group, RenderEntryClear);
     clear->color = vec4(0.0, 0.0, 0.0, 0.0);
 
-    state->player.rotation += app_input->dt;
     {
-        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
+        f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
+        auto bitmap_id = get_closest_bitmap_id(state->assets, Asset_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             i32 width = bitmap->width;

@@ -2,6 +2,8 @@
 
 #include <platform/types.h>
 
+#include <cmath>
+
 namespace hm {
 inline auto min(f32 a, f32 b) -> f32 {
     return a > b ? b : a;
@@ -33,6 +35,10 @@ inline auto min(i32 a, i32 b) -> i32 {
 
 inline auto max(i32 a, i32 b) -> i32 {
     return a > b ? a : b;
+}
+
+inline auto f32_abs(f32 val) -> f32 {
+    return abs(val);
 }
 
 }; // namespace hm
