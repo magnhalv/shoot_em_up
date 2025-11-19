@@ -227,7 +227,6 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
                     mem_group->group_id = file_group->group_id;
                     mem_group->first_asset_index = game_assets->asset_count;
 
-                    // HERE!
                     for (auto asset_idx = file_group->first_asset_index;
                         asset_idx < file_group->one_past_last_asset_index; asset_idx++) {
                         AssetMeta* file_meta = file_assets_meta + asset_idx;
@@ -235,12 +234,11 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
                         game_assets->assets[game_assets->asset_count].asset_file_index = file_idx;
                         game_assets->asset_count++;
                     }
-                    if (file_group->group_id == Asset_PlayerSpaceShip) {
-                        printf("Howdy\n");
-                    }
+
                     mem_group->first_asset_tag_index = game_assets->asset_tag_count;
                     for (auto file_asset_tag_idx = file_group->first_asset_tag_index;
                         file_asset_tag_idx < file_group->one_past_last_asset_tag_index; file_asset_tag_idx++) {
+
                         AssetTag* tag = game_assets->asset_tags + game_assets->asset_tag_count++;
                         *tag = *(file_asset_tags + file_asset_tag_idx);
                         tag->asset_index += local_to_global_asset_idx;
@@ -272,23 +270,21 @@ auto get_closest_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id,
     u32 result = 0;
 
     AssetGroup* group = game_assets->asset_groups + asset_group_id;
-    f32 diff = 2.0; // biggest diff;
+    if (group->first_asset_index < group->one_past_last_asset_index) {
 
-    result = group->first_asset_index;
-    for (i32 tag_idx = group->first_asset_tag_index; tag_idx < group->one_past_last_asset_tag_index; tag_idx++) {
-        AssetTag* tag = game_assets->asset_tags + tag_idx;
-        if (tag->id == tag_id) {
-            // TODO: HERE!!
-            f32 curr_diff = hm::f32_abs(tag->value - value);
-            printf("%f\n", curr_diff);
-            if (curr_diff < diff) {
-                result = tag->asset_index;
-                diff = curr_diff;
+        f32 diff = 2.0; // biggest diff;
+        result = group->first_asset_index;
+        for (i32 tag_idx = group->first_asset_tag_index; tag_idx < group->one_past_last_asset_tag_index; tag_idx++) {
+            AssetTag* tag = game_assets->asset_tags + tag_idx;
+            if (tag->id == tag_id) {
+                f32 curr_diff = hm::f32_abs(tag->value - value);
+                if (curr_diff < diff) {
+                    result = tag->asset_index;
+                    diff = curr_diff;
+                }
             }
         }
     }
-    printf("Result: %f\n", diff);
-    printf("---------\n");
 
     return BitmapId{ result };
 }
