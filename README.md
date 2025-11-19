@@ -15,15 +15,16 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 
 ### IMGUI
 
-- Text rendering <---
+- Text rendering 
 - Buttons 
 - Sliders
 - Window
 
 ### Features
 
+- Support explosions <-------
 - Support tags and animations
-    - Next: read_asset_file
+    - Support multiple tags
 - CLI
 - Mix background music and other sounds
 - Background texture moving
