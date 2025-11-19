@@ -196,9 +196,9 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
     game_assets->assets = allocate<Asset>(permanent, asset_count);
     game_assets->asset_tags = allocate<AssetTag>(permanent, asset_tag_count);
 
-    game_assets->asset_groups[Asset_None].first_asset_index = 0;
-    game_assets->asset_groups[Asset_None].one_past_last_asset_index = 1;
-    game_assets->asset_groups[Asset_None].group_id = Asset_None;
+    game_assets->asset_groups[AssetGroupId_None].first_asset_index = 0;
+    game_assets->asset_groups[AssetGroupId_None].one_past_last_asset_index = 1;
+    game_assets->asset_groups[AssetGroupId_None].group_id = AssetGroupId_None;
     ZeroStruct(*game_assets->assets);
     ZeroStruct(*game_assets->assets_meta);
     game_assets->asset_count = 1;
@@ -258,7 +258,7 @@ auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -
     u32 result = 0;
 
     AssetGroup* group = game_assets->asset_groups + asset_group_id;
-    if (group->first_asset_index != group->one_past_last_asset_index) {
+    if (group->first_asset_index < group->one_past_last_asset_index) {
         result = group->first_asset_index;
     }
 

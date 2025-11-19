@@ -140,7 +140,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         state->assets = initialize_game_assets(&state->permanent);
 
-        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_PlayerSpaceShip);
+        auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip);
         {
             auto player = get_bitmap_meta(state->assets, bitmap_id);
             i32 width = player.dim[0];
@@ -209,7 +209,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (state->enemy_timer > 0.3) {
             state->enemy_timer = 0;
 
-            auto enemy_meta = get_first_bitmap_meta(state->assets, Asset_EnemySpaceShip);
+            auto enemy_meta = get_first_bitmap_meta(state->assets, AssetGroupId_EnemySpaceShip);
 
             f32 width = enemy_meta.dim[0];
             f32 height = enemy_meta.dim[1];
@@ -232,16 +232,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         if (input.space.is_pressed_this_frame()) {
 
-            AudioId audio_id = get_first_audio(state->assets, Asset_Laser);
+            AudioId audio_id = get_first_audio(state->assets, AssetGroupId_Laser);
             play_audio(&state->audio, audio_id);
 
-            auto proj_meta = get_first_bitmap_meta(state->assets, Asset_Projectile);
+            auto proj_meta = get_first_bitmap_meta(state->assets, AssetGroupId_Projectile);
             auto pos = state->player.P;
-            pos.y = pos.y + state->player.scale.y;
-            pos.x = pos.x + 0.5 * state->player.scale.x - 0.5 * proj_meta.dim[0];
-
             f32 width = proj_meta.dim[0];
             f32 height = proj_meta.dim[1];
+            pos.y = pos.y + height * 0.7;
+            pos.x = pos.x + 0.5 * width - 0.5 * proj_meta.dim[0];
+
             f32 align_x = proj_meta.align_percentage.x;
             f32 align_y = proj_meta.align_percentage.y;
             Entity p = {
@@ -406,7 +406,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
         f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
-        auto bitmap_id = get_closest_bitmap_id(state->assets, Asset_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
+        auto bitmap_id = get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             i32 width = bitmap->width;
@@ -431,7 +431,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
 
-        auto bitmap_id = get_first_bitmap_id(state->assets, Asset_EnemySpaceShip);
+        auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_EnemySpaceShip);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
 
         if (bitmap) {
@@ -458,7 +458,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
         if (state->player_projectiles.size() != 0) {
-            auto bitmap_id = get_first_bitmap_id(state->assets, Asset_Projectile);
+            auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_Projectile);
             auto bitmap = get_bitmap(state->assets, bitmap_id);
             if (bitmap) {
                 i32 width = bitmap->width;

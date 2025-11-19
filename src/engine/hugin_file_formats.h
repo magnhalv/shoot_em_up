@@ -20,19 +20,19 @@ struct SoundId {
 #pragma pack(pop)
 
 enum AssetGroupId : u32 {
-    Asset_None = 0,
+    AssetGroupId_None = 0,
 
     // Bitmaps
-    Asset_PlayerSpaceShip,
-    Asset_EnemySpaceShip,
-    Asset_Projectile,
-    Asset_Test,
+    AssetGroupId_PlayerSpaceShip,
+    AssetGroupId_EnemySpaceShip,
+    AssetGroupId_Projectile,
+    AssetGroupId_Test,
 
     // Audio
-    Asset_Laser,
-    Asset_Explosion,
+    AssetGroupId_Laser,
+    AssetGroupId_Explosion,
 
-    AssetGroup_Count
+    AssetGroupId_Count
 };
 
 enum AssetType { AssetType_Invalid = 0, AssetType_Audio, AssetType_Bitmap };

@@ -53,7 +53,7 @@ inline constexpr u32 ASSET_FILES_MAX_COUNT = 2;
 
 struct GameAssets {
     bool is_initialized;
-    AssetGroup asset_groups[AssetGroup_Count];
+    AssetGroup asset_groups[AssetGroupId_Count];
 
     u32 asset_count;
     AssetMeta* assets_meta;

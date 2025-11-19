@@ -31,7 +31,7 @@ const u32 MAX_ASSETS_COUNT = 4096;
 const u32 MAX_TAGS_COUNT = 4096;
 struct GameAssetsWrite {
     u32 asset_group_count;
-    AssetGroup asset_groups[AssetGroup_Count];
+    AssetGroup asset_groups[AssetGroupId_Count];
 
     u32 asset_count;
     AssetSource asset_sources[MAX_ASSETS_COUNT];
@@ -256,7 +256,7 @@ static auto initialize(GameAssetsWrite* assets) -> void {
     assets->current_asset_group = 0;
     assets->curr_asset_index = 0;
 
-    assets->asset_group_count = AssetGroup_Count;
+    assets->asset_group_count = AssetGroupId_Count;
     memset(assets->asset_groups, 0, sizeof(assets->asset_groups));
 }
 
@@ -333,7 +333,7 @@ static auto write_bitmaps() -> void {
 
     initialize(assets);
 
-    begin_asset_group(assets, Asset_PlayerSpaceShip);
+    begin_asset_group(assets, AssetGroupId_PlayerSpaceShip);
     add_bitmap_asset(assets, "assets/bitmaps/player_1.png");
     add_tag(assets, AssetTag_SpaceShipDirection, 0.0);
     add_bitmap_asset(assets, "assets/bitmaps/player_left-1.png");
@@ -342,15 +342,15 @@ static auto write_bitmaps() -> void {
     add_tag(assets, AssetTag_SpaceShipDirection, 1.0);
     end_asset_group(assets);
 
-    begin_asset_group(assets, Asset_EnemySpaceShip);
+    begin_asset_group(assets, AssetGroupId_EnemySpaceShip);
     add_bitmap_asset(assets, "assets/bitmaps/blue_01.png");
     end_asset_group(assets);
 
-    begin_asset_group(assets, Asset_Projectile);
+    begin_asset_group(assets, AssetGroupId_Projectile);
     add_bitmap_asset(assets, "assets/bitmaps/projectile_1.png");
     end_asset_group(assets);
 
-    begin_asset_group(assets, Asset_Test);
+    begin_asset_group(assets, AssetGroupId_Test);
     add_bitmap_asset(assets, "assets/bitmaps/test.png");
     end_asset_group(assets);
 
@@ -363,7 +363,7 @@ static auto write_audio() -> void {
 
     initialize(assets);
 
-    begin_asset_group(assets, Asset_Laser);
+    begin_asset_group(assets, AssetGroupId_Laser);
     add_audio_asset(assets, "assets/audio/laser_primary.wav");
     end_asset_group(assets);
 
