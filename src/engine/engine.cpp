@@ -5,6 +5,7 @@
 #include <platform/platform.h>
 #include <platform/types.h>
 
+#include <math/mat3.h>
 #include <math/math.h>
 #include <math/transform.h>
 #include <math/util.hpp>
@@ -42,7 +43,7 @@ inline f32 rotate_y(f32 x, f32 y, f32 degree) {
 
 ENGINE_GET_SOUND_SAMPLES(get_sound_samples) {
     auto* engine = (EngineState*)memory->permanent;
-    auto* audio = &engine->audio;
+    auto* audio_system = &engine->audio;
     auto* game_assets = engine->assets;
     HM_ASSERT(num_samples >= 0);
     SoundBuffer buffer;
@@ -56,11 +57,11 @@ ENGINE_GET_SOUND_SAMPLES(get_sound_samples) {
         buffer.samples[i] = 0;
     }
 
-    for (auto& ps : audio->playing_sounds) {
+    for (auto& ps : audio_system->playing_sounds) {
         if (ps.audio == nullptr) {
-            LoadedAudio* audio = get_audio(game_assets, ps.id);
-            if (audio) {
-                ps.audio = audio;
+            LoadedAudio* loaded_audio = get_audio(game_assets, ps.id);
+            if (audio_system) {
+                ps.audio = loaded_audio;
             }
             else {
                 load_audio(game_assets, ps.id);
@@ -68,7 +69,7 @@ ENGINE_GET_SOUND_SAMPLES(get_sound_samples) {
         }
     }
 
-    for (auto& ps : audio->playing_sounds) {
+    for (auto& ps : audio_system->playing_sounds) {
         if (ps.audio != nullptr) {
             uint32_t target_buf_idx = 0;
             i16* src_buffer = (i16*)ps.audio->data;
@@ -117,7 +118,7 @@ auto push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryT
 
 ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* state = (EngineState*)memory->permanent;
-    const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
+    // const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
     // region Initialize
     [[unlikely]] if (!state->is_initialized) {
@@ -128,7 +129,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         state->task_system.queue = memory->work_queue;
         TaskSystem* task_system = &state->task_system;
-        for (auto i = 0; i < array_length(task_system->tasks); i++) {
+        for (u32 i = 0; i < array_length(task_system->tasks); i++) {
             TaskWithMemory* task = task_system->tasks + i;
             task->memory = state->permanent.allocate_arena(KiloBytes(1));
         }
@@ -143,40 +144,18 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip);
         {
             auto player = get_bitmap_meta(state->assets, bitmap_id);
-            i32 width = player.dim[0];
-            i32 height = player.dim[1];
-            f32 align_x = player.align_percentage.x;
-            f32 align_y = player.align_percentage.y;
-            state->player = {
-            .P = vec2(300, 300),
-            .scale = vec2(1.0, 1.0),
-            .rotation = 0.0,
-            .vertices = {
-                    vec2(-width*align_x, -height*align_y),
-                    vec2(-width*align_x, height*(1.0-align_y)),
-                    vec2(width*(1-align_x), height*(1.0-align_y)),
-                    vec2(width*(1-align_x), -height*align_y),
-                },
-        };
+            state->player = default_entity(&player);
+            state->player.P = vec2(300, 300);
         }
 
         state->player_projectiles.init(state->permanent, 100);
-        state->enemy_chargers.init(state->permanent, 100);
-
-        // state->explosion_sprites[0] = load_sprite("assets/sprites/explosion/explosion-1.png", &sprite_program);
-        // state->explosion_sprites[1] = load_sprite("assets/sprites/explosion/explosion-2.png", &sprite_program);
-        // state->explosion_sprites[2] = load_sprite("assets/sprites/explosion/explosion-3.png", &sprite_program);
-        // state->explosion_sprites[3] = load_sprite("assets/sprites/explosion/explosion-4.png", &sprite_program);
-        // state->explosion_sprites[4] = load_sprite("assets/sprites/explosion/explosion-5.png", &sprite_program);
-        // state->explosion_sprites[5] = load_sprite("assets/sprites/explosion/explosion-6.png", &sprite_program);
-        // state->explosion_sprites[6] = load_sprite("assets/sprites/explosion/explosion-7.png", &sprite_program);
-        // state->explosion_sprites[7] = load_sprite("assets/sprites/explosion/explosion-8.png", &sprite_program);
-        // state->explosions.init(state->permanent, 30);
+        state->enemies.init(state->permanent, 100);
+        state->explosions.init(state->permanent, 100);
 
         init_audio_system(&state->audio, &state->permanent);
 
         state->is_initialized = true;
-        log_info("Initializing complete");
+        log_debug("Initializing complete");
     }
 
     // TODO: Gotta set this on hot reload
@@ -189,7 +168,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     state->permanent.check_integrity();
 #endif
 
-    const vec2 screen_center = vec2(app_input->client_width / 2.0, app_input->client_height / 2.0);
+    const vec2 screen_center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
 
     auto& time = state->time;
     auto is_new_second = static_cast<i32>(time.t) < static_cast<i32>(time.t + app_input->dt);
@@ -203,31 +182,17 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
         auto& input = app_input->input;
-        auto& p_pos = state->player.P;
 
         state->enemy_timer += app_input->dt;
         if (state->enemy_timer > 0.3) {
             state->enemy_timer = 0;
 
             auto enemy_meta = get_first_bitmap_meta(state->assets, AssetGroupId_EnemySpaceShip);
+            Entity enemy = default_entity(&enemy_meta);
+            enemy.P = vec2(100.0f, (f32)app_input->client_height);
+            enemy.rotation = PI;
 
-            f32 width = enemy_meta.dim[0];
-            f32 height = enemy_meta.dim[1];
-            f32 align_x = enemy_meta.align_percentage.x;
-            f32 align_y = enemy_meta.align_percentage.y;
-            Entity enemy = {
-            .P = vec2(100.0, app_input->client_height),
-            .scale = vec2(1.0, 1.0),
-            .rotation = PI,
-            .vertices = {
-                    vec2(-width*align_x, -height*align_y),
-                    vec2(-width*align_x, height*(1.0-align_y)),
-                    vec2(width*(1-align_x), height*(1.0-align_y)),
-                    vec2(width*(1-align_x), -height*align_y),
-                },
-            };
-
-            state->enemy_chargers.push(enemy);
+            state->enemies.push(enemy);
         }
 
         if (input.space.is_pressed_this_frame()) {
@@ -237,45 +202,33 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             auto proj_meta = get_first_bitmap_meta(state->assets, AssetGroupId_Projectile);
             auto pos = state->player.P;
-            f32 width = proj_meta.dim[0];
-            f32 height = proj_meta.dim[1];
-            pos.y = pos.y + height * 0.7;
-            pos.x = pos.x + 0.5 * width - 0.5 * proj_meta.dim[0];
+            f32 width = (f32)proj_meta.dim[0];
+            f32 height = (f32)proj_meta.dim[1];
+            pos.y = pos.y + height * 0.7f;
+            pos.x = pos.x + 0.5f * width - 0.5f * proj_meta.dim[0];
 
-            f32 align_x = proj_meta.align_percentage.x;
-            f32 align_y = proj_meta.align_percentage.y;
-            Entity p = {
-            .P = pos,
-            .scale = vec2(1.0, 1.0),
-            .rotation = 0,
-            .vertices = {
-                    vec2(-width*align_x, -height*align_y),
-                    vec2(-width*align_x, height*(1.0-align_y)),
-                    vec2(width*(1-align_x), height*(1.0-align_y)),
-                    vec2(width*(1-align_x), -height*align_y),
-                },
-            };
+            Entity p = default_entity(&proj_meta);
+            p.P = pos;
 
             state->player_projectiles.push(p);
         }
 
-        const auto max_speed = 300.0;
+        const auto max_speed = 300.0f;
         const f32 acc = 60.0f;
 
         vec2 direction = {};
 
-        auto speed = 1.0;
         if (input.w.ended_down) {
-            direction.y = 1.0;
+            direction.y = 1.0f;
         }
         if (input.s.ended_down) {
-            direction.y = -1.0;
+            direction.y = -1.0f;
         }
         if (input.a.ended_down) {
-            direction.x = -1.0;
+            direction.x = -1.0f;
         }
         if (input.d.ended_down) {
-            direction.x = 1.0;
+            direction.x = 1.0f;
         }
         normalize(direction);
         vec2 accelaration = direction * acc;
@@ -311,38 +264,33 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             player.speed = normalized(player.speed) * max_speed;
         }
 
-        player.P = update_position(player.P, player.speed, player.scale, time.dt, app_input->client_width, app_input->client_height);
+        player.P = update_position(
+            player.P, player.speed, player.scale, time.dt, (f32)app_input->client_width, (f32)app_input->client_height);
 
-        const auto projectile_speed = 1200.0;
+        const auto projectile_speed = 1200.0f;
         for (auto& proj : state->player_projectiles) {
             proj.P.y += projectile_speed * time.dt;
         }
 
-        /*
-        for (auto e = 0; e < state->explosions.size(); e++) {
-          auto& ex = state->explosions[e];
-          ex.curr_frame++;
-          if (ex.curr_frame > ex.frames_per_sprite) {
-            ex.curr_frame = 0;
-            ex.curr_sprite++;
-          }
-          if (ex.curr_sprite >= ex.num_sprites) {
-            state->explosions.remove(e);
-            e--;
-          }
+        for (u64 e = 0; e < state->explosions.size(); e++) {
+            auto& ex = state->explosions[e];
+            if (ex.progress > 1.0f) {
+                state->explosions.remove_and_dec(&e);
+            }
+            else {
+                ex.progress += (time.dt * 2.0f);
+            }
         }
 
-        */
-
         // Update enemies
-        for (auto i = 0; i < state->enemy_chargers.size();) {
-            auto& enemy = state->enemy_chargers[i];
+        for (u64 i = 0; i < state->enemies.size();) {
+            auto& enemy = state->enemies[i];
             enemy.P.y += -400.0f * time.dt;
             enemy.progress += time.dt;
             enemy.P.x = sine_movement(100.0, 100.0, 3.0, enemy.progress);
 
             if (enemy.P.y + enemy.scale.y <= 0.0) {
-                state->enemy_chargers.remove(i);
+                state->enemies.remove(i);
             }
             else {
                 i++;
@@ -350,10 +298,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         // Update projectile
-        for (auto i = 0; i < state->player_projectiles.size();) {
+        for (u64 i = 0; i < state->player_projectiles.size();) {
             auto pos = state->player_projectiles[i].P;
             vec2 bottom_left = vec2(0, 0);
-            vec2 top_right = vec2(app_input->client_width, app_input->client_height);
+            vec2 top_right = vec2((f32)app_input->client_width, (f32)app_input->client_height);
             if (!hmath::in_rect(pos, bottom_left, top_right)) {
                 state->player_projectiles.remove(i);
                 continue;
@@ -363,32 +311,41 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
-        /*
-          for (auto e = 0; e < state->enemies.size(); e++) {
-            auto& enemy = state->enemies[e];
-            vec2 bottom_left = enemy.transform.position.xy();
-            vec2 top_right = bottom_left + enemy.transform.scale.xy();
-            if (hmath::in_rect(pos, bottom_left, top_right)) {
+        for (u64 i = 0; i < state->player_projectiles.size(); i++) {
+            auto* proj = &state->player_projectiles[i];
+            mat3 rot_mat = mat3_rotate(proj->rotation);
+            mat3 scale_mat = mat3_scale(proj->scale);
+            mat3 proj_to_world = rot_mat * scale_mat;
 
-              Explosion ex{};
-              ex.transform = Transform();
-              ex.transform.scale.x = state->explosion_sprites[0].width;
-              ex.transform.scale.y = state->explosion_sprites[0].height;
-              ex.transform.position.x = enemy.transform.position.x;
-              ex.transform.position.y = enemy.transform.position.y;
-              ex.num_sprites = 8;
-              ex.frames_per_sprite = 5;
-              state->explosions.push(ex);
-              play_sound(SoundType::Explosion, state->audio);
+            vec3 bl_p = proj_to_world * vec3(proj->vertices[0], 0.0) + vec3(proj->P, 0.0);
+            vec3 tl_p = proj_to_world * vec3(proj->vertices[1], 0.0) + vec3(proj->P, 0.0);
+            vec3 tr_p = proj_to_world * vec3(proj->vertices[2], 0.0) + vec3(proj->P, 0.0);
+            vec3 br_p = proj_to_world * vec3(proj->vertices[3], 0.0) + vec3(proj->P, 0.0);
 
-              state->enemies.remove(e);
-              state->player_projectiles.remove(i);
-              i--;
-              break;
+            for (u64 e = 0; e < state->enemies.size(); e++) {
+                auto* enemy = &state->enemies[e];
+                mat3 to_enemy_model = inverse(mat3_rotate(enemy->rotation) * mat3_scale(enemy->scale));
+                vec3 bl_m = to_enemy_model * (bl_p - vec3(enemy->P, 0.0));
+                vec3 tl_m = to_enemy_model * (tl_p - vec3(enemy->P, 0.0));
+                vec3 tr_m = to_enemy_model * (tr_p - vec3(enemy->P, 0.0));
+                vec3 br_m = to_enemy_model * (br_p - vec3(enemy->P, 0.0));
+
+                vec2 enemy_min = enemy->vertices[0]; // e.g. bottom-left in enemy space
+                vec2 enemy_max = enemy->vertices[2]; // e.g. top-right in enemy space
+                if (hmath::in_rect(bl_m.xy(), enemy_min, enemy_max) || hmath::in_rect(tl_m.xy(), enemy_min, enemy_max) ||
+                    hmath::in_rect(tr_m.xy(), enemy_min, enemy_max) || hmath::in_rect(br_m.xy(), enemy_min, enemy_max)) {
+
+                    BitmapMeta ex_meta = get_first_bitmap_meta(state->assets, AssetGroupId_Explosion);
+                    Entity* explosion = state->explosions.push();
+                    *explosion = default_entity(&ex_meta);
+                    explosion->P = enemy->P;
+
+                    state->enemies.remove_and_dec(&e);
+                    state->player_projectiles.remove_and_dec(&i);
+                    break;
+                }
             }
-          }
         }
-        */
     }
 
     ///////////////////////////
@@ -440,7 +397,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             void* data = bitmap->data;
             renderer->add_texture(bitmap_id, data, width, height);
 
-            for (auto& enemy : state->enemy_chargers) {
+            for (auto& enemy : state->enemies) {
                 auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
                 render_el->quad = {
                     .bl = enemy.vertices[0],
@@ -468,9 +425,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
             for (auto& proj : state->player_projectiles) {
                 if (bitmap) {
-                    const vec2 dim = vec2(bitmap->width, bitmap->height);
-                    const f32 deg = 0.0f;
-
                     auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
                     rendel_el->quad = {
                         .bl = proj.vertices[0],
@@ -481,6 +435,32 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     rendel_el->offset = proj.P;
                     rendel_el->scale = proj.scale;
                     rendel_el->rotation = proj.rotation;
+                    rendel_el->bitmap_handle = bitmap_id;
+                }
+            }
+        }
+    }
+    {
+        if (state->explosions.size() != 0) {
+            for (auto& ex : state->explosions) {
+                auto bitmap_id =
+                    get_closest_bitmap_id(state->assets, AssetGroupId_Explosion, AssetTag_ExplosionProgress, ex.progress);
+                auto meta = get_bitmap_meta(state->assets, bitmap_id);
+                auto bbox = get_bbox(&meta);
+                auto bitmap = get_bitmap(state->assets, bitmap_id);
+
+                if (bitmap) {
+                    i32 width = bitmap->width;
+                    i32 height = bitmap->height;
+                    void* data = bitmap->data;
+                    renderer->add_texture(bitmap_id, data, width, height);
+                }
+                if (bitmap) {
+                    auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
+                    rendel_el->quad = { .bl = bbox.bl, .tl = bbox.tl, .tr = bbox.tr, .br = bbox.br };
+                    rendel_el->offset = ex.P;
+                    rendel_el->scale = ex.scale;
+                    rendel_el->rotation = ex.rotation;
                     rendel_el->bitmap_handle = bitmap_id;
                 }
             }

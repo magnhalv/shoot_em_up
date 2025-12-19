@@ -3,9 +3,8 @@
 #include <cassert>
 #include <cstdio>
 
-#include <platform/types.h>
-
 #include <core/memory_arena.h>
+#include <platform/types.h>
 
 #include <math/vec2.h>
 #include <math/vec3.h>
@@ -32,7 +31,7 @@ template <typename T> struct Array {
         m_size = size;
     }
 
-    auto init(MemoryArena& arena, size_t size) -> void {
+    auto init(MemoryArena& arena, u64 size) -> void {
         m_data = allocate<T>(arena, size);
         m_size = size;
     }
@@ -55,7 +54,7 @@ template <typename T> struct Array {
         return m_size;
     }
 
-    class ArrayIterator {
+    struct ArrayIterator {
         private:
         T* ptr;
 
@@ -99,10 +98,10 @@ template <typename T> auto inline span(Array<T>& arr, size_t start, size_t end =
     return Array<T>{ &arr[start], end - start };
 }
 
-extern template class Array<i32>;
+extern template struct Array<i32>;
 
-extern template class Array<f32>;
+extern template struct Array<f32>;
 
-extern template class Array<vec3>;
+extern template struct Array<vec3>;
 
-extern template class Array<vec2>;
+extern template struct Array<vec2>;

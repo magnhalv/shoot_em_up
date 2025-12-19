@@ -115,7 +115,7 @@ struct EngineInput {
     u64 ticks;
     u64 dt_tick;
     f64 t;
-    f64 dt;
+    f32 dt;
     UserInput input;
 };
 

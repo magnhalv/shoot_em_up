@@ -18,24 +18,24 @@ template <typename T> struct SwapBackList {
 
     ~SwapBackList() = default;
 
-    auto init(MemoryArena& arena, size_t max_size) -> void {
+    auto init(MemoryArena& arena, u64 max_size) -> void {
         m_data = allocate<T>(arena, max_size);
         m_size = 0;
         m_capacity = max_size;
     }
 
-    auto init(MemoryArena* arena, size_t max_size) -> void {
+    auto init(MemoryArena* arena, u64 max_size) -> void {
         m_data = allocate<T>(arena, max_size);
         m_size = 0;
         m_capacity = max_size;
     }
 
-    T& operator[](size_t index) {
+    T& operator[](u64 index) {
         assert(index < m_size);
         return m_data[index];
     }
 
-    const T& operator[](size_t index) const {
+    const T& operator[](u64 index) const {
         assert(index < m_size);
         return m_data[index];
     }
@@ -44,7 +44,7 @@ template <typename T> struct SwapBackList {
         return m_data;
     }
 
-    [[nodiscard]] auto inline size() const -> size_t {
+    [[nodiscard]] auto inline size() const -> u64 {
         return m_size;
     }
 
@@ -57,7 +57,7 @@ template <typename T> struct SwapBackList {
     }
 
     [[nodiscard]] auto inline push() -> T* {
-        assert(m_size < m_capacity);
+        HM_ASSERT(m_size < m_capacity);
         return &m_data[m_size++];
     }
 
@@ -75,13 +75,20 @@ template <typename T> struct SwapBackList {
         m_data[m_size++] = value;
     }
 
-    auto remove(size_t index) -> void {
+    auto remove(u64 index) -> void {
         HM_ASSERT(index < m_size);
         m_data[index] = m_data[m_size - 1];
         m_size--;
     }
 
-    auto inline push_range(const T* value, size_t length) -> T* {
+    auto remove_and_dec(u64* index) -> void {
+        HM_ASSERT(*index < m_size);
+        m_data[*index] = m_data[m_size - 1];
+        m_size--;
+        *index = *index - 1;
+    }
+
+    auto inline push_range(const T* value, u64 length) -> T* {
         assert(m_size + length <= m_capacity);
         memcpy(m_data + m_size, value, length);
         auto result = &m_data[m_size];
@@ -89,12 +96,12 @@ template <typename T> struct SwapBackList {
         return result;
     }
 
-    auto inline pop(size_t num = 1) -> void {
+    auto inline pop(u64 num = 1) -> void {
         assert(m_size - num >= 0);
         m_size -= num;
     }
 
-    class ListIterator {
+    struct ListIterator {
         private:
         T* ptr;
 
@@ -129,7 +136,7 @@ template <typename T> struct SwapBackList {
     }
 
     private:
-    size_t m_capacity{};
-    size_t m_size;
+    u64 m_capacity{};
+    u64 m_size;
     T* m_data;
 };

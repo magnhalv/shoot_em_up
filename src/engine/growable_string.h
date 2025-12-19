@@ -10,20 +10,20 @@
 
 /// @brief FixedString
 struct GStr {
-    [[nodiscard]] static auto create(const char* s, i32 max_length, MemoryArena& arena) -> GStr {
+    [[nodiscard]] static auto create(const char* s, u64 max_length, MemoryArena& arena) -> GStr {
         auto length = strlen(s);
         char* data = static_cast<char*>(arena.allocate(max_length + 1));
         memcpy(data, s, length);
         data[length] = '\0';
 
-        return GStr{ .m_data = data, .m_length = static_cast<i32>(length), .m_max_length = max_length };
+        return GStr{ .m_data = data, .m_length = length, .m_max_length = max_length };
     }
 
     [[nodiscard]] inline auto data() const -> const char* {
         return m_data;
     }
 
-    [[nodiscard]] auto substring(i32 start, i32 length, MemoryArena& arena) const -> GStr {
+    [[nodiscard]] auto substring(u64 start, u64 length, MemoryArena& arena) const -> GStr {
         assert(start >= 0);
         assert(length >= 0);
         assert(start + length <= len());
@@ -50,7 +50,7 @@ struct GStr {
         m_data[m_length] = '\0';
     }
 
-    const char& operator[](size_t index) const {
+    const char& operator[](u64 index) const {
         assert(index < m_length);
         return m_data[index];
     }
@@ -67,7 +67,7 @@ struct GStr {
         if (m_length != other_len) {
             return false;
         }
-        for (auto i = 0; i < m_length; i++) {
+        for (u64 i = 0; i < m_length; i++) {
             if (m_data[i] != other[i]) {
                 return false;
             }
@@ -75,7 +75,7 @@ struct GStr {
         return true;
     }
 
-    [[nodiscard]] inline auto len() const -> u32 {
+    [[nodiscard]] inline auto len() const -> u64 {
         return m_length;
     }
 
@@ -84,6 +84,6 @@ struct GStr {
     }
 
     char* m_data;
-    i32 m_length;
-    i32 m_max_length;
+    u64 m_length;
+    u64 m_max_length;
 };

@@ -21,9 +21,9 @@ struct FStr {
         return FStr::create(g_str.data(), g_str.len(), arena);
     }
 
-    [[nodiscard]] static auto create(const char* s, u32 length, MemoryArena& arena) -> FStr {
+    [[nodiscard]] static auto create(const char* s, u64 length, MemoryArena& arena) -> FStr {
         char* data = static_cast<char*>(arena.allocate(strlen(s) + 1));
-        for (auto i = 0; i < length; i++) {
+        for (u32 i = 0; i < length; i++) {
             data[i] = s[i];
         }
         data[length] = '\0';
@@ -38,7 +38,7 @@ struct FStr {
     inline auto init(const char* s, MemoryArena& arena) {
         _length = strlen(s);
         _data = static_cast<char*>(arena.allocate(strlen(s) + 1));
-        for (auto i = 0; i < _length; i++) {
+        for (u64 i = 0; i < _length; i++) {
             _data[i] = s[i];
         }
         _data[_length] = '\0';
@@ -48,14 +48,14 @@ struct FStr {
         return _data;
     }
 
-    [[nodiscard]] auto substring(i32 start, i32 length, MemoryArena& arena) const -> FStr {
+    [[nodiscard]] auto substring(i64 start, i64 length, MemoryArena& arena) const -> FStr {
         assert(start >= 0);
         assert(length >= 0);
-        assert(start + length <= len());
+        assert((u32)(start + length) <= len());
         return FStr::create(&_data[start], length, arena);
     }
 
-    const char& operator[](size_t index) const {
+    const char& operator[](u64 index) const {
         assert(index < _length);
         return _data[index];
     }
@@ -64,7 +64,7 @@ struct FStr {
         if (_length != other.len()) {
             return false;
         }
-        for (auto i = 0; i < _length; i++) {
+        for (u64 i = 0; i < _length; i++) {
             if (_data[i] != other[i]) {
                 return false;
             }
@@ -77,7 +77,7 @@ struct FStr {
         if (_length != other_len) {
             return false;
         }
-        for (auto i = 0; i < _length; i++) {
+        for (u64 i = 0; i < _length; i++) {
             if (_data[i] != other[i]) {
                 return false;
             }
@@ -85,12 +85,12 @@ struct FStr {
         return true;
     }
 
-    [[nodiscard]] inline auto len() const -> u32 {
+    [[nodiscard]] inline auto len() const -> u64 {
         return _length;
     }
 
     char* _data;
-    u32 _length;
+    u64 _length;
 };
 
 auto inline is_substr(FStr& str, FStr& sub_str) -> bool {
@@ -102,13 +102,12 @@ auto inline is_substr(FStr& str, FStr& sub_str) -> bool {
 
 auto inline split(FStr& str, char delimiter, MemoryArena& arena) -> Array<FStr>& {
     i32 num_entries = 0;
-    bool has_non_delimiter_values;
     // "" -> 0
     // "test" -> 1
     // "test test" -> 2
     // " test test " -> 2
     // " test      test " -> 2
-    for (auto i = 0; i < str.len(); i++) {
+    for (u64 i = 0; i < str.len(); i++) {
         // Has a non-delimiter value
         if (str[i] != delimiter && num_entries == 0) {
             num_entries = 1;
@@ -126,9 +125,9 @@ auto inline split(FStr& str, char delimiter, MemoryArena& arena) -> Array<FStr>&
         return result;
     }
 
-    i32 start_idx = -1;
-    i32 last_entry_idx = 0;
-    for (auto i = 0; i < str.len(); i++) {
+    i64 start_idx = -1;
+    i64 last_entry_idx = 0;
+    for (u64 i = 0; i < str.len(); i++) {
         if (str[i] != delimiter && start_idx == -1) {
             start_idx = i;
         }

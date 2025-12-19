@@ -16,7 +16,6 @@ auto line_in_buffer(const char* line, LineBuffer& line_buffer) {
 const char* graphic_options_path = R"(data\file.data)";
 
 auto save_to_file(Options* options) -> void {
-    const auto max_num_lines = 20;
 
     LineBuffer buffer(20, g_transient, 1024);
     buffer.push_line("[Options]");
@@ -36,7 +35,7 @@ auto save_to_file(Options* options) -> void {
     }
 
     // TODO: Generalize this
-    auto raw_buffer_size = 0;
+    u64 raw_buffer_size = 0;
     char* raw_buffer = allocate<char>(*g_transient, buffer.size() + (buffer._lines.size() * 2));
     for (auto& line : buffer._lines) {
         memcpy(&raw_buffer[raw_buffer_size], line.data(), sizeof(char) * line.len());

@@ -12,8 +12,8 @@ auto init_audio_system(AudioSystemState* state, MemoryArena* init_arena) -> void
 }
 
 auto remove_finished_sounds(AudioSystemState* state) -> void {
-    u32 size = state->playing_sounds.size();
-    for (auto i = 0; i < size; i++) {
+    u64 size = state->playing_sounds.size();
+    for (u32 i = 0; i < size; i++) {
         const auto& ps = state->playing_sounds[i];
         if (ps.audio && ps.curr_sample == ps.audio->sample_count) {
             state->playing_sounds.remove(i);

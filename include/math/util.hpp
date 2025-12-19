@@ -26,7 +26,7 @@ auto inline in_range(f32 val, f32 min, f32 max) -> bool {
 }
 
 auto inline is_inside(f32 val, f32 min_x, f32 max_x, f32 min_y, f32 max_y) -> bool {
-    return in_range(val, min_x, min_y) && in_range(val, min_y, max_y);
+    return in_range(val, min_x, max_x) && in_range(val, min_y, max_y);
 }
 
 auto inline clamp_rect(vec2 val, f32 min_x, f32 max_x, f32 min_y, f32 max_y) -> vec2 {

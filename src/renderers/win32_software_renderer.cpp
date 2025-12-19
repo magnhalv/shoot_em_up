@@ -288,7 +288,10 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 f32 b = ch(texel00, 0) * w00 + ch(texel10, 0) * w10 + ch(texel01, 0) * w01 + ch(texel11, 0) * w11;
                 f32 a = ch(texel00, 24) * w00 + ch(texel10, 24) * w10 + ch(texel01, 24) * w01 + ch(texel11, 24) * w11;
 
-                *pixel = pack_f32_color_to_u32(r, g, b, a);
+                if (a != 0) {
+
+                    *pixel = pack_f32_color_to_u32(r, g, b, a);
+                }
             }
         }
     }

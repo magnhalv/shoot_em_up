@@ -80,7 +80,7 @@ template <typename T> struct LinkedList {
         return entry->data;
     }
 
-    class LinkedListIterator {
+    struct LinkedListIterator {
         private:
         LinkedListEntry<T>* ptr;
 

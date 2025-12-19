@@ -81,7 +81,7 @@ template <typename T> struct List {
         m_size -= num;
     }
 
-    class ListIterator {
+    struct ListIterator {
         private:
         T* ptr;
 
@@ -121,10 +121,10 @@ template <typename T> struct List {
     T* m_data;
 };
 
-extern template class List<i32>;
+extern template struct List<i32>;
 
-extern template class List<f32>;
+extern template struct List<f32>;
 
-extern template class List<vec3>;
+extern template struct List<vec3>;
 
-extern template class List<vec2>;
+extern template struct List<vec2>;

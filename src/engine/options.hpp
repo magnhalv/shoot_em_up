@@ -27,7 +27,7 @@ struct LineBuffer {
         _lines.push(FStr::create(str, length, *_arena));
     }
     auto extend_last(const char* str) {
-        auto length = strlen(str);
+        size_t length = strlen(str);
         auto& last = _lines[_lines.size() - 1];
         _arena->extend(last._data, sizeof(char) * length);
         memcpy(&last._data[last.len()], str, sizeof(char) * length);
@@ -36,7 +36,7 @@ struct LineBuffer {
     }
 
     auto size() -> size_t {
-        auto size = 0;
+        u64 size = 0;
         for (auto& line : _lines) {
             size += line.len();
         }

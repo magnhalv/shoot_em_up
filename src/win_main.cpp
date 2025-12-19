@@ -1293,11 +1293,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     ShowWindow(window, SW_SHOW);
     UpdateWindow(window);
 
+    bool is_slow_mode = false;
     while (global_is_running) {
 
         const auto this_tick = win32_get_tick();
 
         app_input.dt_tick = this_tick - last_tick;
+        if (is_slow_mode) {
+            app_input.dt_tick /= 10.0f;
+        }
         app_input.ticks += app_input.dt_tick;
         app_input.dt = static_cast<f32>(app_input.dt_tick) / tick_frequency;
         app_input.t += app_input.dt;
@@ -1311,9 +1315,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_dll.load(&platform, &engine_memory);
         }
 
-        if (current_input->p.ended_down) {
+        // DEBUG INPUT HANDLING
+        if (current_input->n.ended_down) {
             continue;
         }
+        is_slow_mode = current_input->m.ended_down;
 
         if (current_input->o.is_pressed_this_frame()) {
             global_is_reloading_renderer = true;

@@ -74,6 +74,10 @@ set_target_properties(engine_dyn PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
         )
 
+target_compile_options(engine_dyn PRIVATE
+    $<$<C_COMPILER_ID:MSVC>:/W4 /WX /wd4201 /analyze>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX /wd4201 /analyze>
+)
 
 ## OpenGL renderer
 include_directories(../shared_deps/glad/include)

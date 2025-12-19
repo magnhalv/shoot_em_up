@@ -22,6 +22,11 @@ add_executable(
 add_executable(
   asset_builder
   src/asset_builder_main.cpp
+
+  src/core/memory.cpp
+  src/core/memory_arena.cpp
+  src/core/logger.cpp
+
   src/deps/libs.cpp
 )
 

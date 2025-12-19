@@ -26,11 +26,11 @@ enum AssetGroupId : u32 {
     AssetGroupId_PlayerSpaceShip,
     AssetGroupId_EnemySpaceShip,
     AssetGroupId_Projectile,
+    AssetGroupId_Explosion,
     AssetGroupId_Test,
 
     // Audio
     AssetGroupId_Laser,
-    AssetGroupId_Explosion,
 
     AssetGroupId_Count
 };
@@ -39,6 +39,7 @@ enum AssetType { AssetType_Invalid = 0, AssetType_Audio, AssetType_Bitmap };
 
 enum AssetTagId {
     AssetTag_SpaceShipDirection = 0, //
+    AssetTag_ExplosionProgress = 1,  //
     AssetTag_Count                   //
 };
 
@@ -57,7 +58,7 @@ struct AssetGroup {
     u32 one_past_last_asset_tag_index;
 };
 
-struct HuginBitmap {
+struct BitmapMeta {
     u32 dim[2];
     vec2 align_percentage;
 };
@@ -72,7 +73,7 @@ struct HuginAudio {
 struct AssetMeta {
     u64 data_offset;
     union {
-        HuginBitmap bitmap;
+        BitmapMeta bitmap;
         HuginAudio audio;
     };
 };
@@ -90,6 +91,7 @@ struct HafHeader {
     u32 asset_tag_count;
 
     u64 asset_groups_block;
-    u64 assets_block;
     u64 assets_tag_block;
+    u64 assets_meta_block; // Must be last!
+    u64 assets_block;      // Must be last!
 };

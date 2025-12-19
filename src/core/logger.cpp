@@ -25,9 +25,9 @@ void crash_and_burn(const char* msg, ...) {
     vsnprintf(global_crash_message, msg_length + 1, msg, args);
     global_has_crashed = true;
     longjmp(*crash_jump, 1);
-#else
-    std::exit(1);
 #endif
     va_end(args_copy);
     va_end(args);
+
+    std::exit(1);
 }

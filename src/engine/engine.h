@@ -30,16 +30,6 @@ struct Pointer {
     }
 };
 
-struct Explosion {
-    i32 frames_per_sprite = 0;
-    i32 curr_frame = 0;
-    i32 num_sprites = 0;
-    i32 curr_sprite = 0;
-    vec2 p;
-    vec2 speed;
-    vec2 acc;
-};
-
 struct Window {
     f32 width;
     f32 height;
@@ -55,7 +45,7 @@ struct PerFrameData {
 
 struct TimeInfo {
     f32 dt; // in seconds
-    f32 t;
+    f64 t;
 
     // Performance stuff. Improve when needed
     i32 num_frames_this_second;
@@ -70,8 +60,46 @@ struct Entity {
     f32 rotation;
     vec2 vertices[4];
     vec2 speed;
+
     f32 progress;
+    f32 animation_progress;
 };
+
+auto inline default_entity() -> Entity {
+    Entity result = {};
+    result.scale = vec2(1.0, 1.0);
+    return result;
+}
+
+struct BBox {
+    vec2 bl;
+    vec2 tl;
+    vec2 tr;
+    vec2 br;
+};
+
+auto inline get_bbox(const BitmapMeta* meta) -> BBox {
+    BBox result = {};
+    f32 width = (f32)meta->dim[0];
+    f32 height = (f32)meta->dim[1];
+    f32 align_x = meta->align_percentage.x;
+    f32 align_y = meta->align_percentage.y;
+    result.bl = vec2(-width * align_x, -height * align_y);
+    result.tl = vec2(-width * align_x, height * (1.0f - align_y));
+    result.tr = vec2(width * (1 - align_x), height * (1.0f - align_y));
+    result.br = vec2(width * (1 - align_x), -height * align_y);
+    return result;
+}
+
+auto inline default_entity(const BitmapMeta* meta) -> Entity {
+    Entity result = default_entity();
+    BBox box = get_bbox(meta);
+    result.vertices[0] = box.bl;
+    result.vertices[1] = box.tl;
+    result.vertices[2] = box.tr;
+    result.vertices[3] = box.br;
+    return result;
+}
 
 struct EngineState {
     bool is_initialized = false;
@@ -88,9 +116,9 @@ struct EngineState {
     TimeInfo time;
 
     Entity player;
-    SwapBackList<Explosion> explosions;
-    SwapBackList<Entity> enemy_chargers;
-    f32 enemy_timer;
+    SwapBackList<Entity> explosions;
+    SwapBackList<Entity> enemies;
+    f64 enemy_timer;
     SwapBackList<Entity> player_projectiles;
     SwapBackList<Entity> enemy_projectiles;
 };

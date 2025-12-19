@@ -22,9 +22,9 @@ struct LoadedBitmap {
 };
 
 struct LoadedAudio {
-    u32 sample_count;
-    u32 channel_count;
-    u32 chain;
+    i32 sample_count;
+    i32 channel_count;
+    i32 chain;
 
     void* data;
 };
@@ -70,7 +70,7 @@ struct GameAssets {
 
 auto initialize_game_assets(MemoryArena* arena) -> GameAssets*;
 
-auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> HuginBitmap;
+auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> BitmapMeta;
 auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap*;
 auto get_audio(GameAssets* game_assets, AudioId id) -> LoadedAudio*;
 
@@ -79,5 +79,5 @@ auto load_audio(GameAssets* game_assets, AudioId id) -> void;
 
 auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId;
 auto get_closest_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id, AssetTagId tag_id, f32 value) -> BitmapId;
-auto get_first_bitmap_meta(GameAssets* game_assets, AssetGroupId asset_group_id) -> HuginBitmap;
+auto get_first_bitmap_meta(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapMeta;
 auto get_first_audio(GameAssets* game_assets, AssetGroupId asset_group_id) -> AudioId;

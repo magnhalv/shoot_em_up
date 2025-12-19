@@ -64,8 +64,8 @@ struct RenderGroup {
     i32 screen_width;
     i32 screen_height;
 
-    u32 max_push_buffer_size;
-    u32 push_buffer_size;
+    u64 max_push_buffer_size;
+    u64 push_buffer_size;
     u8* push_buffer;
 };
 

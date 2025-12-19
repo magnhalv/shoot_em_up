@@ -16,7 +16,7 @@ struct SingleArenaFixture {
     }
 
     ~SingleArenaFixture() {
-        free(arena.memory);
+        free(arena.m_memory);
     }
 
     public:
@@ -32,8 +32,8 @@ struct TransientFixture {
 
     ~TransientFixture() {
         unset_transient_arena();
-        free(local.memory);
-        free(transient.memory);
+        free(local.m_memory);
+        free(transient.m_memory);
     }
 
     public:

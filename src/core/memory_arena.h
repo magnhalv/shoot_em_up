@@ -10,12 +10,12 @@ struct ArenaGuard {
 };
 
 struct MemoryArena {
-    u8* memory = nullptr;
-    u64 used = 0;
-    u64 size = 0;
-    ArenaGuard* _last = nullptr; // perhaps rather keep track of the last block?
+    u8* m_memory = nullptr;
+    u64 m_used = 0;
+    u64 m_size = 0;
+    ArenaGuard* m_last = nullptr; // perhaps rather keep track of the last block?
 
-    auto init(void* in_memory, u32 in_size) -> void;
+    auto init(void* in_memory, u64 in_size) -> void;
     auto allocate(u64 request_size) -> void*;
     auto extend(void* memory, u64 size) -> void;
     auto shrink(void* memory, u64 size) -> void;
@@ -24,15 +24,15 @@ struct MemoryArena {
     auto check_integrity() const -> void;
 };
 
-template <typename T> auto inline allocate(MemoryArena& arena, i32 num = 1) -> T* {
+template <typename T> auto inline allocate(MemoryArena& arena, u64 num = 1) -> T* {
     return static_cast<T*>(arena.allocate(sizeof(T) * num));
 }
 
-template <typename T> auto inline allocate(MemoryArena* arena, i32 num = 1) -> T* {
+template <typename T> auto inline allocate(MemoryArena* arena, u64 num = 1) -> T* {
     return static_cast<T*>(arena->allocate(sizeof(T) * num));
 }
 
-template <typename T> auto inline extend(T* block, MemoryArena& arena, i32 num = 1) -> T* {
+template <typename T> auto inline extend(T* block, MemoryArena& arena, u64 num = 1) -> T* {
     return static_cast<T*>(arena.extend(block, sizeof(T) * num));
 }
 

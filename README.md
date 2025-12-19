@@ -23,8 +23,10 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 ### Features
 
 - Support explosions <-------
+- Support background
+    - Scrolling background
 - Support tags and animations
-    - Support multiple tags
+    - Support multiple tags (speed forward)
 - CLI
 - Mix background music and other sounds
 - Background texture moving

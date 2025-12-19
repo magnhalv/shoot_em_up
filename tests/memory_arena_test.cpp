@@ -11,8 +11,8 @@ TEST_CASE_FIXTURE(SingleArenaFixture, "filling the arena") {
     // Two, because we have a guard at the beginning.
     arena.allocate(512 - 2 * sizeof(ArenaGuard));
     arena.allocate(512 - sizeof(ArenaGuard));
-    REQUIRE(arena.size == 1024);
-    REQUIRE(arena.used == 1024);
+    REQUIRE(arena.m_size == 1024);
+    REQUIRE(arena.m_used == 1024);
 }
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "allocate more than size (due to arena guard)") {
@@ -31,7 +31,7 @@ TEST_CASE_FIXTURE(SingleArenaFixture, "failed integrity: not initialized") {
 TEST_CASE_FIXTURE(SingleArenaFixture, "failed integrity simple") {
     // Two, because we have a guard at the beginning.
     arena.allocate(512);
-    memset(arena.memory, 0, 1024);
+    memset(arena.m_memory, 0, 1024);
     CHECK_CRASH(arena.check_integrity(), "MemoryArena: integrity check failed at guard index 0");
 }
 

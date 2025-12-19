@@ -1,3 +1,5 @@
+#include "core/memory.h"
+#include "engine/hm_assert.h"
 #include <cstdio>
 #include <libs/stb/stb_image.h>
 
@@ -35,7 +37,7 @@ struct GameAssetsWrite {
 
     u32 asset_count;
     AssetSource asset_sources[MAX_ASSETS_COUNT];
-    AssetMeta assets[MAX_ASSETS_COUNT];
+    AssetMeta assets_meta[MAX_ASSETS_COUNT];
 
     u32 asset_tag_count;
     AssetTag asset_tags[MAX_TAGS_COUNT];
@@ -199,17 +201,17 @@ struct AddedAsset {
 
 static auto add_asset(GameAssetsWrite* assets) -> AddedAsset {
     Assert(assets->current_asset_group);
-    Assert(assets->current_asset_group->one_past_last_asset_index < ArrayCount(assets->assets));
+    Assert(assets->current_asset_group->one_past_last_asset_index < ArrayCount(assets->assets_meta));
 
     u32 index = assets->current_asset_group->one_past_last_asset_index++;
 
     AssetSource* source = assets->asset_sources + index;
-    AssetMeta* ha = assets->assets + index;
+    AssetMeta* ha = assets->assets_meta + index;
 
     assets->curr_asset_index = index;
     AddedAsset result;
     result.id = index;
-    result.hugin_asset = assets->assets + index;
+    result.hugin_asset = assets->assets_meta + index;
     result.source = source;
     return result;
 }
@@ -276,19 +278,24 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
         header.asset_tag_count = assets->asset_tag_count;
 
         u32 asset_group_array_size = header.asset_group_count * sizeof(AssetGroup);
-        u32 asset_array_size = header.asset_count * sizeof(AssetMeta);
+        u32 asset_array_meta_size = header.asset_count * sizeof(AssetMeta);
         u32 asset_tag_array_size = header.asset_tag_count * sizeof(AssetTag);
 
         header.asset_groups_block = sizeof(HafHeader);
-        header.assets_block = header.asset_groups_block + asset_group_array_size;
-        header.assets_tag_block = header.assets_block + asset_array_size;
+        header.assets_meta_block = header.asset_groups_block + asset_group_array_size;
+        header.assets_tag_block = header.assets_meta_block + asset_array_meta_size;
+        header.assets_block = header.assets_tag_block + asset_tag_array_size;
 
         fwrite(&header, sizeof(header), 1, out);
         fwrite(&assets->asset_groups, asset_group_array_size, 1, out);
-        fseek(out, asset_array_size, SEEK_CUR);
+        HM_ASSERT(header.assets_tag_block > header.assets_meta_block);
+        fseek(out, (u32)header.assets_tag_block, SEEK_SET);
+        fwrite(assets->asset_tags, asset_tag_array_size, 1, out);
+
+        fseek(out, header.assets_block, SEEK_SET);
         for (u32 asset_idx = 1; asset_idx < header.asset_count; asset_idx++) {
             AssetSource* source = assets->asset_sources + asset_idx;
-            AssetMeta* dest = assets->assets + asset_idx;
+            AssetMeta* dest = assets->assets_meta + asset_idx;
 
             dest->data_offset = ftell(out);
 
@@ -315,13 +322,10 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
             }
         }
 
-        // TODO: Write tags here
-
-        fseek(out, (u32)header.assets_block, SEEK_SET);
-        fwrite(assets->assets, asset_array_size, 1, out);
-
-        fseek(out, (u32)header.assets_tag_block, SEEK_SET);
-        fwrite(assets->asset_tags, asset_tag_array_size, 1, out);
+        // Meta has to be written last since we update it to where
+        // the asset is stored in the file in the loop above.
+        fseek(out, (u32)header.assets_meta_block, SEEK_SET);
+        fwrite(assets->assets_meta, asset_array_meta_size, 1, out);
     }
     fclose(out);
 }
@@ -352,6 +356,25 @@ static auto write_bitmaps() -> void {
 
     begin_asset_group(assets, AssetGroupId_Test);
     add_bitmap_asset(assets, "assets/bitmaps/test.png");
+    end_asset_group(assets);
+
+    begin_asset_group(assets, AssetGroupId_Explosion);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-1.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 0.0);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-2.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 1.0 / 7.0);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-3.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 2.0 / 7.0);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-4.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 3.0 / 7.0);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-5.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 4.0 / 7.0);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-6.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 5.0 / 7.0);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-7.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 6.0 / 7.0);
+    add_bitmap_asset(assets, "assets/bitmaps/explosion-8.png");
+    add_tag(assets, AssetTag_ExplosionProgress, 7.0 / 7.0);
     end_asset_group(assets);
 
     write_asset_file(assets, "bitmaps.haf");
