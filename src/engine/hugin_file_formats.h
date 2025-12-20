@@ -30,7 +30,8 @@ enum AssetGroupId : u32 {
     AssetGroupId_Test,
 
     // Audio
-    AssetGroupId_Laser,
+    AssetGroupId_Audio_Laser,
+    AssetGroupId_Audio_Explosion,
 
     AssetGroupId_Count
 };
@@ -63,18 +64,17 @@ struct BitmapMeta {
     vec2 align_percentage;
 };
 
-struct HuginAudio {
+struct AudioMeta {
     u32 sample_count;
     u32 channel_count;
     u32 chain;
 };
 
-// TODO: Do we need this? Perhaps merge it with asset
 struct AssetMeta {
     u64 data_offset;
     union {
         BitmapMeta bitmap;
-        HuginAudio audio;
+        AudioMeta audio;
     };
 };
 

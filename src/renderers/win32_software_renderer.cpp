@@ -60,7 +60,7 @@ static WindowDimension get_window_dimension(HWND window) {
 
 static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
     // TODO: Bulletproof this
-    // Maybe don't free first, free after, then free first if that fails.
+    // Maybe don't free first, free after, then free first if that fails. I.e. if VirtualAlloc fails.
     if (buffer->memory) {
         VirtualFree(buffer->memory, 0, MEM_RELEASE);
     }
@@ -288,6 +288,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 f32 b = ch(texel00, 0) * w00 + ch(texel10, 0) * w10 + ch(texel01, 0) * w01 + ch(texel11, 0) * w11;
                 f32 a = ch(texel00, 24) * w00 + ch(texel10, 24) * w10 + ch(texel01, 24) * w01 + ch(texel11, 24) * w11;
 
+                // TODO: Do alpha blending
                 if (a != 0) {
 
                     *pixel = pack_f32_color_to_u32(r, g, b, a);
@@ -332,7 +333,6 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         texture->pitch_bytes = width * texture->bytes_per_pixel;
         texture->data = state.permanent.allocate(texture->size_bytes);
 
-        printf("Bitmap id: %d, size: %d", bitmap_id.value, texture->size);
         u32* source = (u32*)data;
         u32* dest = (u32*)texture->data;
         for (auto i = 0; i < texture->size; i++) {

@@ -386,8 +386,12 @@ static auto write_audio() -> void {
 
     initialize(assets);
 
-    begin_asset_group(assets, AssetGroupId_Laser);
+    begin_asset_group(assets, AssetGroupId_Audio_Laser);
     add_audio_asset(assets, "assets/audio/laser_primary.wav");
+    end_asset_group(assets);
+
+    begin_asset_group(assets, AssetGroupId_Audio_Explosion);
+    add_audio_asset(assets, "assets/audio/explosion.wav");
     end_asset_group(assets);
 
     write_asset_file(assets, "audio.haf");

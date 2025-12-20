@@ -183,6 +183,82 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     {
         auto& input = app_input->input;
 
+        // Update based on input
+        {
+            if (input.space.is_pressed_this_frame()) {
+
+                AudioId audio_id = get_first_audio(state->assets, AssetGroupId_Audio_Laser);
+                play_audio(&state->audio, audio_id);
+
+                auto proj_meta = get_first_bitmap_meta(state->assets, AssetGroupId_Projectile);
+                auto pos = state->player.P;
+                f32 width = (f32)proj_meta.dim[0];
+                f32 height = (f32)proj_meta.dim[1];
+                pos.y = pos.y + height * 0.7f;
+                pos.x = pos.x + 0.5f * width - 0.5f * proj_meta.dim[0];
+
+                Entity p = default_entity(&proj_meta);
+                p.P = pos;
+
+                state->player_projectiles.push(p);
+            }
+
+            const auto max_speed = 300.0f;
+            const f32 acc = 60.0f;
+
+            vec2 direction = {};
+
+            if (input.w.ended_down) {
+                direction.y = 1.0f;
+            }
+            if (input.s.ended_down) {
+                direction.y = -1.0f;
+            }
+            if (input.a.ended_down) {
+                direction.x = -1.0f;
+            }
+            if (input.d.ended_down) {
+                direction.x = 1.0f;
+            }
+            normalize(direction);
+            vec2 accelaration = direction * acc;
+
+            auto& player = state->player;
+            if (accelaration.x != 0.0) {
+                const auto new_speed_x = player.speed.x + accelaration.x;
+                player.speed.x = hm::min(hm::max(new_speed_x, -max_speed), max_speed);
+            }
+            else {
+                if (player.speed.x < 0.0f) {
+                    player.speed.x = fmax(player.speed.x + acc, 0.0f);
+                }
+                else if (player.speed.x > 0.0f) {
+                    player.speed.x = fmin(player.speed.x - acc, 0.0f);
+                }
+            }
+
+            if (accelaration.y != 0.0) {
+                const auto new_speed_y = player.speed.y + accelaration.y;
+                player.speed.y = hm::min(hm::max(new_speed_y, -max_speed), max_speed);
+            }
+            else {
+                if (player.speed.y < 0.0f) {
+                    player.speed.y = fmax(player.speed.y + acc, 0.0f);
+                }
+                else if (player.speed.y > 0.0f) {
+                    player.speed.y = fmin(player.speed.y - acc, 0.0f);
+                }
+            }
+
+            if (mag(player.speed) > max_speed) {
+                player.speed = normalized(player.speed) * max_speed;
+            }
+
+            player.P = update_position(player.P, player.speed, player.scale, time.dt, (f32)app_input->client_width,
+                (f32)app_input->client_height);
+        }
+
+        // Update static
         state->enemy_timer += app_input->dt;
         if (state->enemy_timer > 0.3) {
             state->enemy_timer = 0;
@@ -194,78 +270,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             state->enemies.push(enemy);
         }
-
-        if (input.space.is_pressed_this_frame()) {
-
-            AudioId audio_id = get_first_audio(state->assets, AssetGroupId_Laser);
-            play_audio(&state->audio, audio_id);
-
-            auto proj_meta = get_first_bitmap_meta(state->assets, AssetGroupId_Projectile);
-            auto pos = state->player.P;
-            f32 width = (f32)proj_meta.dim[0];
-            f32 height = (f32)proj_meta.dim[1];
-            pos.y = pos.y + height * 0.7f;
-            pos.x = pos.x + 0.5f * width - 0.5f * proj_meta.dim[0];
-
-            Entity p = default_entity(&proj_meta);
-            p.P = pos;
-
-            state->player_projectiles.push(p);
-        }
-
-        const auto max_speed = 300.0f;
-        const f32 acc = 60.0f;
-
-        vec2 direction = {};
-
-        if (input.w.ended_down) {
-            direction.y = 1.0f;
-        }
-        if (input.s.ended_down) {
-            direction.y = -1.0f;
-        }
-        if (input.a.ended_down) {
-            direction.x = -1.0f;
-        }
-        if (input.d.ended_down) {
-            direction.x = 1.0f;
-        }
-        normalize(direction);
-        vec2 accelaration = direction * acc;
-
-        auto& player = state->player;
-        if (accelaration.x != 0.0) {
-            const auto new_speed_x = player.speed.x + accelaration.x;
-            player.speed.x = hm::min(hm::max(new_speed_x, -max_speed), max_speed);
-        }
-        else {
-            if (player.speed.x < 0.0f) {
-                player.speed.x = fmax(player.speed.x + acc, 0.0f);
-            }
-            else if (player.speed.x > 0.0f) {
-                player.speed.x = fmin(player.speed.x - acc, 0.0f);
-            }
-        }
-
-        if (accelaration.y != 0.0) {
-            const auto new_speed_y = player.speed.y + accelaration.y;
-            player.speed.y = hm::min(hm::max(new_speed_y, -max_speed), max_speed);
-        }
-        else {
-            if (player.speed.y < 0.0f) {
-                player.speed.y = fmax(player.speed.y + acc, 0.0f);
-            }
-            else if (player.speed.y > 0.0f) {
-                player.speed.y = fmin(player.speed.y - acc, 0.0f);
-            }
-        }
-
-        if (mag(player.speed) > max_speed) {
-            player.speed = normalized(player.speed) * max_speed;
-        }
-
-        player.P = update_position(
-            player.P, player.speed, player.scale, time.dt, (f32)app_input->client_width, (f32)app_input->client_height);
 
         const auto projectile_speed = 1200.0f;
         for (auto& proj : state->player_projectiles) {
@@ -339,6 +343,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     Entity* explosion = state->explosions.push();
                     *explosion = default_entity(&ex_meta);
                     explosion->P = enemy->P;
+
+                    AudioId audio_id = get_first_audio(state->assets, AssetGroupId_Audio_Explosion);
+                    play_audio(&state->audio, audio_id);
 
                     state->enemies.remove_and_dec(&e);
                     state->player_projectiles.remove_and_dec(&i);
