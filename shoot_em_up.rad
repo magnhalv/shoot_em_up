@@ -1,5 +1,7 @@
-// raddbg 0.9.17 project file
+// raddbg 0.9.24 project file
 
+recent_file: path: "src/renderers/win32_software_renderer.cpp"
+recent_file: path: "src/engine/gui/imgui.cpp"
 recent_file: path: "src/asset_builder_main.cpp"
 recent_file: path: "src/deps/libs/stb/stb_image.h"
 recent_file: path: "src/engine/engine.cpp"
@@ -13,11 +15,36 @@ target:
 {
   executable: "cmake-build/shoot_em_up.exe"
   working_directory: data
-  enabled: 0
+  enabled: 1
 }
 target:
 {
   executable: "cmake-build/asset_builder.exe"
   working_directory: data
-  enabled: 1
+  enabled: 0
+}
+debug_info:
+{
+  path: "C:/Users/nomag/repos/shoot_em_up/cmake-build/shoot_em_up.pdb"
+  timestamp: 66201793372137
+}
+debug_info:
+{
+  path: "C:/Users/nomag/repos/shoot_em_up/bin/app/win32_software_renderer.pdb"
+  timestamp: 66201794384205
+}
+debug_info:
+{
+  path: "C:/Users/nomag/repos/shoot_em_up/bin/app/engine_dyn.pdb"
+  timestamp: 66201794361834
+}
+breakpoint:
+{
+  source_location: "src/renderers/win32_software_renderer.cpp:230:1"
+  hit_count: 1
+}
+breakpoint:
+{
+  source_location: "src/renderers/win32_software_renderer.cpp:293:1"
+  hit_count: 4
 }

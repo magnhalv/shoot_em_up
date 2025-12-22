@@ -25,6 +25,7 @@ set(SOURCE_FILES
     engine/assets.cpp
     engine/globals.cpp
     engine/options.cpp
+    engine/gui/imgui.cpp
     ${CORE_SOURCE_FILES}
 )
 

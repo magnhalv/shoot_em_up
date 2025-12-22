@@ -21,6 +21,7 @@
 #include "engine.h"
 #include "gameplay.h"
 #include "globals.hpp"
+#include "gui/imgui.hpp"
 #include "hm_assert.h"
 
 struct EnemyBehaviour {
@@ -99,23 +100,6 @@ auto noise(f32 x) {
     return sin(2 * x) + sin(PI * x);
 }
 
-#define PushRenderElement(group, type) (type*)push_render_element_(group, sizeof(type), RenderCommands_##type)
-auto push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type) {
-    void* result = 0;
-
-    size += sizeof(RenderGroupEntryHeader);
-    if ((render_group->push_buffer_size + size) < render_group->max_push_buffer_size) {
-        RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(render_group->push_buffer + render_group->push_buffer_size);
-        header->type = type;
-        result = (u8*)(header) + sizeof(*header);
-        render_group->push_buffer_size += size;
-    }
-    else {
-        InvalidCodePath;
-    }
-    return result;
-}
-
 ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* state = (EngineState*)memory->permanent;
     // const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
@@ -153,6 +137,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         state->explosions.init(state->permanent, 100);
 
         init_audio_system(&state->audio, &state->permanent);
+        UI_Initialize(&state->permanent);
 
         state->is_initialized = true;
         log_debug("Initializing complete");
@@ -474,7 +459,27 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    renderer->render(&group, app_input->client_width, app_input->client_height);
+    // renderer->render(&group, app_input->client_width, app_input->client_height);
+
+    UI_Begin();
+    UI_Window("Window 1", 50.0f, 50.0f, 500.0f, 500.0f) {
+        if (UI_Button("Button 1")) {
+            printf("Button 1 was clicked!\n");
+        }
+        if (UI_Button("Button 2")) {
+            printf("Button 2 was clicked!\n");
+        }
+    }
+    UI_End();
+
+    RenderGroup ui_render_group{};
+    ui_render_group.push_buffer_size = 0;
+    ui_render_group.max_push_buffer_size = MegaBytes(4);
+    ui_render_group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
+    ui_render_group.screen_width = app_input->client_width;
+    ui_render_group.screen_height = app_input->client_height;
+    UI_Generate_Render_Commands(&ui_render_group);
+    renderer->render(&ui_render_group, app_input->client_width, app_input->client_height);
 }
 
 ENGINE_LOAD(load) {

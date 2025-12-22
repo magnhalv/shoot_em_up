@@ -3,6 +3,7 @@
 #include <cfloat>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <type_traits>
 
 using i8 = int8_t;
@@ -53,4 +54,24 @@ template <typename T, std::size_t N> constexpr std::size_t array_length(const T 
 template <typename T>
 constexpr auto operator+(T e) noexcept -> std::enable_if_t<std::is_enum<T>::value, std::underlying_type_t<T>> {
     return static_cast<std::underlying_type_t<T>>(e);
+}
+
+#define local_persist static
+#define global_variable extern
+
+#define Assert(expr)                                                                   \
+    if (!(expr)) {                                                                     \
+        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
+        exit(1);                                                                       \
+    }
+#define InvalidCodePath Assert(!"InvalidCodePath")
+#define InvalidDefaultCase \
+    default: {             \
+        InvalidCodePath;   \
+    } break
+
+inline u32 safe_truncate_u64(u64 value) {
+    Assert(value <= 0xFFFFFFFF);
+    u32 result = (u32)value;
+    return result;
 }

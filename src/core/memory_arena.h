@@ -24,16 +24,16 @@ struct MemoryArena {
     auto check_integrity() const -> void;
 };
 
-template <typename T> auto inline allocate(MemoryArena& arena, u64 num = 1) -> T* {
-    return static_cast<T*>(arena.allocate(sizeof(T) * num));
+template <typename T> auto inline allocate(MemoryArena& arena, u64 count = 1) -> T* {
+    return static_cast<T*>(arena.allocate(sizeof(T) * count));
 }
 
-template <typename T> auto inline allocate(MemoryArena* arena, u64 num = 1) -> T* {
-    return static_cast<T*>(arena->allocate(sizeof(T) * num));
+template <typename T> auto inline allocate(MemoryArena* arena, u64 count = 1) -> T* {
+    return static_cast<T*>(arena->allocate(sizeof(T) * count));
 }
 
-template <typename T> auto inline extend(T* block, MemoryArena& arena, u64 num = 1) -> T* {
-    return static_cast<T*>(arena.extend(block, sizeof(T) * num));
+template <typename T> auto inline extend(T* block, MemoryArena& arena, u64 count = 1) -> T* {
+    return static_cast<T*>(arena.extend(block, sizeof(T) * count));
 }
 
 extern MemoryArena* g_transient; // This one is erased every frame.

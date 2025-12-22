@@ -16,26 +16,6 @@
 
 const u32 Gl_Invalid_Id = 0;
 
-#define local_persist static
-#define global_variable extern
-
-#define Assert(expr)                                                                   \
-    if (!(expr)) {                                                                     \
-        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
-        exit(1);                                                                       \
-    }
-#define InvalidCodePath assert(!"InvalidCodePath")
-#define InvalidDefaultCase \
-    default: {             \
-        InvalidCodePath;   \
-    } break
-
-inline u32 safe_truncate_u64(u64 value) {
-    Assert(value <= 0xFFFFFFFF);
-    u32 result = (u32)value;
-    return result;
-}
-
 typedef struct {
     bool has_errors;
     void* platform;

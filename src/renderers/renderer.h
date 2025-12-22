@@ -1,5 +1,7 @@
 #pragma once
 
+#include <platform/types.h>
+
 #include <math/vec2.h>
 #include <math/vec3.h>
 #include <math/vec4.h>
@@ -68,6 +70,23 @@ struct RenderGroup {
     u64 push_buffer_size;
     u8* push_buffer;
 };
+
+#define PushRenderElement(group, type) (type*)push_render_element_(group, sizeof(type), RenderCommands_##type)
+auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type) {
+    void* result = 0;
+
+    size += sizeof(RenderGroupEntryHeader);
+    if ((render_group->push_buffer_size + size) < render_group->max_push_buffer_size) {
+        RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(render_group->push_buffer + render_group->push_buffer_size);
+        header->type = type;
+        result = (u8*)(header) + sizeof(*header);
+        render_group->push_buffer_size += size;
+    }
+    else {
+        InvalidCodePath;
+    }
+    return result;
+}
 
 const i32 MaxTextureId = 1024;
 

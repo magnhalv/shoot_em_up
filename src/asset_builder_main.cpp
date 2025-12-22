@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <libs/stb/stb_image.h>
 
-#include <platform/platform.h>
 #include <platform/types.h>
 
 #include <engine/assets.h>

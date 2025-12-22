@@ -32,9 +32,9 @@ struct Win32Texture {
     void* data;
     i32 width;
     i32 height;
-    i32 size_bytes;
     i32 size;
-    i32 pitch_bytes;
+    i32 count;
+    i32 pitch;
     i32 bytes_per_pixel;
 };
 
@@ -160,7 +160,7 @@ static auto draw_quad(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation,
 static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
     x = clamp(x, 0, texture->width - 1);
     y = clamp(y, 0, texture->width - 1);
-    return *((u8*)texture->data + (y * texture->pitch_bytes) + (x * texture->bytes_per_pixel));
+    return *((u8*)texture->data + (y * texture->pitch) + (x * texture->bytes_per_pixel));
 }
 
 auto color_channel_f32_to_u8(f32 channel) {
@@ -290,7 +290,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
                 // TODO: Do alpha blending
                 if (a != 0) {
-
                     *pixel = pack_f32_color_to_u32(r, g, b, a);
                 }
             }
@@ -309,6 +308,17 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     state.permanent.init(memory->data, memory->size);
     state.transient = *state.permanent.allocate_arena(MegaBytes(10));
 
+    Win32Texture* null_texture = &state.textures[0];
+    null_texture->height = 1;
+    null_texture->width = 1;
+    null_texture->data = allocate<u32>(state.permanent);
+    u32* data = (u32*)null_texture->data;
+    *data = pack_f32_color_to_u32(255.0f, 0.0f, 0.0f, 1.0f);
+
+    null_texture->count = 1;
+    null_texture->size = sizeof(u32);
+    null_texture->bytes_per_pixel = sizeof(u32);
+
     log_info("Software renderer ready to go.\n");
 }
 
@@ -316,6 +326,7 @@ extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_c
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
+    HM_ASSERT(bitmap_id.value != 0);
     if (bitmap_id.value >= MaxTextureId) {
         // TODO: Return empty texture
         log_error("Max texture id is %d, %d provided.", MaxTextureId, bitmap_id.value);
@@ -328,14 +339,14 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         texture->height = height;
         texture->width = width;
         texture->bytes_per_pixel = 4;
-        texture->size_bytes = width * height * texture->bytes_per_pixel;
-        texture->size = width * height;
-        texture->pitch_bytes = width * texture->bytes_per_pixel;
-        texture->data = state.permanent.allocate(texture->size_bytes);
+        texture->size = width * height * texture->bytes_per_pixel;
+        texture->count = width * height;
+        texture->pitch = width * texture->bytes_per_pixel;
+        texture->data = state.permanent.allocate(texture->size);
 
         u32* source = (u32*)data;
         u32* dest = (u32*)texture->data;
-        for (auto i = 0; i < texture->size; i++) {
+        for (auto i = 0; i < texture->count; i++) {
             u8 red = (*source >> 0) & 0xFF;
             u8 green = (*source >> 8) & 0xFF;
             u8 blue = (*source >> 16) & 0xFF;
