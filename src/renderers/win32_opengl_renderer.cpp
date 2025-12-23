@@ -310,6 +310,29 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 
         state.texture_shader.initialize(R"(.\shaders\texture_2d.vert)", R"(.\shaders\texture_2d.frag)");
     }
+    {
+
+        u32* texture = &state.texture_handles[0];
+        if (*texture == 0) {
+            u32 width = 1;
+            u32 height = 1;
+            u32 data = 0xFF0000FF;
+            glGenTextures(1, texture);
+            glBindTexture(GL_TEXTURE_2D, *texture);
+            // set the texture wrapping parameters
+            // set texture wrapping to GL_REPEAT (default wrapping method)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            // set texture filtering parameters
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            // load image, create texture and generate mipmaps
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+    }
     printf("OpenGL ready to go.\n");
 }
 

@@ -248,50 +248,57 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
             if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
 
-                vec3 texel_point = inv_model * (screen_point - translation);
-                texel_point = texel_point + (vec3(model_width, model_height, 0) * 0.5);
+                if (texture->count == 1) {
+                    *pixel = *(u32*)texture->data;
+                }
+                else {
 
-                f32 u = (f32)texel_point.x / ((f32)model_width - 1);
-                f32 v = (f32)texel_point.y / ((f32)model_height - 1);
+                    vec3 texel_point = inv_model * (screen_point - translation);
+                    texel_point = texel_point + (vec3(model_width, model_height, 0) * 0.5);
 
-                // This is texel00
-                f32 sx = u * texture->width - 0.5f;
-                f32 sy = v * texture->height - 0.5f;
+                    f32 u = (f32)texel_point.x / ((f32)model_width - 1);
+                    f32 v = (f32)texel_point.y / ((f32)model_height - 1);
 
-                i32 x0 = floor(sx);
-                i32 y0 = floor(sy);
-                i32 x1 = x0 + 1;
-                i32 y1 = y0 + 1;
+                    // This is texel00
+                    f32 sx = u * texture->width - 0.5f;
+                    f32 sy = v * texture->height - 0.5f;
 
-                x0 = clamp(x0, 0, texture->width - 1);
-                y0 = clamp(y0, 0, texture->height - 1);
-                x1 = clamp(x1, 0, texture->width - 1);
-                y1 = clamp(y1, 0, texture->height - 1);
+                    i32 x0 = floor(sx);
+                    i32 y0 = floor(sy);
+                    i32 x1 = x0 + 1;
+                    i32 y1 = y0 + 1;
 
-                f32 u_frac = sx - (f32)x0;
-                f32 v_frac = sy - (f32)y0;
+                    x0 = clamp(x0, 0, texture->width - 1);
+                    y0 = clamp(y0, 0, texture->height - 1);
+                    x1 = clamp(x1, 0, texture->width - 1);
+                    y1 = clamp(y1, 0, texture->height - 1);
 
-                u32* data = (u32*)state.textures[bitmap_id.value].data;
-                // Bilinear filtering
-                u32 texel00 = *(data + (y0 * texture->width) + x0);
-                u32 texel10 = *((u32*)state.textures[bitmap_id.value].data + (y0 * texture->width) + x1); //
-                u32 texel01 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x0); //
-                u32 texel11 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x1); //
+                    f32 u_frac = sx - (f32)x0;
+                    f32 v_frac = sy - (f32)y0;
 
-                f32 w00 = (1.0f - u_frac) * (1.0f - v_frac);
-                f32 w10 = (u_frac) * (1.0f - v_frac);
-                f32 w01 = (1.0f - u_frac) * (v_frac);
-                f32 w11 = (u_frac) * (v_frac);
+                    u32* data = (u32*)state.textures[bitmap_id.value].data;
+                    // Bilinear filtering
+                    u32 texel00 = *(data + (y0 * texture->width) + x0);
+                    u32 texel10 = *((u32*)state.textures[bitmap_id.value].data + (y0 * texture->width) + x1); //
+                    u32 texel01 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x0); //
+                    u32 texel11 = *((u32*)state.textures[bitmap_id.value].data + (y1 * texture->width) + x1); //
 
-                f32 r = ch(texel00, 16) * w00 + ch(texel10, 16) * w10 + ch(texel01, 16) * w01 + ch(texel11, 16) * w11;
-                f32 g = ch(texel00, 8) * w00 + ch(texel10, 8) * w10 + ch(texel01, 8) * w01 + ch(texel11, 8) * w11;
-                f32 b = ch(texel00, 0) * w00 + ch(texel10, 0) * w10 + ch(texel01, 0) * w01 + ch(texel11, 0) * w11;
-                f32 a = ch(texel00, 24) * w00 + ch(texel10, 24) * w10 + ch(texel01, 24) * w01 + ch(texel11, 24) * w11;
+                    f32 w00 = (1.0f - u_frac) * (1.0f - v_frac);
+                    f32 w10 = (u_frac) * (1.0f - v_frac);
+                    f32 w01 = (1.0f - u_frac) * (v_frac);
+                    f32 w11 = (u_frac) * (v_frac);
+
+                    f32 r = ch(texel00, 16) * w00 + ch(texel10, 16) * w10 + ch(texel01, 16) * w01 + ch(texel11, 16) * w11;
+                    f32 g = ch(texel00, 8) * w00 + ch(texel10, 8) * w10 + ch(texel01, 8) * w01 + ch(texel11, 8) * w11;
+                    f32 b = ch(texel00, 0) * w00 + ch(texel10, 0) * w10 + ch(texel01, 0) * w01 + ch(texel11, 0) * w11;
+                    f32 a = ch(texel00, 24) * w00 + ch(texel10, 24) * w10 + ch(texel01, 24) * w01 + ch(texel11, 24) * w11;
+
+                    if (a != 0) {
+                        *pixel = pack_f32_color_to_u32(r, g, b, a);
+                    }
+                }
 
                 // TODO: Do alpha blending
-                if (a != 0) {
-                    *pixel = pack_f32_color_to_u32(r, g, b, a);
-                }
             }
         }
     }
