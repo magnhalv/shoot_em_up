@@ -462,14 +462,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     // renderer->render(&group, app_input->client_width, app_input->client_height);
 
     UI_Begin();
-    UI_Window("Window 1", 50.0f, 50.0f, 500.0f, 500.0f) {
-        if (UI_Button("Button 1")) {
-            printf("Button 1 was clicked!\n");
-        }
-        if (UI_Button("Button 2")) {
-            printf("Button 2 was clicked!\n");
-        }
+
+    UI_PushWindow("Window 1", 50.0f, 50.0f, 500.0f, 500.0f);
+    if (UI_Button("Button 1")) {
+        printf("Button 1 was clicked!\n");
     }
+    if (UI_Button("Button 2")) {
+        printf("Button 2 was clicked!\n");
+    }
+    UI_PopWindow();
+
     UI_End();
 
     RenderGroup ui_render_group{};

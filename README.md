@@ -15,6 +15,8 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 
 ### IMGUI
 
+- Optimize software renderer.
+- Decide how how to handle and pack colors. Should probably be 1.0, not 255.0
 - Text rendering 
 - Buttons 
 - Sliders
@@ -22,7 +24,6 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 
 ### Features
 
-- Support explosions <-------
 - Support background
     - Scrolling background
 - Support tags and animations

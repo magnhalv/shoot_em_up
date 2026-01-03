@@ -227,6 +227,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     OffscreenBuffer* buffer = &state.global_offscreen_buffer;
 
     Win32Texture* texture = &state.textures[bitmap_id.value];
+    u32 default_color = pack_f32_color_to_u32(color.r, color.g, color.b, color.a);
     for (int y = min_y; y < max_y; y++) {
         for (int x = min_x; x < max_x; x++) {
 
@@ -249,7 +250,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
 
                 if (texture->count == 1) {
-                    *pixel = *(u32*)texture->data;
+                    *pixel = default_color;
                 }
                 else {
 

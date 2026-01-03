@@ -51,6 +51,8 @@ struct UI_Entity {
     f32 computed_rel_position[Axis2_COUNT]; // Position relative to parent
     f32 computed_size[Axis2_COUNT];
     RectangleF32 rect;
+
+    vec4 background_color;
 };
 
 auto UI_Initialize(MemoryArena* arena) -> void;
