@@ -64,8 +64,8 @@ auto MemoryArena::allocate_arena(u64 request_size) -> MemoryArena* {
     return new_arena;
 }
 
-auto MemoryArena::clear() -> void {
-    debug_set_memory(m_memory, m_size);
+auto MemoryArena::clear_to_zero() -> void {
+    clear_memory(m_memory, m_size);
 
     m_used = sizeof(ArenaGuard);
     auto* first_guard = reinterpret_cast<ArenaGuard*>(m_memory);
@@ -99,7 +99,7 @@ auto MemoryArena::check_integrity() const -> void {
 auto MemoryArena::init(void* in_memory, u64 in_size) -> void {
     m_memory = (u8*)in_memory;
     m_size = in_size;
-    clear();
+    clear_to_zero();
 }
 
 void set_transient_arena(MemoryArena* arena) {
@@ -116,7 +116,7 @@ void unset_transient_arena() {
 
 void clear_transient() {
     assert(g_transient != nullptr);
-    g_transient->clear();
+    g_transient->clear_to_zero();
 }
 
 void* allocate_transient(u64 request_size) {

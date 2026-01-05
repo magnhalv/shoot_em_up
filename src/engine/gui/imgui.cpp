@@ -1,41 +1,174 @@
 #pragma once
 
 #include <core/hash.hpp>
+#include <math/util.hpp>
 
 #include "imgui.hpp"
 
 struct UI_State {
-    MemoryArena* curr_frame_arena;
-    MemoryArena* prev_frame_arena;
     UI_Entity* parent; // TODO: Make this a stack
     UI_Entity* entry_point;
+
+    UI_Layout layout;
+    i32 client_width;
+    i32 client_height;
+
+    u64 hot_item;
+    u64 active_item;
+    u64 clicked_item;
 };
 
-UI_State state{};
+MemoryArena* frame_arena = nullptr;
+MemoryArena* prev_frame_arena = nullptr;
+
+UI_State* state;
+UI_State* prev_state;
+
+const i32 padd_and_margin = 10;
 
 auto UI_Initialize(MemoryArena* arena) -> void {
-    state.curr_frame_arena = arena->allocate_arena(MegaBytes(1));
-    state.prev_frame_arena = arena->allocate_arena(MegaBytes(1));
+    frame_arena = arena->allocate_arena(MegaBytes(1));
+    state = allocate<UI_State>(frame_arena);
+    prev_frame_arena = arena->allocate_arena(MegaBytes(1));
 }
 
-auto UI_Begin() -> void {
-    Assert(state.curr_frame_arena);
-    state.entry_point = nullptr;
-    MemoryArena* temp = state.curr_frame_arena;
-    state.curr_frame_arena = state.prev_frame_arena;
-    state.prev_frame_arena = temp;
-    state.curr_frame_arena->clear();
+auto UI_is_inside(i32 mouse_x, i32 mouse_y, UI_Entity* entity) -> bool {
+    f32 min_x = entity->rect.bl.x;
+    f32 max_x = entity->rect.tr.x;
+    f32 min_y = entity->rect.bl.y;
+    f32 max_y = entity->rect.tr.y;
+    return hm::in_range((f32)mouse_x, min_x, max_x) && hm::in_range((f32)mouse_y, min_y, max_y);
+}
+
+auto UI_Begin(Mouse* mouse, i32 client_width, i32 client_height) -> void {
+    i32 mouse_y = client_height - mouse->client_y;
+    i32 mouse_x = mouse->client_x;
+    Assert(frame_arena);
+    Assert(prev_frame_arena);
+
+    prev_state = state;
+
+    MemoryArena* temp = frame_arena;
+    frame_arena = prev_frame_arena;
+    prev_frame_arena = temp;
+    frame_arena->clear_to_zero();
+
+    state = allocate<UI_State>(frame_arena);
+
+    state->client_width = client_width;
+    state->client_height = client_height;
+
+    Assert(prev_state);
+    UI_Entity* hovered_entity = prev_state->entry_point;
+    state->active_item = 0;
+    state->hot_item = 0;
+    if (hovered_entity && UI_is_inside(mouse_x, mouse_y, hovered_entity)) {
+        while (hovered_entity) {
+
+            if (hovered_entity->first == nullptr) {
+                break;
+            }
+            else {
+                UI_Entity* child = hovered_entity->first;
+                UI_Entity* active_child = nullptr;
+                while (child) {
+                    if (UI_is_inside(mouse_x, mouse_y, child)) {
+                        active_child = child;
+                        break;
+                    }
+                    child = child->right;
+                }
+                if (active_child != nullptr) {
+                    hovered_entity = active_child;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+    }
+    else {
+        hovered_entity = nullptr;
+    }
+
+    if (mouse->left.is_released_this_frame()) {
+        if (hovered_entity && prev_state->hot_item == hovered_entity->id) {
+            state->clicked_item = hovered_entity->id;
+        }
+    }
+    else if (prev_state->hot_item != 0) {
+        state->hot_item = prev_state->hot_item;
+        state->active_item = prev_state->active_item;
+    }
+
+    if (hovered_entity && state->hot_item == 0) {
+        state->active_item = hovered_entity->id;
+
+        if (mouse->left.is_pressed_this_frame()) {
+            state->hot_item = hovered_entity->id;
+        }
+    }
+}
+
+auto calculate_size(UI_Entity* entity, Axis2 axis) -> void {
+    switch (entity->semantic_size[axis].kind) {
+    case UI_SizeKind_Pixels: {
+        entity->computed_size[axis] = entity->semantic_size[axis].value;
+        break;
+    }
+    case UI_SizeKind_ChildrenSum:
+    case UI_SizeKind_Null: {
+        UI_Entity* child = entity->first;
+        i32 direction = axis == Axis2_Y ? state->layout.layout_direction : 1;
+        f32 size = direction > 0 ? 0.0f : state->client_height;
+        while (child) {
+            calculate_size(child, axis);
+            f32 child_size = child->computed_rel_position[axis] + (direction * child->computed_size[Axis2_X]);
+            size = direction > 0 ? hm::max(child_size, size) : hm::min(child_size, size);
+            child = child->right;
+        }
+        entity->computed_size[axis] = size + entity->padding[UI_Direction_Down];
+    }
+
+    case UI_SizeKind_TextContent:
+    case UI_SizeKind_PercentOfParent: {
+        break;
+    }
+    }
 }
 
 auto UI_End() -> void {
-    Assert(state.entry_point);
-    Assert(state.parent == nullptr);
+    Assert(state->entry_point);
+    Assert(state->parent == nullptr);
+
+    UI_Entity* entity = state->entry_point;
+    calculate_size(entity, Axis2_X);
+    calculate_size(entity, Axis2_Y);
+}
+
+auto UI_SetLayout(UI_Layout layout) -> void {
+    state->layout = layout;
 }
 
 auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
-    Assert(state.entry_point);
-    UI_Entity* entity = state.entry_point;
+    Assert(state->entry_point);
+    UI_Entity* entity = state->entry_point;
     while (entity) {
+
+        f32 x = entity->computed_rel_position[Axis2_X];
+        f32 y = entity->computed_rel_position[Axis2_Y];
+        f32 width = entity->computed_size[Axis2_X];
+        f32 height = entity->computed_size[Axis2_Y];
+
+        if (state->layout.layout_direction == LayoutDirection_BottomToTop) {
+            entity->rect.bl = vec2(x, y);
+            entity->rect.tr = vec2(x + width, y + height);
+        }
+        else {
+            entity->rect.bl = vec2(x, y - height);
+            entity->rect.tr = vec2(x + width, y);
+        }
+
         vec2 bl = entity->rect.bl;
         vec2 tr = entity->rect.tr;
         vec2 tl = vec2(bl.x, tr.y);
@@ -58,88 +191,137 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
 }
 
 auto UI_PushWindow(string8 text, f32 x, f32 y, f32 width, f32 height) -> void {
-    Assert(state.parent == nullptr);
-    UI_Entity* window = allocate<UI_Entity>(state.curr_frame_arena, 1);
+    Assert(state->parent == nullptr);
+    UI_Entity* window = allocate<UI_Entity>(frame_arena, 1);
     window->id = hash64(text);
     window->flags = (UI_WidgetFlags)(UI_WidgetFlag_Draggable | UI_WidgetFlag_DrawBackground);
 
-    window->computed_rel_position[0] = x;
-    window->computed_rel_position[1] = y;
-    window->semantic_size[0] = {
-        .kind = UI_SizeKind_Pixels,
-        .value = width,
-        .strictness = 1.0,
-    };
-    window->semantic_size[1] = {
-        .kind = UI_SizeKind_Pixels,
-        .value = height,
-        .strictness = 1.0,
-    };
-    state.parent = window;
+    if (state->layout.layout_direction == LayoutDirection_TopToBottom) {
+        y = state->client_height - y;
+    }
 
-    window->rect.bl = vec2(x, y);
-    window->rect.tr = vec2(x + width, y + height);
+    window->position[Axis2_X] = x;
+    window->position[Axis2_Y] = y;
+
+    if (width > 0 && height > 0) {
+        window->semantic_size[Axis2_X] = {
+            .kind = UI_SizeKind_Pixels,
+            .value = width,
+            .strictness = 1.0,
+        };
+        window->semantic_size[Axis2_Y] = {
+            .kind = UI_SizeKind_Pixels,
+            .value = height,
+            .strictness = 1.0,
+        };
+    }
+    else {
+        window->semantic_size[Axis2_X] = {
+            .kind = UI_SizeKind_ChildrenSum,
+            .value = 0,
+            .strictness = 1.0,
+        };
+        window->semantic_size[Axis2_Y] = {
+            .kind = UI_SizeKind_ChildrenSum,
+            .value = 0,
+            .strictness = 1.0,
+        };
+    }
+
+    window->padding[UI_Direction_Up] = padd_and_margin;
+    window->padding[UI_Direction_Right] = padd_and_margin;
+    window->padding[UI_Direction_Down] = padd_and_margin;
+    window->padding[UI_Direction_Left] = padd_and_margin;
+
+    window->computed_rel_position[Axis2_X] = x;
+    window->computed_rel_position[Axis2_Y] = y;
+
+    state->parent = window;
+
     window->background_color = vec4(255.0, 255.0, 0, 255.0);
 
-    Assert(state.entry_point == nullptr);
-    state.entry_point = window;
+    Assert(state->entry_point == nullptr);
+    state->entry_point = window;
+}
+
+auto get_y(f32 y, i32 client_height, LayoutDirection direction) -> f32 {
+    return direction == LayoutDirection_BottomToTop ? y : (f32)client_height - y;
 }
 
 auto UI_PopWindow() -> void {
-    Assert(state.parent != nullptr);
-    state.parent = nullptr;
+    Assert(state->parent != nullptr);
+    state->parent = nullptr;
 }
 
-auto UI_Button(string8 text) -> bool {
-    UI_Entity* button = allocate<UI_Entity>(state.curr_frame_arena, 1);
+const vec4 Button_Color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+const vec4 Hover_Button_Color = vec4(127.0f, 127.0f, 0.0f, 255.0f);
+const vec4 Clicked_Button_Color = vec4(127.0f, 127.0f, 127.0f, 255.0f);
+
+auto UI_Button(string8 text) -> UI_Entity_Status {
+    UI_Entity* button = allocate<UI_Entity>(frame_arena, 1);
+    UI_Entity_Status result = {};
+
     button->id = hash64(text);
     button->flags = (UI_WidgetFlags)(UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground);
 
-    if (state.parent) {
-        button->parent = state.parent;
+    if (state->parent) {
+        button->parent = state->parent;
 
-        if (!state.parent->first) {
-            state.parent->first = button;
-            state.parent->last = button;
+        if (!state->parent->first) {
+            state->parent->first = button;
+            state->parent->last = button;
         }
         else {
-            UI_Entity* sibling = state.parent->last;
+            UI_Entity* sibling = state->parent->last;
             sibling->right = button;
             button->left = sibling;
-            state.parent->last = button;
+            state->parent->last = button;
         }
     }
 
     button->semantic_size[Axis2_X] = {
         .kind = UI_SizeKind_Pixels,
         .value = 200,
-        .strictness = 1.0,
+        .strictness = 1.0f,
     };
     button->semantic_size[Axis2_Y] = {
         .kind = UI_SizeKind_Pixels,
         .value = 100,
-        .strictness = 1.0,
+        .strictness = 1.0f,
     };
 
-    const i32 padd_and_margin = 10;
-    if (button->left) {
-        const UI_Entity* sib = button->left;
-        button->computed_rel_position[Axis2_X] = sib->computed_rel_position[Axis2_X];
-        button->computed_rel_position[Axis2_Y] =
-            sib->computed_rel_position[Axis2_Y] + sib->semantic_size[Axis2_Y].value + padd_and_margin;
+    button->margin[UI_Direction_Up] = padd_and_margin;
+    button->margin[UI_Direction_Right] = padd_and_margin;
+    button->margin[UI_Direction_Down] = padd_and_margin;
+    button->margin[UI_Direction_Left] = padd_and_margin;
+
+    const i32 y_dir = (i32)state->layout.layout_direction;
+    // Maybe make this a post pass step?
+    if (button->left == nullptr) {
+        f32* computed_rel_position = button->parent->computed_rel_position;
+        button->computed_rel_position[Axis2_X] = computed_rel_position[Axis2_X] + padd_and_margin;
+        button->computed_rel_position[Axis2_Y] = computed_rel_position[Axis2_Y] + (y_dir * padd_and_margin);
     }
     else {
-        button->computed_rel_position[Axis2_X] = button->parent->computed_rel_position[Axis2_X] + padd_and_margin;
-        button->computed_rel_position[Axis2_Y] = button->parent->computed_rel_position[Axis2_Y] + padd_and_margin;
+        const UI_Entity* sib = button->left;
+        button->computed_rel_position[Axis2_X] = sib->computed_rel_position[Axis2_X];
+        button->computed_rel_position[Axis2_Y] = sib->computed_rel_position[Axis2_Y] + //
+            (y_dir * (sib->semantic_size[Axis2_Y].value + sib->margin[UI_Direction_Down]));
     }
 
-    f32 x = button->computed_rel_position[Axis2_X];
-    f32 y = button->computed_rel_position[Axis2_Y];
-    f32 width = button->semantic_size[Axis2_X].value;
-    f32 height = button->semantic_size[Axis2_Y].value;
-    button->rect.bl = vec2(x, y);
-    button->rect.tr = vec2(x + width, y + height);
-    button->background_color = vec4(0.0, 255.0, 0, 255.0);
+    if (state->clicked_item == button->id) {
+        result.is_released = true;
+    }
 
-    return false;
+    if (state->hot_item == button->id) {
+        button->background_color = Clicked_Button_Color;
+    }
+    else if (state->active_item == button->id) {
+        button->background_color = Hover_Button_Color;
+    }
+    else {
+        button->background_color = Button_Color;
+    }
+
+    return result;
 }

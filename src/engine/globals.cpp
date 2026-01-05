@@ -23,7 +23,7 @@ auto begin_task(TaskSystem* task_system) -> TaskWithMemory* {
         TaskWithMemory* task = task_system->tasks + i;
         if (!task->in_use) {
             task->in_use = true;
-            task->memory->clear();
+            task->memory->clear_to_zero();
             result = task;
         }
     }

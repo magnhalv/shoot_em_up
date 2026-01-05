@@ -1,10 +1,10 @@
 // raddbg 0.9.24 project file
 
-recent_file: path: "src/renderers/win32_software_renderer.cpp"
 recent_file: path: "src/engine/gui/imgui.cpp"
+recent_file: path: "src/engine/engine.cpp"
+recent_file: path: "src/renderers/win32_software_renderer.cpp"
 recent_file: path: "src/asset_builder_main.cpp"
 recent_file: path: "src/deps/libs/stb/stb_image.h"
-recent_file: path: "src/engine/engine.cpp"
 recent_file: path: "src/engine/assets.cpp"
 recent_file: path: "src/engine/memory_arena.cpp"
 recent_file: path: "src/win_main.cpp"
@@ -26,25 +26,25 @@ target:
 debug_info:
 {
   path: "C:/Users/nomag/repos/shoot_em_up/cmake-build/shoot_em_up.pdb"
-  timestamp: 66201793372137
+  timestamp: 66203036019200
 }
 debug_info:
 {
   path: "C:/Users/nomag/repos/shoot_em_up/bin/app/win32_software_renderer.pdb"
-  timestamp: 66201794384205
+  timestamp: 66203033011169
 }
 debug_info:
 {
   path: "C:/Users/nomag/repos/shoot_em_up/bin/app/engine_dyn.pdb"
-  timestamp: 66201794361834
+  timestamp: 66203036209473
 }
 breakpoint:
 {
-  source_location: "src/renderers/win32_software_renderer.cpp:230:1"
-  hit_count: 1
+  source_location: "src/engine/gui/imgui.cpp:59:1"
+  hit_count: 0
 }
-breakpoint:
+debug_info:
 {
-  source_location: "src/renderers/win32_software_renderer.cpp:293:1"
-  hit_count: 4
+  path: "C:/Users/nomag/repos/shoot_em_up/cmake-build/asset_builder.pdb"
+  timestamp: 66203038320916
 }

@@ -817,8 +817,17 @@ void win32_process_keyboard_message(ButtonState& new_state, bool is_down) {
 void win32_process_pending_messages(HWND hwnd, UserInput& new_input, UserInput& old_input) {
     MSG message;
 
-    new_input.mouse_raw.dx = 0;
-    new_input.mouse_raw.dy = 0;
+    new_input.mouse.dx = 0;
+    new_input.mouse.dy = 0;
+
+    POINT p;
+    GetCursorPos(&p);
+    new_input.mouse.screen_x = p.x;
+    new_input.mouse.screen_y = p.y;
+    ScreenToClient(hwnd, &p);
+    new_input.mouse.client_x = p.x;
+    new_input.mouse.client_y = p.y;
+
     while (PeekMessage(&message, hwnd, 0, 0, PM_REMOVE)) {
         switch (message.message) {
         case WM_QUIT: {
@@ -838,35 +847,38 @@ void win32_process_pending_messages(HWND hwnd, UserInput& new_input, UserInput& 
             if (raw->header.dwType == RIM_TYPEMOUSE) {
                 int dx = raw->data.mouse.lLastX;
                 int dy = raw->data.mouse.lLastY;
-                new_input.mouse_raw.dx = dx;
-                new_input.mouse_raw.dy = -dy;
+                new_input.mouse.dx = dx;
+                new_input.mouse.dy = -dy;
 
                 if (raw->data.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_DOWN) {
-                    new_input.mouse_raw.buttons[0].ended_down = true;
-                    new_input.mouse_raw.buttons[0].half_transition_count++;
+                    new_input.mouse.buttons[0].ended_down = true;
+                    new_input.mouse.buttons[0].half_transition_count++;
                 }
                 if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN) {
-                    new_input.mouse_raw.buttons[1].ended_down = true;
-                    new_input.mouse_raw.buttons[1].half_transition_count++;
+                    new_input.mouse.buttons[1].ended_down = true;
+                    new_input.mouse.buttons[1].half_transition_count++;
                 }
                 if (raw->data.mouse.usButtonFlags & RI_MOUSE_LEFT_BUTTON_UP) {
-                    new_input.mouse_raw.buttons[0].ended_down = false;
-                    new_input.mouse_raw.buttons[0].half_transition_count++;
+                    new_input.mouse.buttons[0].ended_down = false;
+                    new_input.mouse.buttons[0].half_transition_count++;
                 }
                 if (raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP) {
-                    new_input.mouse_raw.buttons[1].ended_down = false;
-                    new_input.mouse_raw.buttons[1].half_transition_count++;
+                    new_input.mouse.buttons[1].ended_down = false;
+                    new_input.mouse.buttons[1].half_transition_count++;
                 }
             }
 
             delete[] lpb;
             break;
         }
-        case WM_LBUTTONDOWN: {
-        } break;
         case WM_LBUTTONUP: {
-            break;
-        }
+            new_input.mouse.left.ended_down = false;
+            new_input.mouse.left.half_transition_count++;
+        } break;
+        case WM_LBUTTONDOWN: {
+            new_input.mouse.left.ended_down = true;
+            new_input.mouse.left.half_transition_count++;
+        } break;
 
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:

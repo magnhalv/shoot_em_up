@@ -83,6 +83,7 @@ auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGrou
         render_group->push_buffer_size += size;
     }
     else {
+        // TODO: return a null struct perhaps?
         InvalidCodePath;
     }
     return result;

@@ -23,7 +23,11 @@ struct ButtonState {
     }
 };
 
-struct MouseRaw {
+struct Mouse {
+    i32 screen_x = 0;
+    i32 screen_y = 0;
+    i32 client_x = 0;
+    i32 client_y = 0;
     i32 dx = 0;
     i32 dy = 0;
 
@@ -39,7 +43,7 @@ struct MouseRaw {
 const i32 NUM_BUTTONS = 35;
 
 struct UserInput {
-    MouseRaw mouse_raw; // mutated by platform
+    Mouse mouse;
     union {
         ButtonState buttons[NUM_BUTTONS + 1];
         struct {
@@ -88,11 +92,11 @@ struct UserInput {
     };
 
     void frame_clear(const UserInput& prev_frame_input) {
-        mouse_raw.dx = 0;
-        mouse_raw.dy = 0;
+        mouse.dx = 0;
+        mouse.dy = 0;
         for (auto idx = 0; idx < 2; idx++) {
-            mouse_raw.buttons[idx].half_transition_count = 0;
-            mouse_raw.buttons[idx].ended_down = prev_frame_input.mouse_raw.buttons[idx].ended_down;
+            mouse.buttons[idx].half_transition_count = 0;
+            mouse.buttons[idx].ended_down = prev_frame_input.mouse.buttons[idx].ended_down;
         }
 
         assert(NUM_BUTTONS + 1 == ArrayCount(buttons));

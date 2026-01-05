@@ -19,7 +19,7 @@ struct Pointer {
     f32 x = 0;
     f32 y = 0;
 
-    auto update_pos(const MouseRaw& raw, i32 client_width, i32 client_height) -> void {
+    auto update_pos(const Mouse& raw, i32 client_width, i32 client_height) -> void {
         // TODO: Sensitivity must be moved somewhere else
         const f32 sensitivity = 2.0;
         const f32 dx = static_cast<f32>(raw.dx) * sensitivity;

@@ -6,9 +6,7 @@ project(engine)
 option(ENGINE_BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 set(CORE_SOURCE_FILES
-  core/memory.cpp
-  core/memory_arena.cpp
-  core/logger.cpp
+  core/lib.cpp
 )
 
 set(MATH_SOURCE_FILES

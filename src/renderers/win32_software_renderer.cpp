@@ -196,6 +196,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
     auto model_width = br.x - bl.x;
     auto model_height = tr.y - br.y;
+
+    // TODO: Do all this with vec2
     vec3 translation = vec2_to_vec3(offset);
 
     mat3 rot_mat = mat3_rotate(rotation);
@@ -403,7 +405,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_BEGIN_FRAME(win32_renderer_begin_frame) {
-    state.transient.clear();
+    state.transient.clear_to_zero();
 }
 
 extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {

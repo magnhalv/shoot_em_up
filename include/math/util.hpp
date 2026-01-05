@@ -4,7 +4,7 @@
 #include <math/math.h>
 #include <math/vec2.h>
 
-namespace hmath {
+namespace hm {
 
 struct rect {
     f32 start_x;
@@ -50,4 +50,4 @@ auto inline intersects(rect a, rect b) -> bool {
     return false;
 }
 
-} // namespace hmath
+} // namespace hm

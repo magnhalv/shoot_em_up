@@ -147,6 +147,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     clear_transient();
     remove_finished_sounds(&state->audio);
 
+    const i32 client_width = app_input->client_width;
+    const i32 client_height = app_input->client_height;
+
     // endregion
 
 #if ENGINE_DEBUG
@@ -291,7 +294,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             auto pos = state->player_projectiles[i].P;
             vec2 bottom_left = vec2(0, 0);
             vec2 top_right = vec2((f32)app_input->client_width, (f32)app_input->client_height);
-            if (!hmath::in_rect(pos, bottom_left, top_right)) {
+            if (!hm::in_rect(pos, bottom_left, top_right)) {
                 state->player_projectiles.remove(i);
                 continue;
             }
@@ -321,8 +324,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                 vec2 enemy_min = enemy->vertices[0]; // e.g. bottom-left in enemy space
                 vec2 enemy_max = enemy->vertices[2]; // e.g. top-right in enemy space
-                if (hmath::in_rect(bl_m.xy(), enemy_min, enemy_max) || hmath::in_rect(tl_m.xy(), enemy_min, enemy_max) ||
-                    hmath::in_rect(tr_m.xy(), enemy_min, enemy_max) || hmath::in_rect(br_m.xy(), enemy_min, enemy_max)) {
+                if (hm::in_rect(bl_m.xy(), enemy_min, enemy_max) || hm::in_rect(tl_m.xy(), enemy_min, enemy_max) ||
+                    hm::in_rect(tr_m.xy(), enemy_min, enemy_max) || hm::in_rect(br_m.xy(), enemy_min, enemy_max)) {
 
                     BitmapMeta ex_meta = get_first_bitmap_meta(state->assets, AssetGroupId_Explosion);
                     Entity* explosion = state->explosions.push();
@@ -459,29 +462,29 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    // renderer->render(&group, app_input->client_width, app_input->client_height);
+    renderer->render(&group, client_width, client_height);
 
-    UI_Begin();
-
-    UI_PushWindow("Window 1", 50.0f, 50.0f, 500.0f, 500.0f);
-    if (UI_Button("Button 1")) {
-        printf("Button 1 was clicked!\n");
+    UI_Begin(&app_input->input.mouse, client_width, client_height);
+    UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };
+    UI_SetLayout(layout);
+    UI_Window("Window 1", 0.0f, 0.0f) {
+        if (UI_Button("Button 1").is_released) {
+            printf("Button 1 was clicked!\n");
+        }
+        if (UI_Button("Button 2").is_released) {
+            printf("Button 2 was clicked!\n");
+        }
     }
-    if (UI_Button("Button 2")) {
-        printf("Button 2 was clicked!\n");
-    }
-    UI_PopWindow();
-
     UI_End();
 
     RenderGroup ui_render_group{};
     ui_render_group.push_buffer_size = 0;
     ui_render_group.max_push_buffer_size = MegaBytes(4);
     ui_render_group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-    ui_render_group.screen_width = app_input->client_width;
-    ui_render_group.screen_height = app_input->client_height;
+    ui_render_group.screen_width = client_width;
+    ui_render_group.screen_height = client_height;
     UI_Generate_Render_Commands(&ui_render_group);
-    renderer->render(&ui_render_group, app_input->client_width, app_input->client_height);
+    renderer->render(&ui_render_group, client_width, client_height);
 }
 
 ENGINE_LOAD(load) {

@@ -4,7 +4,7 @@
 
 #include "memory.h"
 
-void debug_set_memory(void* memory, u64 size) {
+void clear_memory(void* memory, u64 size) {
     assert(size % 4 == 0);
     memset(memory, 0, size);
 }
