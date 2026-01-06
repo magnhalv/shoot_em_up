@@ -117,3 +117,5 @@ set_target_properties(win32_software_renderer PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
 )
 
+
+add_compile_definitions(_CRT_SECURE_NO_WARNINGS)

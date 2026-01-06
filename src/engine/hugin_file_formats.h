@@ -14,7 +14,7 @@ struct AudioId {
     u32 value;
 };
 
-struct SoundId {
+struct FontId {
     u32 value;
 };
 #pragma pack(pop)
@@ -33,10 +33,19 @@ enum AssetGroupId : u32 {
     AssetGroupId_Audio_Laser,
     AssetGroupId_Audio_Explosion,
 
+    // Fonts
+    AssetGroupId_Fonts_Ubuntu,
+
     AssetGroupId_Count
 };
 
-enum AssetType { AssetType_Invalid = 0, AssetType_Audio, AssetType_Bitmap };
+enum AssetType {
+    AssetType_Invalid = 0, //
+    AssetType_Audio,
+    AssetType_Bitmap,
+    AssetType_Font,
+    AssetType_Count
+};
 
 enum AssetTagId {
     AssetTag_SpaceShipDirection = 0, //
@@ -59,6 +68,23 @@ struct AssetGroup {
     u32 one_past_last_asset_tag_index;
 };
 
+struct CodePoint {
+    u16 x0, y0, x1, y1;
+    f32 xoff, yoff, xadvance;
+};
+
+struct FontMeta {
+    i32 code_point_count;
+    i32 code_point_first;
+    i32 code_point_last;
+
+    f32 font_height;
+
+    i32 bitmap_width;
+    i32 bitmap_height;
+    i32 bitmap_size_per_pixel;
+};
+
 struct BitmapMeta {
     u32 dim[2];
     vec2 align_percentage;
@@ -75,6 +101,7 @@ struct AssetMeta {
     union {
         BitmapMeta bitmap;
         AudioMeta audio;
+        FontMeta font;
     };
 };
 

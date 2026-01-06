@@ -30,14 +30,17 @@ static PLATFORM_WORK_QUEUE_CALLBACK(load_asset_work) {
     HM_ASSERT(Queue);
     if (work->asset->asset_memory->asset_type == AssetType_Bitmap) {
         Platform->read_file(&work->handle, work->offset, work->size, work->asset->asset_memory->bitmap.data);
-        // u32* data = (u32*)work->asset->asset_memory->bitmap.data;
         work->asset->state = AssetState_Loaded;
     }
     if (work->asset->asset_memory->asset_type == AssetType_Audio) {
         Platform->read_file(&work->handle, work->offset, work->size, work->asset->asset_memory->audio.data);
-        // u32* data = (u32*)work->asset->asset_memory->audio.data;
         work->asset->state = AssetState_Loaded;
-        printf("Loaded audio!\n");
+    }
+    if (work->asset->asset_memory->asset_type == AssetType_Font) {
+        // Bitmap lies right behind the codepoints in memory, so it gets loaded here as well.
+        Platform->read_file(&work->handle, work->offset, work->size, work->asset->asset_memory->font.code_points);
+        work->asset->state = AssetState_Loaded;
+        printf("Loaded font!\n");
     }
     end_task(work->task);
 }
@@ -59,6 +62,22 @@ auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap* {
     }
     else {
         load_bitmap(game_assets, id);
+    }
+
+    return result;
+}
+
+auto get_font(GameAssets* game_assets, FontId id) -> LoadedFont* {
+    LoadedFont* result = nullptr;
+
+    Assert(id.value < game_assets->asset_count);
+    Asset* asset = game_assets->assets + id.value;
+
+    if (asset->state == AssetState_Loaded) {
+        result = &asset->asset_memory->font;
+    }
+    else {
+        load_font(game_assets, id);
     }
 
     return result;
@@ -103,6 +122,58 @@ auto load_bitmap(GameAssets* game_assets, BitmapId id) -> void {
             asset->asset_memory->bitmap.align_percentage = meta->bitmap.align_percentage;
             auto size = meta->bitmap.dim[0] * meta->bitmap.dim[1] * BitmapBytePerPixel;
             asset->asset_memory->bitmap.data = allocate<u8>(game_assets->memory, size);
+
+            LoadAssetWork* work = allocate<LoadAssetWork>(task->memory);
+            work->size = size;
+            work->offset = meta->data_offset;
+            work->asset = asset;
+            work->task = task;
+            Assert(game_assets->asset_files[0].platform != nullptr);
+            work->handle = game_assets->asset_files[asset->asset_file_index];
+            assert(Platform->add_work_queue_entry != nullptr);
+            Platform->add_work_queue_entry(Task_System->queue, load_asset_work, work);
+            asset->state = AssetState_Queued;
+        }
+        else {
+            printf("No tasks available!\n");
+        }
+    }
+}
+
+auto load_font(GameAssets* game_assets, FontId id) -> void {
+    if (game_assets->asset_files_count == 0) {
+        return;
+    }
+    Assert(game_assets->is_initialized);
+    Assert(id.value < game_assets->asset_count);
+    AssetMeta* meta = game_assets->assets_meta + id.value;
+    Asset* asset = game_assets->assets + id.value;
+
+    if (asset->state == AssetState_Unloaded) {
+        TaskWithMemory* task = begin_task(Task_System);
+
+        if (task) {
+            Assert(asset->asset_memory == NULL);
+            asset->asset_memory = allocate<AssetMemoryHeader>(game_assets->memory);
+
+            asset->asset_memory->asset_type = AssetType_Font;
+            asset->asset_memory->font.bitmap_width = meta->font.bitmap_width;
+            asset->asset_memory->font.bitmap_height = meta->font.bitmap_height;
+            asset->asset_memory->font.bitmap_size_per_pixel = meta->font.bitmap_size_per_pixel;
+
+            asset->asset_memory->font.font_height = meta->font.font_height;
+
+            asset->asset_memory->font.code_point_first = meta->font.code_point_first;
+            asset->asset_memory->font.code_point_last = meta->font.code_point_last;
+            asset->asset_memory->font.code_point_count = meta->font.code_point_count;
+
+            const u64 bitmap_size = meta->font.bitmap_width * meta->font.bitmap_height * meta->font.bitmap_size_per_pixel;
+            const u64 code_points_size = meta->font.code_point_count * sizeof(CodePoint);
+            const u64 size = code_points_size + bitmap_size;
+
+            u8* buffer = allocate<u8>(game_assets->memory, code_points_size + bitmap_size);
+            asset->asset_memory->font.code_points = (CodePoint*)buffer;
+            asset->asset_memory->font.bitmap = buffer + code_points_size;
 
             LoadAssetWork* work = allocate<LoadAssetWork>(task->memory);
             work->size = size;
@@ -310,4 +381,15 @@ auto get_first_bitmap_meta(GameAssets* game_assets, AssetGroupId asset_group_id)
 
     auto* meta = game_assets->assets_meta + id;
     return meta->bitmap;
+}
+
+auto get_first_font_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> FontId {
+    u32 result = 0;
+
+    AssetGroup* group = game_assets->asset_groups + asset_group_id;
+    if (group->first_asset_index < group->one_past_last_asset_index) {
+        result = group->first_asset_index;
+    }
+
+    return FontId{ result };
 }

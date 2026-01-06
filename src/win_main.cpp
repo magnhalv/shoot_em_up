@@ -20,6 +20,8 @@
 #include "platform/platform.h"
 #include "win_main.hpp"
 
+#include <core/lib.cpp>
+
 ////////////////// GLOBALS ///////////////////////////////
 
 bool global_is_running = true;

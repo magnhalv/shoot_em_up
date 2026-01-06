@@ -4,7 +4,7 @@ run: build
 
 [working-directory: 'data']
 assets-build: build
-  ../cmake-build/asset_builder.exe
+  time ../cmake-build/asset_builder.exe
   
 gen: env
   ./scripts/generate.bat
@@ -13,7 +13,7 @@ env:
   ./scripts/env.bat
 
 build: env
-  ./scripts/build.bat
+  time ./scripts/build.bat
 
 test: env
   cmake --build cmake-build --target tests

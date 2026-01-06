@@ -13,22 +13,14 @@ include_directories(src/deps)
 add_executable(
   shoot_em_up
   src/win_main.cpp
-
-  src/core/memory.cpp
-  src/core/memory_arena.cpp
-  src/core/logger.cpp
  )
 
 add_executable(
   asset_builder
   src/asset_builder_main.cpp
-
-  src/core/memory.cpp
-  src/core/memory_arena.cpp
-  src/core/logger.cpp
-
-  src/deps/libs.cpp
 )
+
+
 
 # This needs to be after the linking of opengl, otherwise we get linking issues against glad
 # Something related to assimp.
@@ -41,3 +33,5 @@ add_custom_command(
   "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json"
   "${CMAKE_SOURCE_DIR}/compile_commands.json"
 )
+
+add_compile_definitions(_CRT_SECURE_NO_WARNINGS)

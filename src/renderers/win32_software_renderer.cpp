@@ -291,6 +291,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     f32 w01 = (1.0f - u_frac) * (v_frac);
                     f32 w11 = (u_frac) * (v_frac);
 
+                    // TODO: This must be gamme corrected, otherwise it will be too dark.
                     f32 r = ch(texel00, 16) * w00 + ch(texel10, 16) * w10 + ch(texel01, 16) * w01 + ch(texel11, 16) * w11;
                     f32 g = ch(texel00, 8) * w00 + ch(texel10, 8) * w10 + ch(texel01, 8) * w01 + ch(texel11, 8) * w11;
                     f32 b = ch(texel00, 0) * w00 + ch(texel10, 0) * w10 + ch(texel01, 0) * w01 + ch(texel11, 0) * w11;
@@ -321,13 +322,12 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     Win32Texture* null_texture = &state.textures[0];
     null_texture->height = 1;
     null_texture->width = 1;
-    null_texture->data = allocate<u32>(state.permanent);
-    u32* data = (u32*)null_texture->data;
-    *data = pack_f32_color_to_u32(255.0f, 0.0f, 0.0f, 1.0f);
-
     null_texture->count = 1;
     null_texture->size = sizeof(u32);
     null_texture->bytes_per_pixel = sizeof(u32);
+    null_texture->data = allocate<u32>(state.permanent);
+    u32* data = (u32*)null_texture->data;
+    *data = pack_f32_color_to_u32(255.0f, 0.0f, 0.0f, 1.0f);
 
     log_info("Software renderer ready to go.\n");
 }
@@ -348,7 +348,7 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     if (texture->data == nullptr) {
         texture->height = height;
         texture->width = width;
-        texture->bytes_per_pixel = 4;
+        texture->bytes_per_pixel = bytes_per_pixel;
         texture->size = width * height * texture->bytes_per_pixel;
         texture->count = width * height;
         texture->pitch = width * texture->bytes_per_pixel;

@@ -1,14 +1,35 @@
-#include "core/memory.h"
-#include "engine/hm_assert.h"
-#include <cstdio>
-#include <libs/stb/stb_image.h>
-
 #include <platform/types.h>
+
+#include <cstdio>
+
+#include <core/memory.h>
+#include <core/util.hpp>
+#include <engine/hm_assert.h>
 
 #include <engine/assets.h>
 #include <engine/hugin_file_formats.h>
 
 #include <math/vec2.h>
+
+#include <core/lib.cpp>
+#include <third-party/stb_image.cpp>
+#include <third-party/stb_image_write.cpp>
+#include <third-party/stb_truetype.cpp>
+
+auto read_whole_file(const char* path) -> u8* {
+    FILE* file = fopen(path, "rb");
+    if (!file) {
+        printf("Unable to open file: %s\n", path);
+        InvalidCodePath;
+    }
+    fseek(file, 0, SEEK_END);
+    size_t size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    u8* buffer = (uint8_t*)malloc(size);
+    fread(buffer, 1, size, file);
+    return buffer;
+}
 
 // Temp structures used for writing
 struct AssetSourceBitmap {
@@ -20,11 +41,16 @@ struct AssetSourceSound {
     u32 first_sample_index;
 };
 
+struct AssetSourceFont {
+    const char* file_name;
+};
+
 struct AssetSource {
     AssetType type;
     union {
         AssetSourceBitmap bitmap;
         AssetSourceSound sound;
+        AssetSourceFont font;
     };
 };
 
@@ -117,6 +143,60 @@ struct Bitmap {
     void* data;
 };
 
+struct Font {
+    i32 code_point_count;
+    i32 first_code_point;
+    i32 last_code_point;
+    CodePoint* code_points;
+
+    f32 font_height;
+    i32 bitmap_width;
+    i32 bitmap_height;
+    i32 bitmap_bytes_per_pixel;
+    u8* bitmap;
+};
+
+auto load_font(const char* path) -> Font {
+    Font result = {};
+    u8* file_content = read_whole_file(path);
+
+    result.bitmap_width = 512;
+    result.bitmap_height = 256;
+    result.bitmap_bytes_per_pixel = sizeof(u8);
+    result.bitmap = (u8*)malloc(result.bitmap_width * result.bitmap_height);
+
+    result.first_code_point = 32;
+    result.last_code_point = 255;
+    result.code_point_count = result.last_code_point - result.first_code_point;
+    result.font_height = 32.0f;
+
+    result.code_points = (CodePoint*)malloc(result.code_point_count * sizeof(CodePoint));
+    stbtt_bakedchar* cdata = (stbtt_bakedchar*)malloc(result.code_point_count * sizeof(stbtt_bakedchar));
+
+    stbtt_BakeFontBitmap(file_content, 0, 32.0,                   //
+        result.bitmap, result.bitmap_width, result.bitmap_height, //
+        result.first_code_point, result.code_point_count,         //
+        cdata);                                                   // no guarantee this fits!
+
+    for (i32 i = 0; i < result.code_point_count; i++) {
+        result.code_points[i].x0 = cdata[i].x0;
+        result.code_points[i].y0 = cdata[i].y0;
+        result.code_points[i].x1 = cdata[i].x1;
+        result.code_points[i].y1 = cdata[i].y1;
+        result.code_points[i].xoff = cdata[i].xoff;
+        result.code_points[i].yoff = cdata[i].yoff;
+        result.code_points[i].xadvance = cdata[i].xadvance;
+    }
+
+    stbi_write_png("font_bitmap.png", result.bitmap_width, result.bitmap_height, result.bitmap_bytes_per_pixel,
+        result.bitmap, result.bitmap_width);
+
+    free(file_content);
+    free(cdata);
+
+    return result;
+}
+
 auto load_bitmap_stbi(const char* path) -> Bitmap {
     Bitmap result;
     i32 num_channels;
@@ -192,6 +272,16 @@ static void begin_asset_group(GameAssetsWrite* assets, AssetGroupId group_id) {
     assets->current_asset_group->one_past_last_asset_tag_index = assets->asset_tag_count;
 }
 
+static auto end_asset_group(GameAssetsWrite* assets) -> void {
+    Assert(assets->current_asset_group);
+    assets->asset_count = assets->current_asset_group->one_past_last_asset_index;
+    assets->asset_tag_count = assets->current_asset_group->one_past_last_asset_tag_index;
+    assets->current_asset_group = 0;
+    assets->curr_asset_index = 0;
+}
+
+#define AddAssetGroup(assets, group_id) DeferLoop(begin_asset_group(assets, group_id), end_asset_group(assets))
+
 struct AddedAsset {
     u32 id;
     AssetMeta* hugin_asset;
@@ -235,6 +325,14 @@ static auto add_audio_asset(GameAssetsWrite* assets, const char* file_name) -> A
     return AudioId{ asset.id };
 }
 
+static auto add_font_asset(GameAssetsWrite* assets, const char* file_name) -> FontId {
+    AddedAsset asset = add_asset(assets);
+    asset.source->type = AssetType_Font;
+    asset.source->font.file_name = file_name;
+
+    return FontId{ asset.id };
+}
+
 static auto add_tag(GameAssetsWrite* assets, AssetTagId tag_id, f32 value) -> void {
     u32 tag_index = assets->current_asset_group->one_past_last_asset_tag_index++;
     Assert(tag_index < MAX_TAGS_COUNT);
@@ -242,14 +340,6 @@ static auto add_tag(GameAssetsWrite* assets, AssetTagId tag_id, f32 value) -> vo
     tag->id = tag_id;
     tag->value = value;
     tag->asset_index = assets->curr_asset_index;
-}
-
-static auto end_asset_group(GameAssetsWrite* assets) -> void {
-    Assert(assets->current_asset_group);
-    assets->asset_count = assets->current_asset_group->one_past_last_asset_index;
-    assets->asset_tag_count = assets->current_asset_group->one_past_last_asset_tag_index;
-    assets->current_asset_group = 0;
-    assets->curr_asset_index = 0;
 }
 
 static auto initialize(GameAssetsWrite* assets) -> void {
@@ -294,30 +384,51 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
         fseek(out, header.assets_block, SEEK_SET);
         for (u32 asset_idx = 1; asset_idx < header.asset_count; asset_idx++) {
             AssetSource* source = assets->asset_sources + asset_idx;
-            AssetMeta* dest = assets->assets_meta + asset_idx;
+            AssetMeta* meta = assets->assets_meta + asset_idx;
 
-            dest->data_offset = ftell(out);
+            meta->data_offset = ftell(out);
 
-            if (source->type == AssetType_Bitmap) {
+            switch (source->type) {
+            case AssetType_Bitmap: {
                 Bitmap bitmap = load_bitmap_stbi(source->bitmap.file_name);
-                dest->bitmap.dim[0] = bitmap.width;
-                dest->bitmap.dim[1] = bitmap.height;
+                meta->bitmap.dim[0] = bitmap.width;
+                meta->bitmap.dim[1] = bitmap.height;
 
                 Assert((bitmap.width * 4) == bitmap.pitch);
                 fwrite(bitmap.data, bitmap.pitch * bitmap.height, 1, out);
 
                 free(bitmap.data);
-            }
-            else if (source->type == AssetType_Audio) {
+            } break;
+            case AssetType_Audio: {
                 WavFile wav_file = load_wav_file(source->sound.file_name);
                 auto sample_count = wav_file.data_chunk.data_size / (wav_file.fmt_chunk.sample_byte_count);
-                dest->audio.sample_count = sample_count;
-                dest->audio.channel_count = wav_file.fmt_chunk.channel_count;
-                dest->audio.chain = 0;
+                meta->audio.sample_count = sample_count;
+                meta->audio.channel_count = wav_file.fmt_chunk.channel_count;
+                meta->audio.chain = 0;
 
                 fwrite(wav_file.data, sizeof(u8) * wav_file.data_chunk.data_size, 1, out);
 
                 free(wav_file.data);
+            } break;
+            case AssetType_Font: {
+                Font font = load_font(source->font.file_name);
+                meta->font.code_point_first = font.first_code_point;
+                meta->font.code_point_last = font.last_code_point;
+                meta->font.code_point_count = font.code_point_count;
+
+                meta->font.bitmap_width = font.bitmap_width;
+                meta->font.bitmap_height = font.bitmap_height;
+                meta->font.bitmap_size_per_pixel = font.bitmap_bytes_per_pixel;
+                meta->font.font_height = font.font_height;
+
+                fwrite(font.code_points, sizeof(CodePoint), font.code_point_count, out);
+                fwrite(font.bitmap, font.bitmap_bytes_per_pixel, font.bitmap_width * font.bitmap_height, out);
+
+            } break;
+            case AssetType_Invalid:
+            case AssetType_Count: {
+                InvalidCodePath;
+            }
             }
         }
 
@@ -336,14 +447,14 @@ static auto write_bitmaps() -> void {
 
     initialize(assets);
 
-    begin_asset_group(assets, AssetGroupId_PlayerSpaceShip);
-    add_bitmap_asset(assets, "assets/bitmaps/player_1.png");
-    add_tag(assets, AssetTag_SpaceShipDirection, 0.0);
-    add_bitmap_asset(assets, "assets/bitmaps/player_left-1.png");
-    add_tag(assets, AssetTag_SpaceShipDirection, -1.0);
-    add_bitmap_asset(assets, "assets/bitmaps/player_right-1.png");
-    add_tag(assets, AssetTag_SpaceShipDirection, 1.0);
-    end_asset_group(assets);
+    AddAssetGroup(assets, AssetGroupId_PlayerSpaceShip) {
+        add_bitmap_asset(assets, "assets/bitmaps/player_1.png");
+        add_tag(assets, AssetTag_SpaceShipDirection, 0.0);
+        add_bitmap_asset(assets, "assets/bitmaps/player_left-1.png");
+        add_tag(assets, AssetTag_SpaceShipDirection, -1.0);
+        add_bitmap_asset(assets, "assets/bitmaps/player_right-1.png");
+        add_tag(assets, AssetTag_SpaceShipDirection, 1.0);
+    }
 
     begin_asset_group(assets, AssetGroupId_EnemySpaceShip);
     add_bitmap_asset(assets, "assets/bitmaps/blue_01.png");
@@ -357,24 +468,28 @@ static auto write_bitmaps() -> void {
     add_bitmap_asset(assets, "assets/bitmaps/test.png");
     end_asset_group(assets);
 
-    begin_asset_group(assets, AssetGroupId_Explosion);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-1.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 0.0);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-2.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 1.0 / 7.0);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-3.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 2.0 / 7.0);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-4.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 3.0 / 7.0);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-5.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 4.0 / 7.0);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-6.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 5.0 / 7.0);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-7.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 6.0 / 7.0);
-    add_bitmap_asset(assets, "assets/bitmaps/explosion-8.png");
-    add_tag(assets, AssetTag_ExplosionProgress, 7.0 / 7.0);
-    end_asset_group(assets);
+    AddAssetGroup(assets, AssetGroupId_Explosion) {
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-1.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 0.0);
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-2.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 1.0 / 7.0);
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-3.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 2.0 / 7.0);
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-4.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 3.0 / 7.0);
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-5.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 4.0 / 7.0);
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-6.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 5.0 / 7.0);
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-7.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 6.0 / 7.0);
+        add_bitmap_asset(assets, "assets/bitmaps/explosion-8.png");
+        add_tag(assets, AssetTag_ExplosionProgress, 7.0 / 7.0);
+    }
+
+    AddAssetGroup(assets, AssetGroupId_Fonts_Ubuntu) {
+        add_font_asset(assets, "assets/fonts/ubuntu/Ubuntu-Medium.ttf");
+    }
 
     write_asset_file(assets, "bitmaps.haf");
 }

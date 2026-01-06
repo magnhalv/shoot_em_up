@@ -29,6 +29,20 @@ struct LoadedAudio {
     void* data;
 };
 
+struct LoadedFont {
+    i32 code_point_first;
+    i32 code_point_last;
+    i32 code_point_count;
+    CodePoint* code_points;
+
+    f32 font_height;
+
+    i32 bitmap_width;
+    i32 bitmap_height;
+    i32 bitmap_size_per_pixel;
+    void* bitmap;
+};
+
 enum AssetState {
     AssetState_Unloaded = 0,
     AssetState_Queued,
@@ -40,6 +54,7 @@ struct AssetMemoryHeader {
     union {
         LoadedBitmap bitmap;
         LoadedAudio audio;
+        LoadedFont font;
     };
 };
 
@@ -73,11 +88,14 @@ auto initialize_game_assets(MemoryArena* arena) -> GameAssets*;
 auto get_bitmap_meta(GameAssets* game_assets, BitmapId id) -> BitmapMeta;
 auto get_bitmap(GameAssets* game_assets, BitmapId id) -> LoadedBitmap*;
 auto get_audio(GameAssets* game_assets, AudioId id) -> LoadedAudio*;
+auto get_font(GameAssets* game_assets, FontId id) -> LoadedFont*;
 
 auto load_bitmap(GameAssets* game_assets, BitmapId id) -> void;
 auto load_audio(GameAssets* game_assets, AudioId id) -> void;
+auto load_font(GameAssets* game_assets, FontId id) -> void;
 
 auto get_first_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapId;
 auto get_closest_bitmap_id(GameAssets* game_assets, AssetGroupId asset_group_id, AssetTagId tag_id, f32 value) -> BitmapId;
 auto get_first_bitmap_meta(GameAssets* game_assets, AssetGroupId asset_group_id) -> BitmapMeta;
 auto get_first_audio(GameAssets* game_assets, AssetGroupId asset_group_id) -> AudioId;
+auto get_first_font_id(GameAssets* game_assets, AssetGroupId asset_group_id) -> FontId;

@@ -1,4 +1,3 @@
-
 #include <cmath>
 #include <cstdio>
 
@@ -464,6 +463,11 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     renderer->render(&group, client_width, client_height);
 
+    auto font_id = get_first_font_id(state->assets, AssetGroupId_Fonts_Ubuntu);
+    LoadedFont* font = get_font(state->assets, font_id);
+    if (font) {
+        printf("We got the font!\n");
+    }
     UI_Begin(&app_input->input.mouse, client_width, client_height);
     UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };
     UI_SetLayout(layout);

@@ -342,6 +342,7 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     }
 
     u32* texture = &state.texture_handles[bitmap_id.value];
+    // TODO: Handle 1 byte textures!
     if (*texture == 0) {
         glGenTextures(1, texture);
         glBindTexture(GL_TEXTURE_2D, *texture);

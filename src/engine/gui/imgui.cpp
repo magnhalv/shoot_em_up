@@ -253,9 +253,9 @@ auto UI_PopWindow() -> void {
     state->parent = nullptr;
 }
 
-const vec4 Button_Color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
-const vec4 Hover_Button_Color = vec4(127.0f, 127.0f, 0.0f, 255.0f);
-const vec4 Clicked_Button_Color = vec4(127.0f, 127.0f, 127.0f, 255.0f);
+const vec4 Button_Color = vec4(1.0f, 50.0f, 90.0f, 255.0f);
+const vec4 Hover_Button_Color = vec4(10.0f, 60.0f, 100.0f, 255.0f);
+const vec4 Clicked_Button_Color = vec4(20.0f, 70.0f, 120.0f, 255.0f);
 
 auto UI_Button(string8 text) -> UI_Entity_Status {
     UI_Entity* button = allocate<UI_Entity>(frame_arena, 1);
