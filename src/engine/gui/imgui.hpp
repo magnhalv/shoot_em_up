@@ -6,6 +6,9 @@
 #include <core/string8.hpp>
 #include <core/util.hpp>
 
+#include <engine/assets.h>
+#include <engine/list.h>
+
 #include <renderers/renderer.h>
 
 enum LayoutDirection { LayoutDirection_TopToBottom = -1, LayoutDirection_BottomToTop = 1 };
@@ -46,10 +49,10 @@ struct UI_Size {
 };
 
 struct UI_Entity_Status {
-    bool is_hovered;
-    bool is_active;
-    bool is_released;
-    bool is_pressed;
+    bool hovered;
+    bool active;
+    bool clicked;
+    bool pressed;
 };
 
 struct UI_Entity {
@@ -72,6 +75,8 @@ struct UI_Entity {
 
     RectangleF32 rect;
 
+    List<CodePoint> text;
+
     vec4 background_color;
 };
 
@@ -79,6 +84,7 @@ auto UI_Initialize(MemoryArena* arena) -> void;
 auto UI_Begin(Mouse* mouse, i32 client_width, i32 client_height) -> void;
 auto UI_End() -> void;
 auto UI_SetLayout(UI_Layout layout) -> void;
+auto UI_SetFont(i32 texture_id, LoadedFont* font) -> void;
 
 auto UI_PushWindow(string8 text, f32 x = 0, f32 y = 0, f32 width = 0, f32 height = 0) -> void;
 auto UI_PopWindow() -> void;

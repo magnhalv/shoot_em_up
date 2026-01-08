@@ -58,7 +58,9 @@ typedef struct {
     vec2 offset;
     f32 rotation;
     vec2 scale;
-    BitmapId bitmap_handle;
+    i32 texture_id;
+    ivec2 uv_min;
+    ivec2 uv_max;
 } RenderEntryBitmap;
 
 struct RenderGroup {
@@ -96,7 +98,7 @@ const i32 MaxTextureId = 1024;
 #define RENDERER_INIT(name) void name(void* context, MemoryBlock* memory)
 typedef RENDERER_INIT(renderer_init_fn);
 
-#define RENDERER_ADD_TEXTURE(name) bool name(BitmapId bitmap_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
+#define RENDERER_ADD_TEXTURE(name) bool name(i32 texture_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 
 #define RENDERER_RENDER(name) void name(RenderGroup* group, i32 client_width, i32 client_height)

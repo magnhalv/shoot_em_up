@@ -109,7 +109,7 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
     glBindVertexArray(0);
 }
 
-static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, BitmapId bitmap_id,
+static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
     i32 screen_width, i32 screen_height) {
     vec3 bl = vec3(quad.bl, 0.0f);
     vec3 tl = vec3(quad.tl, 0.0f);
@@ -141,7 +141,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
       to_gl_x(tl.x, screen_width), to_gl_y(tl.y, screen_height), 0.0f,   color.r, color.g, color.b, color.a,  0.0f, 1.0f   // top left
         // clang-format on
     };
-    u32* texture = &state.texture_handles[bitmap_id.value];
+    u32* texture = &state.texture_handles[texture_id];
     HM_ASSERT(state.texture_vao != 0);
     HM_ASSERT(*texture != 0);
 
@@ -337,11 +337,11 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
-    if (bitmap_id.value >= MaxTextureId) {
+    if (texture_id >= MaxTextureId) {
         InvalidCodePath;
     }
 
-    u32* texture = &state.texture_handles[bitmap_id.value];
+    u32* texture = &state.texture_handles[texture_id];
     // TODO: Handle 1 byte textures!
     if (*texture == 0) {
         glGenTextures(1, texture);
@@ -384,7 +384,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->bitmap_handle,
+            draw_bitmap(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
                 group->screen_width, group->screen_height);
 
             base_address += sizeof(*entry);

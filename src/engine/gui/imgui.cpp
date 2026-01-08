@@ -23,13 +23,38 @@ MemoryArena* prev_frame_arena = nullptr;
 
 UI_State* state;
 UI_State* prev_state;
+LoadedFont* g_font;
+i32 g_texture_id;
 
 const i32 padd_and_margin = 10;
+
+auto UI_GetCodePointsTotalLength(List<CodePoint>* code_points) -> f32 {
+    f32 result = 0.0f;
+    for (const auto& cp : *code_points) {
+        result += cp.xadvance;
+    }
+    return result;
+}
+
+auto UI_GetCodePoints(string8 str, LoadedFont* font, MemoryArena* arena) -> List<CodePoint> {
+    List<CodePoint> result;
+    result.init(arena, str.length);
+    for (u32 i = 0; i < str.length; i++) {
+        i32 code_point_idx = (i32)str.data[i] - font->code_point_first;
+        result.push(font->code_points[code_point_idx]);
+    }
+    return result;
+}
 
 auto UI_Initialize(MemoryArena* arena) -> void {
     frame_arena = arena->allocate_arena(MegaBytes(1));
     state = allocate<UI_State>(frame_arena);
     prev_frame_arena = arena->allocate_arena(MegaBytes(1));
+}
+
+auto UI_SetFont(i32 texture_id, LoadedFont* font) -> void {
+    g_texture_id = texture_id;
+    g_font = font;
 }
 
 auto UI_is_inside(i32 mouse_x, i32 mouse_y, UI_Entity* entity) -> bool {
@@ -157,29 +182,61 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
 
         f32 x = entity->computed_rel_position[Axis2_X];
         f32 y = entity->computed_rel_position[Axis2_Y];
-        f32 width = entity->computed_size[Axis2_X];
-        f32 height = entity->computed_size[Axis2_Y];
+        f32 el_width = entity->computed_size[Axis2_X];
+        f32 el_height = entity->computed_size[Axis2_Y];
+        {
 
-        if (state->layout.layout_direction == LayoutDirection_BottomToTop) {
-            entity->rect.bl = vec2(x, y);
-            entity->rect.tr = vec2(x + width, y + height);
-        }
-        else {
-            entity->rect.bl = vec2(x, y - height);
-            entity->rect.tr = vec2(x + width, y);
+            if (state->layout.layout_direction == LayoutDirection_BottomToTop) {
+                entity->rect.bl = vec2(x, y);
+                entity->rect.tr = vec2(x + el_width, y + el_height);
+            }
+            else {
+                entity->rect.bl = vec2(x, y - el_height);
+                entity->rect.tr = vec2(x + el_width, y);
+            }
+
+            vec2 bl = entity->rect.bl;
+            vec2 tr = entity->rect.tr;
+            vec2 tl = vec2(bl.x, tr.y);
+            vec2 br = vec2(tr.x, bl.y);
+            auto* rendel_el = PushRenderElement(render_group, RenderEntryBitmap);
+            rendel_el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
+            rendel_el->offset = vec2(x + el_width / 2, y - el_height / 2);
+            rendel_el->scale = vec2(el_width, el_height);
+            rendel_el->rotation = 0;
+            rendel_el->texture_id = 0;
+            rendel_el->color = entity->background_color;
         }
 
-        vec2 bl = entity->rect.bl;
-        vec2 tr = entity->rect.tr;
-        vec2 tl = vec2(bl.x, tr.y);
-        vec2 br = vec2(tr.x, bl.y);
-        auto* rendel_el = PushRenderElement(render_group, RenderEntryBitmap);
-        rendel_el->quad = { .bl = bl, .tl = tl, .tr = tr, .br = br };
-        rendel_el->offset = vec2(0.0f, 0.0f);
-        rendel_el->scale = vec2(1.0, 1.0);
-        rendel_el->rotation = 0;
-        rendel_el->bitmap_handle = BitmapId{ 0 };
-        rendel_el->color = entity->background_color;
+        f32 padding_y = entity->padding[UI_Direction_Down];
+        f32 padding_x = entity->padding[UI_Direction_Left];
+        f32 advance = x + padding_x;
+        for (const CodePoint& cp : entity->text) {
+
+            ivec2 uv_min = ivec2(cp.x0 - 1, g_font->bitmap_height - cp.y0 - 1);
+            ivec2 uv_max = ivec2(cp.x1 - 1, g_font->bitmap_height - cp.y1 - 1);
+            i32 width = uv_max.x - uv_min.x;
+            i32 height = uv_min.y - uv_max.y; // TODO: Need to revert this shit
+
+            if (width == 0 && height == 0) {
+                // Space
+                advance += 8;
+                continue;
+            }
+
+            auto* el = PushRenderElement(render_group, RenderEntryBitmap);
+            el->uv_min = uv_min;
+            el->uv_max = uv_max;
+            el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
+            el->offset = vec2(advance + width / 2.0f, y + height / 2.0f - (g_font->font_height / 2) - padding_y);
+            el->scale = vec2((f32)width, (f32)height);
+
+            el->rotation = 0.0f;
+            el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+            el->texture_id = g_texture_id;
+
+            advance += cp.xadvance;
+        }
 
         if (entity->right) {
             entity = entity->right;
@@ -279,9 +336,21 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
         }
     }
 
+    button->text = UI_GetCodePoints(text, g_font, frame_arena);
+
+    button->margin[UI_Direction_Up] = padd_and_margin;
+    button->margin[UI_Direction_Right] = padd_and_margin;
+    button->margin[UI_Direction_Down] = padd_and_margin;
+    button->margin[UI_Direction_Left] = padd_and_margin;
+
+    button->padding[UI_Direction_Up] = padd_and_margin;
+    button->padding[UI_Direction_Right] = padd_and_margin;
+    button->padding[UI_Direction_Down] = padd_and_margin;
+    button->padding[UI_Direction_Left] = padd_and_margin;
+
     button->semantic_size[Axis2_X] = {
         .kind = UI_SizeKind_Pixels,
-        .value = 200,
+        .value = UI_GetCodePointsTotalLength(&button->text) + button->padding[UI_Direction_Left] + button->padding[UI_Direction_Right],
         .strictness = 1.0f,
     };
     button->semantic_size[Axis2_Y] = {
@@ -289,11 +358,6 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
         .value = 100,
         .strictness = 1.0f,
     };
-
-    button->margin[UI_Direction_Up] = padd_and_margin;
-    button->margin[UI_Direction_Right] = padd_and_margin;
-    button->margin[UI_Direction_Down] = padd_and_margin;
-    button->margin[UI_Direction_Left] = padd_and_margin;
 
     const i32 y_dir = (i32)state->layout.layout_direction;
     // Maybe make this a post pass step?
@@ -310,7 +374,7 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
     }
 
     if (state->clicked_item == button->id) {
-        result.is_released = true;
+        result.clicked = true;
     }
 
     if (state->hot_item == button->id) {

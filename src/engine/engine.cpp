@@ -357,13 +357,15 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
         f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
+        state->player.rotation += app_input->dt;
+        state->player.P = vec2(100.0f, 24);
         auto bitmap_id = get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
         auto bitmap = get_bitmap(state->assets, bitmap_id);
         if (bitmap) {
             i32 width = bitmap->width;
             i32 height = bitmap->height;
             void* data = bitmap->data;
-            renderer->add_texture(bitmap_id, data, width, height);
+            renderer->add_texture(bitmap_id.value, data, width, height, sizeof(u32));
 
             auto& player = state->player;
             auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
@@ -376,110 +378,92 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             render_bm->offset = player.P;
             render_bm->scale = player.scale;
             render_bm->rotation = player.rotation;
-            render_bm->bitmap_handle = bitmap_id;
+            render_bm->texture_id = bitmap_id.value;
         }
     }
 
-    {
-
-        auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_EnemySpaceShip);
-        auto bitmap = get_bitmap(state->assets, bitmap_id);
-
-        if (bitmap) {
-            i32 width = bitmap->width;
-            i32 height = bitmap->height;
-            void* data = bitmap->data;
-            renderer->add_texture(bitmap_id, data, width, height);
-
-            for (auto& enemy : state->enemies) {
-                auto* render_el = PushRenderElement(&group, RenderEntryBitmap);
-                render_el->quad = {
-                    .bl = enemy.vertices[0],
-                    .tl = enemy.vertices[1],
-                    .tr = enemy.vertices[2],
-                    .br = enemy.vertices[3],
-                };
-                render_el->offset = enemy.P;
-                render_el->scale = enemy.scale;
-                render_el->rotation = enemy.rotation;
-                render_el->bitmap_handle = bitmap_id;
-            }
-        }
-    }
-
-    {
-        if (state->player_projectiles.size() != 0) {
-            auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_Projectile);
-            auto bitmap = get_bitmap(state->assets, bitmap_id);
-            if (bitmap) {
-                i32 width = bitmap->width;
-                i32 height = bitmap->height;
-                void* data = bitmap->data;
-                renderer->add_texture(bitmap_id, data, width, height);
-            }
-            for (auto& proj : state->player_projectiles) {
-                if (bitmap) {
-                    auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
-                    rendel_el->quad = {
-                        .bl = proj.vertices[0],
-                        .tl = proj.vertices[1],
-                        .tr = proj.vertices[2],
-                        .br = proj.vertices[3],
-                    };
-                    rendel_el->offset = proj.P;
-                    rendel_el->scale = proj.scale;
-                    rendel_el->rotation = proj.rotation;
-                    rendel_el->bitmap_handle = bitmap_id;
-                }
-            }
-        }
-    }
-    {
-        if (state->explosions.size() != 0) {
-            for (auto& ex : state->explosions) {
-                auto bitmap_id =
-                    get_closest_bitmap_id(state->assets, AssetGroupId_Explosion, AssetTag_ExplosionProgress, ex.progress);
-                auto meta = get_bitmap_meta(state->assets, bitmap_id);
-                auto bbox = get_bbox(&meta);
-                auto bitmap = get_bitmap(state->assets, bitmap_id);
-
-                if (bitmap) {
-                    i32 width = bitmap->width;
-                    i32 height = bitmap->height;
-                    void* data = bitmap->data;
-                    renderer->add_texture(bitmap_id, data, width, height);
-                }
-                if (bitmap) {
-                    auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);
-                    rendel_el->quad = { .bl = bbox.bl, .tl = bbox.tl, .tr = bbox.tr, .br = bbox.br };
-                    rendel_el->offset = ex.P;
-                    rendel_el->scale = ex.scale;
-                    rendel_el->rotation = ex.rotation;
-                    rendel_el->bitmap_handle = bitmap_id;
-                }
-            }
-        }
-    }
+    /*{*/
+    /**/
+    /*    auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_EnemySpaceShip);*/
+    /*    auto bitmap = get_bitmap(state->assets, bitmap_id);*/
+    /**/
+    /*    if (bitmap) {*/
+    /*        i32 width = bitmap->width;*/
+    /*        i32 height = bitmap->height;*/
+    /*        void* data = bitmap->data;*/
+    /*        renderer->add_texture(bitmap_id.value, data, width, height, sizeof(u32));*/
+    /**/
+    /*        for (auto& enemy : state->enemies) {*/
+    /*            auto* render_el = PushRenderElement(&group, RenderEntryBitmap);*/
+    /*            render_el->quad = {*/
+    /*                .bl = enemy.vertices[0],*/
+    /*                .tl = enemy.vertices[1],*/
+    /*                .tr = enemy.vertices[2],*/
+    /*                .br = enemy.vertices[3],*/
+    /*            };*/
+    /*            render_el->offset = enemy.P;*/
+    /*            render_el->scale = enemy.scale;*/
+    /*            render_el->rotation = enemy.rotation;*/
+    /*            render_el->texture_id = bitmap_id.value;*/
+    /*        }*/
+    /*    }*/
+    /*}*/
+    /**/
+    /*{*/
+    /*    if (state->player_projectiles.size() != 0) {*/
+    /*        auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_Projectile);*/
+    /*        auto bitmap = get_bitmap(state->assets, bitmap_id);*/
+    /*        if (bitmap) {*/
+    /*            i32 width = bitmap->width;*/
+    /*            i32 height = bitmap->height;*/
+    /*            void* data = bitmap->data;*/
+    /*            renderer->add_texture(bitmap_id.value, data, width, height, sizeof(u32));*/
+    /*        }*/
+    /*        for (auto& proj : state->player_projectiles) {*/
+    /*            if (bitmap) {*/
+    /*                auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);*/
+    /*                rendel_el->quad = {*/
+    /*                    .bl = proj.vertices[0],*/
+    /*                    .tl = proj.vertices[1],*/
+    /*                    .tr = proj.vertices[2],*/
+    /*                    .br = proj.vertices[3],*/
+    /*                };*/
+    /*                rendel_el->offset = proj.P;*/
+    /*                rendel_el->scale = proj.scale;*/
+    /*                rendel_el->rotation = proj.rotation;*/
+    /*                rendel_el->texture_id = bitmap_id.value;*/
+    /*            }*/
+    /*        }*/
+    /*    }*/
+    /*}*/
+    /*{*/
+    /*    if (state->explosions.size() != 0) {*/
+    /*        for (auto& ex : state->explosions) {*/
+    /*            auto bitmap_id =*/
+    /*                get_closest_bitmap_id(state->assets, AssetGroupId_Explosion, AssetTag_ExplosionProgress, ex.progress);*/
+    /*            auto meta = get_bitmap_meta(state->assets, bitmap_id);*/
+    /*            auto bbox = get_bbox(&meta);*/
+    /*            auto bitmap = get_bitmap(state->assets, bitmap_id);*/
+    /**/
+    /*            if (bitmap) {*/
+    /*                i32 width = bitmap->width;*/
+    /*                i32 height = bitmap->height;*/
+    /*                void* data = bitmap->data;*/
+    /*                renderer->add_texture(bitmap_id.value, data, width, height, sizeof(u32));*/
+    /*            }*/
+    /*            if (bitmap) {*/
+    /*                auto* rendel_el = PushRenderElement(&group, RenderEntryBitmap);*/
+    /*                rendel_el->quad = { .bl = bbox.bl, .tl = bbox.tl, .tr = bbox.tr, .br = bbox.br };*/
+    /*                rendel_el->offset = ex.P;*/
+    /*                rendel_el->scale = ex.scale;*/
+    /*                rendel_el->rotation = ex.rotation;*/
+    /*                rendel_el->texture_id = bitmap_id.value;*/
+    /*            }*/
+    /*        }*/
+    /*    }*/
+    /*}*/
 
     renderer->render(&group, client_width, client_height);
-
-    auto font_id = get_first_font_id(state->assets, AssetGroupId_Fonts_Ubuntu);
-    LoadedFont* font = get_font(state->assets, font_id);
-    if (font) {
-        printf("We got the font!\n");
-    }
-    UI_Begin(&app_input->input.mouse, client_width, client_height);
-    UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };
-    UI_SetLayout(layout);
-    UI_Window("Window 1", 0.0f, 0.0f) {
-        if (UI_Button("Button 1").is_released) {
-            printf("Button 1 was clicked!\n");
-        }
-        if (UI_Button("Button 2").is_released) {
-            printf("Button 2 was clicked!\n");
-        }
-    }
-    UI_End();
 
     RenderGroup ui_render_group{};
     ui_render_group.push_buffer_size = 0;
@@ -487,8 +471,42 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     ui_render_group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
     ui_render_group.screen_width = client_width;
     ui_render_group.screen_height = client_height;
-    UI_Generate_Render_Commands(&ui_render_group);
-    renderer->render(&ui_render_group, client_width, client_height);
+
+    auto font_id = get_first_font_id(state->assets, AssetGroupId_Fonts_Ubuntu);
+    LoadedFont* font = get_font(state->assets, font_id);
+    if (font) {
+        UI_SetFont(font_id.value, font);
+
+        renderer->add_texture(font_id.value, font->bitmap, font->bitmap_width, font->bitmap_height, font->bitmap_size_per_pixel);
+        auto* el = PushRenderElement(&ui_render_group, RenderEntryBitmap);
+        auto cp = font->code_points[178 - font->code_point_first];
+        el->uv_min = ivec2(cp.x0, font->bitmap_height - cp.y0 - 1);
+        el->uv_max = ivec2(cp.x1, font->bitmap_height - cp.y1 - 1);
+
+        auto width = el->uv_max.x - el->uv_min.x;
+        auto height = el->uv_min.y - el->uv_max.y;
+        el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
+        el->offset = vec2(10.0f + width / 2.0f, 10.0f + height / 2.0f);
+        el->scale = vec2((f32)width, (f32)height);
+        el->rotation = 0.0f;
+        el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+        el->texture_id = font_id.value;
+
+        UI_Begin(&app_input->input.mouse, client_width, client_height);
+        UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };
+        UI_SetLayout(layout);
+        UI_Window("Window 1", 0.0f, 0.0f) {
+            if (UI_Button("Buttonaaaaaaaaaaaaaa 1").clicked) {
+                printf("Button 1 was clicked!\n");
+            }
+            if (UI_Button("Button 2").clicked) {
+                printf("Button 2 wass clicked!\n");
+            }
+        }
+        UI_End();
+        UI_Generate_Render_Commands(&ui_render_group);
+        renderer->render(&ui_render_group, client_width, client_height);
+    }
 }
 
 ENGINE_LOAD(load) {

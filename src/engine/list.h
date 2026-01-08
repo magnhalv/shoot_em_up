@@ -23,6 +23,12 @@ template <typename T> struct List {
         m_capacity = max_size;
     }
 
+    auto init(MemoryArena* arena, size_t max_size) -> void {
+        m_data = allocate<T>(arena, max_size);
+        m_size = 0;
+        m_capacity = max_size;
+    }
+
     T& operator[](size_t index) {
         assert(index < m_size);
         return m_data[index];
