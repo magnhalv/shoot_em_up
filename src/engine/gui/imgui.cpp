@@ -215,10 +215,10 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
         f32 advance = x + padding_x;
         for (const CodePoint& cp : entity->text) {
 
-            ivec2 uv_min = ivec2(cp.x0 - 1, g_font->bitmap_height - cp.y0 - 1);
-            ivec2 uv_max = ivec2(cp.x1 - 1, g_font->bitmap_height - cp.y1 - 1);
-            i32 width = cp.x1 - cp.x0;
-            i32 height = cp.y1 - cp.y0;
+            ivec2 uv_min = ivec2(cp.x0, cp.y0);
+            ivec2 uv_max = ivec2(cp.x1, cp.y1);
+            auto width = uv_max.x - uv_min.x;
+            auto height = uv_max.y - uv_min.y;
 
             if (width == 0 && height == 0) {
                 // Space
@@ -229,15 +229,16 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
             auto* el = PushRenderElement(render_group, RenderEntryBitmap);
             el->uv_min = uv_min;
             el->uv_max = uv_max;
-            el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-            // el->offset = vec2(advance + width / 2.0f, y - (g_font->font_height) - padding_y - (cp.yoff / 2));
-            printf("c=%c, off=%f, height=%i, yoff= %f, y0= %d, y1=%d\n", cp.c, cp.yoff, height, height + cp.yoff, cp.y0, cp.y1);
-            el->offset = vec2(advance + width / 2.0f, y - (g_font->font_height + cp.yoff));
-            el->scale = vec2((f32)width, (f32)height);
 
+            el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
+            el->offset = vec2((width) / 2.0f + advance, (height) / 2.0f);
+            el->scale = vec2((f32)width, (f32)height);
             el->rotation = 0.0f;
             el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
             el->texture_id = g_texture_id;
+
+            /*printf("c=%c, off=%f, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, cp.yoff, width,*/
+            /*    height, height + cp.yoff, cp.x0, cp.x1, cp.y0, cp.y1);*/
 
             advance += cp.xadvance;
         }

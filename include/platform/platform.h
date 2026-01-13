@@ -14,6 +14,9 @@
 
 #include <renderers/renderer.h>
 
+const i32 SCREEN_WIDTH = 960;
+const i32 SCREEN_HEIGHT = 540;
+
 const u32 Gl_Invalid_Id = 0;
 
 typedef struct {

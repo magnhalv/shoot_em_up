@@ -1185,8 +1185,8 @@ auto win32_create_window(HINSTANCE hInstance, PSTR szCmdLine) -> HWND {
 
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int client_width = 960;
-    int client_height = 540;
+    int client_width = SCREEN_WIDTH;
+    int client_height = SCREEN_HEIGHT;
     RECT windowRect;
     SetRect(&windowRect, (screenWidth / 2) - (client_width / 2), (screenHeight / 2) - (client_height / 2),
         (screenWidth / 2) + (client_width / 2), (screenHeight / 2) + (client_height / 2));

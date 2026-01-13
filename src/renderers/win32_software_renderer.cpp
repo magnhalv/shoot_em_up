@@ -347,11 +347,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                         vec4 texel11_srgb255 =
                             unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1)); //
 
-                        f32 w00 = (1.0f - u_frac) * (1.0f - v_frac);
-                        f32 w10 = (u_frac) * (1.0f - v_frac);
-                        f32 w01 = (1.0f - u_frac) * (v_frac);
-                        f32 w11 = (u_frac) * (v_frac);
-
                         vec4 texel00_l1 = srgb255_to_linear1(texel00_srgb255);
                         vec4 texel10_l1 = srgb255_to_linear1(texel10_srgb255);
                         vec4 texel01_l1 = srgb255_to_linear1(texel01_srgb255);
@@ -382,7 +377,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 
     // TODO: We should check for need of resizing on every draw call.
 
-    resize_dib_section(&state.global_offscreen_buffer, 19 * 2, 20 * 2);
+    // resize_dib_section(&state.global_offscreen_buffer, 19 * 2, 20 * 2);
+    resize_dib_section(&state.global_offscreen_buffer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     HM_ASSERT(memory != nullptr);
     HM_ASSERT(memory->data != nullptr);
