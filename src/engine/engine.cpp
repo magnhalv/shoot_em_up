@@ -353,35 +353,35 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     group.screen_height = app_input->client_height;
 
     auto* clear = PushRenderElement(&group, RenderEntryClear);
-    clear->color = vec4(0.0, 0.0, 0.0, 0.0);
+    clear->color = vec4(0.0f, 1.0f, 0.0, 0.0);
 
-    {
-        f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
-        state->player.rotation += app_input->dt;
-        state->player.P = vec2(100.0f, 24);
-        auto bitmap_id = get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
-        auto bitmap = get_bitmap(state->assets, bitmap_id);
-        if (bitmap) {
-            i32 width = bitmap->width;
-            i32 height = bitmap->height;
-            void* data = bitmap->data;
-            renderer->add_texture(bitmap_id.value, data, width, height, sizeof(u32));
-
-            auto& player = state->player;
-            auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);
-            render_bm->quad = {
-                .bl = player.vertices[0],
-                .tl = player.vertices[1],
-                .tr = player.vertices[2],
-                .br = player.vertices[3],
-            };
-            render_bm->offset = player.P;
-            render_bm->scale = player.scale;
-            render_bm->rotation = player.rotation;
-            render_bm->texture_id = bitmap_id.value;
-        }
-    }
-
+    /*{*/
+    /*    f32 direction = clamp(state->player.speed.x, -1.0, 1.0);*/
+    /*    state->player.rotation += app_input->dt;*/
+    /*    state->player.P = vec2(100.0f, 24);*/
+    /*    auto bitmap_id = get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);*/
+    /*    auto bitmap = get_bitmap(state->assets, bitmap_id);*/
+    /*    if (bitmap) {*/
+    /*        i32 width = bitmap->width;*/
+    /*        i32 height = bitmap->height;*/
+    /*        void* data = bitmap->data;*/
+    /*        renderer->add_texture(bitmap_id.value, data, width, height, sizeof(u32));*/
+    /**/
+    /*        auto& player = state->player;*/
+    /*        auto* render_bm = PushRenderElement(&group, RenderEntryBitmap);*/
+    /*        render_bm->quad = {*/
+    /*            .bl = player.vertices[0],*/
+    /*            .tl = player.vertices[1],*/
+    /*            .tr = player.vertices[2],*/
+    /*            .br = player.vertices[3],*/
+    /*        };*/
+    /*        render_bm->offset = player.P;*/
+    /*        render_bm->scale = player.scale;*/
+    /*        render_bm->rotation = player.rotation;*/
+    /*        render_bm->texture_id = bitmap_id.value;*/
+    /*    }*/
+    /*}*/
+    /**/
     /*{*/
     /**/
     /*    auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_EnemySpaceShip);*/
@@ -479,32 +479,36 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         renderer->add_texture(font_id.value, font->bitmap, font->bitmap_width, font->bitmap_height, font->bitmap_size_per_pixel);
         auto* el = PushRenderElement(&ui_render_group, RenderEntryBitmap);
-        auto cp = font->code_points[178 - font->code_point_first];
-        el->uv_min = ivec2(cp.x0, font->bitmap_height - cp.y0 - 1);
-        el->uv_max = ivec2(cp.x1, font->bitmap_height - cp.y1 - 1);
+        char c = 'g';
+        auto cp = font->code_points[c - font->code_point_first];
+        el->uv_min = ivec2(cp.x0, cp.y0);
+        el->uv_max = ivec2(cp.x1, cp.y1);
 
         auto width = el->uv_max.x - el->uv_min.x;
-        auto height = el->uv_min.y - el->uv_max.y;
+        auto height = el->uv_max.y - el->uv_min.y;
         el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-        el->offset = vec2(10.0f + width / 2.0f, 10.0f + height / 2.0f);
+        el->offset = vec2((width) / 2.0f, (height) / 2.0f);
         el->scale = vec2((f32)width, (f32)height);
         el->rotation = 0.0f;
         el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
         el->texture_id = font_id.value;
 
-        UI_Begin(&app_input->input.mouse, client_width, client_height);
-        UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };
-        UI_SetLayout(layout);
-        UI_Window("Window 1", 0.0f, 0.0f) {
-            if (UI_Button("Buttonaaaaaaaaaaaaaa 1").clicked) {
-                printf("Button 1 was clicked!\n");
-            }
-            if (UI_Button("Button 2").clicked) {
-                printf("Button 2 wass clicked!\n");
-            }
-        }
-        UI_End();
-        UI_Generate_Render_Commands(&ui_render_group);
+        printf("c=%c, off=%f, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, cp.yoff, width, height,
+            height + cp.yoff, cp.x0, cp.x1, cp.y0, cp.y1);
+
+        /*UI_Begin(&app_input->input.mouse, client_width, client_height);*/
+        /*UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };*/
+        /*UI_SetLayout(layout);*/
+        /*UI_Window("Window 1", 0.0f, 0.0f) {*/
+        /*    if (UI_Button("A button with a long name 1").clicked) {*/
+        /*        printf("Button 1 was clicked!\n");*/
+        /*    }*/
+        /*    if (UI_Button("Button 2").clicked) {*/
+        /*        printf("Button 2 wass clicked!\n");*/
+        /*    }*/
+        /*}*/
+        /*UI_End();*/
+        /*UI_Generate_Render_Commands(&ui_render_group);*/
         renderer->render(&ui_render_group, client_width, client_height);
     }
 }

@@ -153,7 +153,7 @@ struct Font {
     i32 bitmap_width;
     i32 bitmap_height;
     i32 bitmap_bytes_per_pixel;
-    u8* bitmap;
+    u32* bitmap;
 };
 
 auto load_font(const char* path) -> Font {
@@ -162,8 +162,8 @@ auto load_font(const char* path) -> Font {
 
     result.bitmap_width = 512;
     result.bitmap_height = 256;
-    result.bitmap_bytes_per_pixel = sizeof(u8);
-    result.bitmap = (u8*)malloc(result.bitmap_width * result.bitmap_height);
+    result.bitmap_bytes_per_pixel = sizeof(u32);
+    result.bitmap = (u32*)malloc(result.bitmap_width * result.bitmap_height * result.bitmap_bytes_per_pixel);
 
     result.first_code_point = 32;
     result.last_code_point = 255;
@@ -172,24 +172,50 @@ auto load_font(const char* path) -> Font {
 
     result.code_points = (CodePoint*)malloc(result.code_point_count * sizeof(CodePoint));
     stbtt_bakedchar* cdata = (stbtt_bakedchar*)malloc(result.code_point_count * sizeof(stbtt_bakedchar));
+    u8* src_bitmap = (u8*)malloc(result.bitmap_width * result.bitmap_height);
+    stbtt_BakeFontBitmap(file_content, 0, result.font_height,  //
+        src_bitmap, result.bitmap_width, result.bitmap_height, //
+        result.first_code_point, result.code_point_count,      //
+        cdata);                                                // no guarantee this fits!
 
-    stbtt_BakeFontBitmap(file_content, 0, 32.0,                   //
-        result.bitmap, result.bitmap_width, result.bitmap_height, //
-        result.first_code_point, result.code_point_count,         //
-        cdata);                                                   // no guarantee this fits!
-
-    for (i32 i = 0; i < result.code_point_count; i++) {
-        result.code_points[i].x0 = cdata[i].x0;
-        result.code_points[i].y0 = cdata[i].y0;
-        result.code_points[i].x1 = cdata[i].x1;
-        result.code_points[i].y1 = cdata[i].y1;
-        result.code_points[i].xoff = cdata[i].xoff;
-        result.code_points[i].yoff = cdata[i].yoff;
-        result.code_points[i].xadvance = cdata[i].xadvance;
+    // Flip y-axis and turn into u32 color
+    {
+        for (i32 y = 0; y < result.bitmap_height; y++) {
+            u8* src = src_bitmap + (y * result.bitmap_width);
+            u32* dest = result.bitmap + ((result.bitmap_height - y - 1) * result.bitmap_width);
+            for (i32 x = 0; x < result.bitmap_width; x++) {
+                u8 c = *(src++);
+                *(dest++) = c << 24 | c << 16 | c << 8 | c;
+            }
+        }
     }
 
+    for (i32 i = 0; i < result.code_point_count; i++) {
+
+        stbtt_bakedchar* bc = &cdata[i];
+        u16 y_max = result.bitmap_height - 1 - bc->y0;
+        u16 y_min = result.bitmap_height - 1 - bc->y1;
+
+        result.code_points[i].x0 = bc->x0;
+        result.code_points[i].y0 = y_min;
+        result.code_points[i].x1 = bc->x1;
+        result.code_points[i].y1 = y_max;
+        result.code_points[i].xoff = bc->xoff;
+        result.code_points[i].yoff = bc->yoff;
+        result.code_points[i].xadvance = bc->xadvance;
+
+        char c = 'g';
+        auto width = bc->x1 - bc->x0;
+        auto height = bc->y1 - bc->y0;
+        if (i == c - result.first_code_point) {
+            printf("c=%c, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, width, height, bc->yoff,
+                bc->x0, bc->x1, bc->y0, bc->y1);
+        }
+    }
+
+    stbi_flip_vertically_on_write(true);
     stbi_write_png("font_bitmap.png", result.bitmap_width, result.bitmap_height, result.bitmap_bytes_per_pixel,
-        result.bitmap, result.bitmap_width);
+        result.bitmap, result.bitmap_width * result.bitmap_bytes_per_pixel);
 
     free(file_content);
     free(cdata);
@@ -488,7 +514,7 @@ static auto write_bitmaps() -> void {
     }
 
     AddAssetGroup(assets, AssetGroupId_Fonts_Ubuntu) {
-        add_font_asset(assets, "assets/fonts/ubuntu/Ubuntu-Medium.ttf");
+        add_font_asset(assets, "assets/fonts/ubuntu/Ubuntu-Regular.ttf");
     }
 
     write_asset_file(assets, "bitmaps.haf");

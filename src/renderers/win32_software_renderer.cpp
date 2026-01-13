@@ -81,6 +81,60 @@ static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
     buffer->pitch = buffer->width * buffer->bytes_per_pixel;
 }
 
+auto square(f32 v) -> f32 {
+    return v * v;
+}
+
+auto square_root(f32 v) -> f32 {
+    return sqrtf(v);
+}
+
+inline auto unpack4x8(u32 packed) -> vec4 {
+    vec4 result = {
+        (f32)((packed >> 16) & 0xFF), //
+        (f32)((packed >> 8) & 0xFF),  //
+        (f32)((packed >> 0) & 0xFF),  //
+        (f32)((packed >> 24) & 0xFF)  //
+    };
+    return result;
+}
+
+inline auto pack4x8(vec4 color) -> u32 {
+    u32 result =                        //
+        ((u32)(color.a + 0.5f)) << 24 | //
+        ((u32)(color.r + 0.5f)) << 16 | //
+        ((u32)(color.g + 0.5f)) << 8 |  //
+        ((u32)(color.b + 0.5f)) << 0;
+
+    return result;
+}
+
+inline vec4 srgb255_to_linear1(vec4 color) {
+    vec4 result = {};
+
+    f32 inv_255 = 1.0f / 255.0f;
+
+    result.r = square(inv_255 * color.r);
+    result.g = square(inv_255 * color.g);
+    result.b = square(inv_255 * color.b);
+    result.a = inv_255 * color.a;
+
+    return result;
+}
+
+inline vec4 linear1_to_srgb255(vec4 color) {
+    vec4 result = {};
+
+    f32 one255 = 255.0f;
+
+    result.r = one255 * square_root(color.r);
+    result.g = one255 * square_root(color.g);
+    result.b = one255 * square_root(color.b);
+    result.a = one255 * color.a;
+
+    return (result);
+}
+
 static void draw_rectangle(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 r, f32 g, f32 b) {
     i32 min_x = round_f32_to_i32(v_min.x);
     i32 max_x = round_f32_to_i32(v_max.x);
@@ -177,37 +231,6 @@ auto color_channel_f32_to_u8(f32 channel) {
     return result;
 }
 
-auto pack_f32_color_to_u32(f32 r, f32 g, f32 b, f32 a) -> u32 {
-    u32 result = color_channel_f32_to_u8(a) << 24 | color_channel_f32_to_u8(r) << 16 | color_channel_f32_to_u8(g) << 8 |
-        color_channel_f32_to_u8(b);
-    return result;
-}
-
-auto inline ch(u32 c, i32 s) -> u8 {
-    return (c >> s) & 0xFF;
-}
-
-u32 blend_argb8888(u32 src, u32 dst) {
-    u32 sa = (src >> 24) & 0xFF;
-    u32 sr = (src >> 16) & 0xFF;
-    u32 sg = (src >> 8) & 0xFF;
-    u32 sb = (src >> 0) & 0xFF;
-
-    u32 da = (dst >> 24) & 0xFF;
-    u32 dr = (dst >> 16) & 0xFF;
-    u32 dg = (dst >> 8) & 0xFF;
-    u32 db = (dst >> 0) & 0xFF;
-
-    u32 inv_a = 255 - sa;
-
-    dr = (sa * sr + 127) / 255 + (inv_a * dr + 127) / 255;
-    dg = (sa * sb + 127) / 255 + (inv_a * db + 127) / 255;
-    db = (sa * sg + 127) / 255 + (inv_a * dg + 127) / 255;
-    da = sa + (da * inv_a + 127) / 255;
-
-    return da << 24 | dr << 16 | dg << 8 | db << 0;
-}
-
 static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
     ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height) {
 
@@ -250,9 +273,9 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
     Win32Texture* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
-    i32 v_min = uv_max.y;
     i32 u_max = uv_max.x;
-    i32 v_max = uv_min.y;
+    i32 v_min = uv_min.y;
+    i32 v_max = uv_max.y;
 
     if (u_max == 0 || v_max == 0) {
         u_max = texture->width;
@@ -262,7 +285,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 du = u_max - u_min;
     i32 dv = v_max - v_min;
 
-    u32 default_color = pack_f32_color_to_u32(color.r, color.g, color.b, color.a);
+    u32 default_color = pack4x8(color);
     for (int y = min_y; y < max_y; y++) {
         for (int x = min_x; x < max_x; x++) {
 
@@ -282,7 +305,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             f32 dot3 = dot(screen_point - tr_w, edge3);
             f32 dot4 = dot(screen_point - br_w, edge4);
 
-            if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
+            if (dot1 >= 0 && dot2 >= 0 && dot3 >= 0 && dot4 >= 0) {
 
                 if (texture_id == 0) {
                     *pixel = default_color;
@@ -297,61 +320,54 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     f32 v = (f32)point_m.y / ((f32)(model_height));
 
                     // This is texel00
-                    f32 sx = (u * du) + 0.5f + u_min;
-                    f32 sy = (v * dv) + 0.5f + v_min;
+                    f32 sx = (u * du) + u_min;
+                    f32 sy = (v * dv) + v_min;
 
                     i32 x0 = floor(sx);
                     i32 y0 = floor(sy);
                     i32 x1 = x0 + 1;
                     i32 y1 = y0 + 1;
 
-                    x0 = clamp(x0, 0, texture->width - 1);
-                    y0 = clamp(y0, 0, texture->height - 1);
-                    x1 = clamp(x1, 0, texture->width - 1);
-                    y1 = clamp(y1, 0, texture->height - 1);
+                    x0 = clamp(x0, u_min, u_max);
+                    y0 = clamp(y0, v_min, v_max);
+                    x1 = clamp(x1, u_min, u_max);
+                    y1 = clamp(y1, v_min, v_max);
 
                     f32 u_frac = sx - (f32)x0;
                     f32 v_frac = sy - (f32)y0;
 
+                    Assert(texture->bytes_per_pixel == 4);
                     if (texture->bytes_per_pixel == 4) {
                         u32* data = (u32*)state.textures[texture_id].data;
                         // Bilinear filtering
-                        u32 texel00 = *(data + (y0 * texture->width) + x0);
-                        u32 texel10 = *((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1); //
-                        u32 texel01 = *((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0); //
-                        u32 texel11 = *((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1); //
+                        vec4 texel00_srgb255 = unpack4x8(*(data + (y0 * texture->width) + x0));
+                        vec4 texel10_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
+                        vec4 texel01_srgb255 =
+                            unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0)); //
+                        vec4 texel11_srgb255 =
+                            unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1)); //
 
                         f32 w00 = (1.0f - u_frac) * (1.0f - v_frac);
                         f32 w10 = (u_frac) * (1.0f - v_frac);
                         f32 w01 = (1.0f - u_frac) * (v_frac);
                         f32 w11 = (u_frac) * (v_frac);
 
-                        // TODO: This must be gamme corrected, otherwise it will be too dark.
-                        f32 r = ch(texel00, 16) * w00 + ch(texel10, 16) * w10 + ch(texel01, 16) * w01 + ch(texel11, 16) * w11;
-                        f32 g = ch(texel00, 8) * w00 + ch(texel10, 8) * w10 + ch(texel01, 8) * w01 + ch(texel11, 8) * w11;
-                        f32 b = ch(texel00, 0) * w00 + ch(texel10, 0) * w10 + ch(texel01, 0) * w01 + ch(texel11, 0) * w11;
-                        f32 a = ch(texel00, 24) * w00 + ch(texel10, 24) * w10 + ch(texel01, 24) * w01 + ch(texel11, 24) * w11;
-                        if (a != 0) {
-                            *pixel = pack_f32_color_to_u32(r, g, b, a);
-                        }
-                    }
-                    else if (texture->bytes_per_pixel == 1) {
-                        u8* data = (u8*)state.textures[texture_id].data;
-                        // Bilinear filtering
-                        u8 texel00 = *(data + (y0 * texture->width) + x0);
-                        u8 texel10 = *((u8*)state.textures[texture_id].data + (y0 * texture->width) + x1); //
-                        u8 texel01 = *((u8*)state.textures[texture_id].data + (y1 * texture->width) + x0); //
-                        u8 texel11 = *((u8*)state.textures[texture_id].data + (y1 * texture->width) + x1); //
+                        vec4 texel00_l1 = srgb255_to_linear1(texel00_srgb255);
+                        vec4 texel10_l1 = srgb255_to_linear1(texel10_srgb255);
+                        vec4 texel01_l1 = srgb255_to_linear1(texel01_srgb255);
+                        vec4 texel11_l1 = srgb255_to_linear1(texel11_srgb255);
 
-                        f32 w00 = (1.0f - u_frac) * (1.0f - v_frac);
-                        f32 w10 = (u_frac) * (1.0f - v_frac);
-                        f32 w01 = (1.0f - u_frac) * (v_frac);
-                        f32 w11 = (u_frac) * (v_frac);
-                        f32 c = (texel00 * w00) + (texel10 * w10) + (texel01 * w01) + (texel11 * w11);
-                        if (c != 0.0f) {
-                            u32 foreground_pixel = pack_f32_color_to_u32(c, c, c, c);
-                            *pixel = foreground_pixel;
-                        }
+                        vec4 texel_l1 = lerp(                      //
+                            lerp(texel00_l1, u_frac, texel10_l1),  //
+                            v_frac,                                //
+                            lerp(texel01_l1, u_frac, texel11_l1)); //
+
+                        vec4 dest_l1 = srgb255_to_linear1(unpack4x8(*pixel));
+
+                        vec4 blended = dest_l1 * (1.0f - texel_l1.a) + texel_l1;
+                        vec4 blended_srgb255 = linear1_to_srgb255(blended);
+
+                        *pixel = pack4x8(blended_srgb255);
                     }
                 }
 
@@ -365,7 +381,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     log_info("Init software renderer...\n");
 
     // TODO: We should check for need of resizing on every draw call.
-    resize_dib_section(&state.global_offscreen_buffer, 960, 540);
+
+    resize_dib_section(&state.global_offscreen_buffer, 19 * 2, 20 * 2);
 
     HM_ASSERT(memory != nullptr);
     HM_ASSERT(memory->data != nullptr);
@@ -380,7 +397,7 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     null_texture->bytes_per_pixel = sizeof(u32);
     null_texture->data = allocate<u32>(state.permanent);
     u32* data = (u32*)null_texture->data;
-    *data = pack_f32_color_to_u32(255.0f, 0.0f, 0.0f, 1.0f);
+    *data = pack4x8(vec4(1.0f, 0.0f, 0.0f, 1.0f));
 
     log_info("Software renderer ready to go.\n");
 }
@@ -407,27 +424,18 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         texture->pitch = width * texture->bytes_per_pixel;
         texture->data = state.permanent.allocate(texture->size);
 
-        if (texture->bytes_per_pixel > 1) {
-            // Windows want ARGB
-            u32* source = (u32*)data;
-            u32* dest = (u32*)texture->data;
-            for (auto i = 0; i < texture->count; i++) {
-                u8 red = (*source >> 0) & 0xFF;
-                u8 green = (*source >> 8) & 0xFF;
-                u8 blue = (*source >> 16) & 0xFF;
-                u8 alpha = (*source >> 24) & 0xFF;
-                *dest++ = alpha << 24 | red << 16 | green << 8 | blue;
-                source++;
-            }
+        Assert(texture->bytes_per_pixel == 4);
+        // Windows want ARGB
+        u32* source = (u32*)data;
+        u32* dest = (u32*)texture->data;
+        for (auto i = 0; i < texture->count; i++) {
+            u8 red = (*source >> 0) & 0xFF;
+            u8 green = (*source >> 8) & 0xFF;
+            u8 blue = (*source >> 16) & 0xFF;
+            u8 alpha = (*source >> 24) & 0xFF;
+            *dest++ = alpha << 24 | red << 16 | green << 8 | blue;
+            source++;
         }
-        else {
-            for (i32 y = 0; y < height; y++) {
-                u8* src_row = (u8*)data + (y * width * bytes_per_pixel);
-                u8* dest_row = (u8*)texture->data + ((height - y - 1) * width * bytes_per_pixel);
-                copy_memory(src_row, dest_row, width * bytes_per_pixel);
-            }
-        }
-
         log_info("Texture added");
         return true;
     }

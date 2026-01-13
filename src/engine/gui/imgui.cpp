@@ -41,7 +41,9 @@ auto UI_GetCodePoints(string8 str, LoadedFont* font, MemoryArena* arena) -> List
     result.init(arena, str.length);
     for (u32 i = 0; i < str.length; i++) {
         i32 code_point_idx = (i32)str.data[i] - font->code_point_first;
-        result.push(font->code_points[code_point_idx]);
+        CodePoint cp = font->code_points[code_point_idx];
+        cp.c = str.data[i];
+        result.push(cp);
     }
     return result;
 }
@@ -208,15 +210,15 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
             rendel_el->color = entity->background_color;
         }
 
-        f32 padding_y = entity->padding[UI_Direction_Down];
+        // f32 padding_y = entity->padding[UI_Direction_Down];
         f32 padding_x = entity->padding[UI_Direction_Left];
         f32 advance = x + padding_x;
         for (const CodePoint& cp : entity->text) {
 
             ivec2 uv_min = ivec2(cp.x0 - 1, g_font->bitmap_height - cp.y0 - 1);
             ivec2 uv_max = ivec2(cp.x1 - 1, g_font->bitmap_height - cp.y1 - 1);
-            i32 width = uv_max.x - uv_min.x;
-            i32 height = uv_min.y - uv_max.y; // TODO: Need to revert this shit
+            i32 width = cp.x1 - cp.x0;
+            i32 height = cp.y1 - cp.y0;
 
             if (width == 0 && height == 0) {
                 // Space
@@ -228,7 +230,9 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
             el->uv_min = uv_min;
             el->uv_max = uv_max;
             el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-            el->offset = vec2(advance + width / 2.0f, y + height / 2.0f - (g_font->font_height / 2) - padding_y);
+            // el->offset = vec2(advance + width / 2.0f, y - (g_font->font_height) - padding_y - (cp.yoff / 2));
+            printf("c=%c, off=%f, height=%i, yoff= %f, y0= %d, y1=%d\n", cp.c, cp.yoff, height, height + cp.yoff, cp.y0, cp.y1);
+            el->offset = vec2(advance + width / 2.0f, y - (g_font->font_height + cp.yoff));
             el->scale = vec2((f32)width, (f32)height);
 
             el->rotation = 0.0f;

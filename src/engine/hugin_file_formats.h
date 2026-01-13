@@ -71,6 +71,7 @@ struct AssetGroup {
 struct CodePoint {
     u16 x0, y0, x1, y1;
     f32 xoff, yoff, xadvance;
+    char c;
 };
 
 struct FontMeta {

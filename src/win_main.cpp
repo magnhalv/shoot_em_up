@@ -22,6 +22,10 @@
 
 #include <core/lib.cpp>
 
+// TEMP REMOVE
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
+
 ////////////////// GLOBALS ///////////////////////////////
 
 bool global_is_running = true;
@@ -1192,6 +1196,11 @@ auto win32_create_window(HINSTANCE hInstance, PSTR szCmdLine) -> HWND {
 
     HWND window = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
         windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, hInstance, szCmdLine);
+
+    DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
+
+    DwmSetWindowAttribute(window, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+
     return window;
 }
 
