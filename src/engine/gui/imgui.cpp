@@ -26,12 +26,19 @@ UI_State* prev_state;
 LoadedFont* g_font;
 i32 g_texture_id;
 
-const i32 padd_and_margin = 10;
+const i32 Padding_Margin_X = 10;
+const i32 Padding_Margin_Y = 5;
+const i32 Space_Width = 8;
 
 auto UI_GetCodePointsTotalLength(List<CodePoint>* code_points) -> f32 {
     f32 result = 0.0f;
     for (const auto& cp : *code_points) {
-        result += cp.xadvance;
+        if (cp.c == ' ') {
+            result += Space_Width;
+        }
+        else {
+            result += cp.xadvance;
+        }
     }
     return result;
 }
@@ -210,37 +217,31 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
             rendel_el->color = entity->background_color;
         }
 
-        // f32 padding_y = entity->padding[UI_Direction_Down];
-        f32 padding_x = entity->padding[UI_Direction_Left];
-        f32 advance = x + padding_x;
+        x = x + entity->padding[UI_Direction_Left];
+        y = y - (entity->computed_size[Axis2_Y] - g_font->font_height) * 0.5f - g_font->ascent;
         for (const CodePoint& cp : entity->text) {
+            if (cp.c == ' ') {
+                x += Space_Width;
+                continue;
+            }
 
             ivec2 uv_min = ivec2(cp.x0, cp.y0);
             ivec2 uv_max = ivec2(cp.x1, cp.y1);
-            auto width = uv_max.x - uv_min.x;
-            auto height = uv_max.y - uv_min.y;
-
-            if (width == 0 && height == 0) {
-                // Space
-                advance += 8;
-                continue;
-            }
+            auto glyph_width = uv_max.x - uv_min.x;
+            auto glyph_height = uv_max.y - uv_min.y;
 
             auto* el = PushRenderElement(render_group, RenderEntryBitmap);
             el->uv_min = uv_min;
             el->uv_max = uv_max;
 
             el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-            el->offset = vec2((width) / 2.0f + advance, (height) / 2.0f);
-            el->scale = vec2((f32)width, (f32)height);
+            el->offset = vec2((glyph_width) / 2.0f + x + cp.xoff, (glyph_height / 2.0f) + y - (glyph_height + cp.yoff));
+            el->scale = vec2((f32)glyph_width, (f32)glyph_height);
             el->rotation = 0.0f;
             el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
             el->texture_id = g_texture_id;
 
-            /*printf("c=%c, off=%f, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, cp.yoff, width,*/
-            /*    height, height + cp.yoff, cp.x0, cp.x1, cp.y0, cp.y1);*/
-
-            advance += cp.xadvance;
+            x += cp.xadvance;
         }
 
         if (entity->right) {
@@ -290,10 +291,10 @@ auto UI_PushWindow(string8 text, f32 x, f32 y, f32 width, f32 height) -> void {
         };
     }
 
-    window->padding[UI_Direction_Up] = padd_and_margin;
-    window->padding[UI_Direction_Right] = padd_and_margin;
-    window->padding[UI_Direction_Down] = padd_and_margin;
-    window->padding[UI_Direction_Left] = padd_and_margin;
+    window->padding[UI_Direction_Up] = Padding_Margin_X;
+    window->padding[UI_Direction_Right] = Padding_Margin_X;
+    window->padding[UI_Direction_Down] = Padding_Margin_X;
+    window->padding[UI_Direction_Left] = Padding_Margin_X;
 
     window->computed_rel_position[Axis2_X] = x;
     window->computed_rel_position[Axis2_Y] = y;
@@ -343,15 +344,15 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
 
     button->text = UI_GetCodePoints(text, g_font, frame_arena);
 
-    button->margin[UI_Direction_Up] = padd_and_margin;
-    button->margin[UI_Direction_Right] = padd_and_margin;
-    button->margin[UI_Direction_Down] = padd_and_margin;
-    button->margin[UI_Direction_Left] = padd_and_margin;
+    button->margin[UI_Direction_Up] = Padding_Margin_X;
+    button->margin[UI_Direction_Right] = Padding_Margin_X;
+    button->margin[UI_Direction_Down] = Padding_Margin_X;
+    button->margin[UI_Direction_Left] = Padding_Margin_X;
 
-    button->padding[UI_Direction_Up] = padd_and_margin;
-    button->padding[UI_Direction_Right] = padd_and_margin;
-    button->padding[UI_Direction_Down] = padd_and_margin;
-    button->padding[UI_Direction_Left] = padd_and_margin;
+    button->padding[UI_Direction_Up] = Padding_Margin_Y;
+    button->padding[UI_Direction_Right] = Padding_Margin_X;
+    button->padding[UI_Direction_Down] = Padding_Margin_Y;
+    button->padding[UI_Direction_Left] = Padding_Margin_X;
 
     button->semantic_size[Axis2_X] = {
         .kind = UI_SizeKind_Pixels,
@@ -360,7 +361,7 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
     };
     button->semantic_size[Axis2_Y] = {
         .kind = UI_SizeKind_Pixels,
-        .value = 100,
+        .value = g_font->font_height + button->padding[UI_Direction_Up] + button->padding[UI_Direction_Down],
         .strictness = 1.0f,
     };
 
@@ -368,8 +369,8 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
     // Maybe make this a post pass step?
     if (button->left == nullptr) {
         f32* computed_rel_position = button->parent->computed_rel_position;
-        button->computed_rel_position[Axis2_X] = computed_rel_position[Axis2_X] + padd_and_margin;
-        button->computed_rel_position[Axis2_Y] = computed_rel_position[Axis2_Y] + (y_dir * padd_and_margin);
+        button->computed_rel_position[Axis2_X] = computed_rel_position[Axis2_X] + Padding_Margin_X;
+        button->computed_rel_position[Axis2_Y] = computed_rel_position[Axis2_Y] + (y_dir * Padding_Margin_X);
     }
     else {
         const UI_Entity* sib = button->left;

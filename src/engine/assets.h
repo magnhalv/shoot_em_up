@@ -35,6 +35,8 @@ struct LoadedFont {
     i32 code_point_count;
     CodePoint* code_points;
 
+    f32 ascent;
+    f32 descent;
     f32 font_height;
 
     i32 bitmap_width;

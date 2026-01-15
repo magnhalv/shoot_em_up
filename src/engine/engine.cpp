@@ -476,39 +476,39 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     LoadedFont* font = get_font(state->assets, font_id);
     if (font) {
         UI_SetFont(font_id.value, font);
-
         renderer->add_texture(font_id.value, font->bitmap, font->bitmap_width, font->bitmap_height, font->bitmap_size_per_pixel);
-        auto* el = PushRenderElement(&ui_render_group, RenderEntryBitmap);
-        char c = 'g';
-        auto cp = font->code_points[c - font->code_point_first];
-        el->uv_min = ivec2(cp.x0, cp.y0);
-        el->uv_max = ivec2(cp.x1, cp.y1);
-
-        auto width = el->uv_max.x - el->uv_min.x;
-        auto height = el->uv_max.y - el->uv_min.y;
-        el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-        el->offset = vec2((width) / 2.0f, (height) / 2.0f);
-        el->scale = vec2((f32)width, (f32)height);
-        el->rotation = 0.0f;
-        el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
-        el->texture_id = font_id.value;
-
-        printf("c=%c, off=%f, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, cp.yoff, width, height,
-            height + cp.yoff, cp.x0, cp.x1, cp.y0, cp.y1);
-
-        /*UI_Begin(&app_input->input.mouse, client_width, client_height);*/
-        /*UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };*/
-        /*UI_SetLayout(layout);*/
-        /*UI_Window("Window 1", 0.0f, 0.0f) {*/
-        /*    if (UI_Button("A button with a long name 1").clicked) {*/
-        /*        printf("Button 1 was clicked!\n");*/
-        /*    }*/
-        /*    if (UI_Button("Button 2").clicked) {*/
-        /*        printf("Button 2 wass clicked!\n");*/
-        /*    }*/
+        /*{*/
+        /*    auto* el = PushRenderElement(&ui_render_group, RenderEntryBitmap);*/
+        /*    char c = 'a';*/
+        /*    auto cp = font->code_points[c - font->code_point_first];*/
+        /*    el->uv_min = ivec2(cp.x0, cp.y0);*/
+        /*    el->uv_max = ivec2(cp.x1, cp.y1);*/
+        /**/
+        /*    auto width = el->uv_max.x - el->uv_min.x;*/
+        /*    auto height = el->uv_max.y - el->uv_min.y;*/
+        /*    el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };*/
+        /*    el->offset = vec2((width) / 2.0f, (height) / 2.0f - (height + cp.yoff));*/
+        /*    el->scale = vec2((f32)width, (f32)height);*/
+        /*    el->rotation = 0.0f;*/
+        /*    el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);*/
+        /*    el->texture_id = font_id.value;*/
+        /*    printf("c=%c, off=%f, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, cp.yoff, width,*/
+        /*        height, height + cp.yoff, cp.x0, cp.x1, cp.y0, cp.y1);*/
         /*}*/
-        /*UI_End();*/
-        /*UI_Generate_Render_Commands(&ui_render_group);*/
+
+        UI_Begin(&app_input->input.mouse, client_width, client_height);
+        UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };
+        UI_SetLayout(layout);
+        UI_Window("Window 1", 0.0f, 0.0f) {
+            if (UI_Button("(QA button with a long name 1").clicked) {
+                printf("Button 1 was clicked!\n");
+            }
+            if (UI_Button("Button 2 g").clicked) {
+                printf("Button 2 wass clicked!\n");
+            }
+        }
+        UI_End();
+        UI_Generate_Render_Commands(&ui_render_group);
         renderer->render(&ui_render_group, client_width, client_height);
     }
 }

@@ -162,6 +162,8 @@ auto load_font(GameAssets* game_assets, FontId id) -> void {
             asset->asset_memory->font.bitmap_size_per_pixel = meta->font.bitmap_size_per_pixel;
 
             asset->asset_memory->font.font_height = meta->font.font_height;
+            asset->asset_memory->font.ascent = meta->font.ascent;
+            asset->asset_memory->font.descent = meta->font.descent;
 
             asset->asset_memory->font.code_point_first = meta->font.code_point_first;
             asset->asset_memory->font.code_point_last = meta->font.code_point_last;

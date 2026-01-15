@@ -80,6 +80,8 @@ struct FontMeta {
     i32 code_point_last;
 
     f32 font_height;
+    f32 ascent;
+    f32 descent;
 
     i32 bitmap_width;
     i32 bitmap_height;

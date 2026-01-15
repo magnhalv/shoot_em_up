@@ -149,7 +149,10 @@ struct Font {
     i32 last_code_point;
     CodePoint* code_points;
 
+    f32 ascent;
+    f32 descent;
     f32 font_height;
+
     i32 bitmap_width;
     i32 bitmap_height;
     i32 bitmap_bytes_per_pixel;
@@ -178,6 +181,18 @@ auto load_font(const char* path) -> Font {
         result.first_code_point, result.code_point_count,      //
         cdata);                                                // no guarantee this fits!
 
+    {
+        stbtt_fontinfo font;
+        int i, j, ascent, descent, baseline, ch = 0;
+        float scale, xpos = 1;
+        stbtt_InitFont(&font, file_content, 0);
+        scale = stbtt_ScaleForPixelHeight(&font, result.font_height);
+        stbtt_GetFontVMetrics(&font, &ascent, &descent, 0);
+        result.ascent = (i32)(ascent * scale);
+        result.descent = (i32)(descent * scale);
+        printf("Baseline %f %f\n", ascent * scale, descent * scale);
+    }
+
     // Flip y-axis and turn into u32 color
     {
         for (i32 y = 0; y < result.bitmap_height; y++) {
@@ -203,14 +218,6 @@ auto load_font(const char* path) -> Font {
         result.code_points[i].xoff = bc->xoff;
         result.code_points[i].yoff = bc->yoff;
         result.code_points[i].xadvance = bc->xadvance;
-
-        char c = 'g';
-        auto width = bc->x1 - bc->x0;
-        auto height = bc->y1 - bc->y0;
-        if (i == c - result.first_code_point) {
-            printf("c=%c, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, width, height, bc->yoff,
-                bc->x0, bc->x1, bc->y0, bc->y1);
-        }
     }
 
     stbi_flip_vertically_on_write(true);
@@ -441,6 +448,9 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
                 meta->font.code_point_first = font.first_code_point;
                 meta->font.code_point_last = font.last_code_point;
                 meta->font.code_point_count = font.code_point_count;
+
+                meta->font.ascent = font.ascent;
+                meta->font.descent = font.descent;
 
                 meta->font.bitmap_width = font.bitmap_width;
                 meta->font.bitmap_height = font.bitmap_height;
