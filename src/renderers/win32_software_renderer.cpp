@@ -13,6 +13,9 @@
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
+#include "../core/lib.cpp"
+#include "../math/unit.cpp"
+
 struct WindowDimension {
     i32 width;
     i32 height;
@@ -179,7 +182,7 @@ static auto clear(i32 client_width, i32 client_height, vec4 color) {
     draw_rectangle(                     //
         &state.global_offscreen_buffer, //
         min, max,                       //
-        color.r, color.b, color.g       //
+        color.r, color.g, color.b       //
     );
 }
 
@@ -278,8 +281,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 v_max = uv_max.y;
 
     if (u_max == 0 || v_max == 0) {
-        u_max = texture->width;
-        v_max = texture->height;
+        u_max = texture->width - 1;
+        v_max = texture->height - 1;
     }
 
     i32 du = u_max - u_min;
@@ -305,7 +308,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             f32 dot3 = dot(screen_point - tr_w, edge3);
             f32 dot4 = dot(screen_point - br_w, edge4);
 
-            if (dot1 >= 0 && dot2 >= 0 && dot3 >= 0 && dot4 >= 0) {
+            if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
 
                 if (texture_id == 0) {
                     *pixel = default_color;
@@ -316,8 +319,9 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     // TODO: Here we assume that the quad is defined with origin in the middle of the quad. Should probably fix this.
                     point_m = point_m + (vec3(model_width, model_height, 0) * 0.5);
 
-                    f32 u = (f32)point_m.x / ((f32)(model_width));
-                    f32 v = (f32)point_m.y / ((f32)(model_height));
+                    // This is to support both
+                    f32 u = (f32)(point_m.x * scale.x) / ((f32)(scaled_width - 1));
+                    f32 v = (f32)(point_m.y * scale.y) / ((f32)(scaled_height - 1));
 
                     // This is texel00
                     f32 sx = (u * du) + u_min;
@@ -333,8 +337,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     x1 = clamp(x1, u_min, u_max);
                     y1 = clamp(y1, v_min, v_max);
 
-                    f32 u_frac = sx - (f32)x0;
-                    f32 v_frac = sy - (f32)y0;
+                    f32 u_frac = clamp(sx - (f32)x0, 0.0f, 1.0f);
+                    f32 v_frac = clamp(sy - (f32)y0, 0.0f, 1.0f);
 
                     Assert(texture->bytes_per_pixel == 4);
                     if (texture->bytes_per_pixel == 4) {
@@ -377,7 +381,7 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 
     // TODO: We should check for need of resizing on every draw call.
 
-    // resize_dib_section(&state.global_offscreen_buffer, 19 * 2, 20 * 2);
+    // resize_dib_section(&state.global_offscreen_buffer, 48, 58);
     resize_dib_section(&state.global_offscreen_buffer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     HM_ASSERT(memory != nullptr);

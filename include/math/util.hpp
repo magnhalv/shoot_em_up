@@ -1,3 +1,6 @@
+#ifndef MATH_UTIL_HUGIN_H_
+#define MATH_UTIL_HUGIN_H_
+
 #include <platform/types.h>
 
 #include "math/transform.h"
@@ -51,3 +54,5 @@ auto inline intersects(rect a, rect b) -> bool {
 }
 
 } // namespace hm
+
+#endif

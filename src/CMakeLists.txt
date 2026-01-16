@@ -5,40 +5,14 @@ project(engine)
 
 option(ENGINE_BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
-set(CORE_SOURCE_FILES
-  core/lib.cpp
-)
-
-set(MATH_SOURCE_FILES
-  math/mat3.cpp
-  math/mat4.cpp
-  math/vec2.cpp
-  math/vec3.cpp
-)
-
 set(SOURCE_FILES
-    engine/array.cpp
-    engine/engine.cpp
-    engine/audio.cpp
-    engine/assets.cpp
-    engine/globals.cpp
-    engine/options.cpp
-    engine/gui/imgui.cpp
-    ${CORE_SOURCE_FILES}
+    engine/unit.cpp
 )
 
 add_library(engine_dyn SHARED ${SOURCE_FILES})
-add_library(engine_static ${SOURCE_FILES} )
 
 include_directories(../shared_deps/glad/include)
 include_directories(deps/src/glm)
-
-include_directories(deps/libs/freetype/include)
-add_subdirectory(deps/libs/freetype)
-
-add_subdirectory(math)
-
-set(LIBS math freetype)
 
 # Dynamic configuration
 
@@ -57,15 +31,6 @@ set_target_properties(engine_dyn PROPERTIES
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
         )
 
-# Static configuration
-target_link_libraries(engine_static ${LIBS})
-#set_target_properties(engine_static PROPERTIES DEBUG_POSTFIX "")
-
-if (CMAKE_BUILD_TYPE MATCHES Debug)
-    target_compile_definitions(engine_static PUBLIC ENGINE_DEBUG=1)
-elseif (CMAKE_BUILD_TYPE MATCHES Release)
-    target_compile_definitions(engine_static PUBLIC ENGINE_DEBUG=0)
-endif ()
 
 set_target_properties(engine_dyn PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/app
@@ -90,8 +55,6 @@ find_package(OpenGL REQUIRED)
 set(OPENGL_RENDERER_SRC_FILES
   renderers/gl/gl_shader.cpp
   renderers/win32_opengl_renderer.cpp
-  ${MATH_SOURCE_FILES}
-  ${CORE_SOURCE_FILES}
   ${GLAD_SOURCES}
 )
 
@@ -106,8 +69,6 @@ set_target_properties(opengl_renderer PROPERTIES
 ## Software renderer
 set(SOFTWARE_RENDERER_SRC_FILES
   renderers/win32_software_renderer.cpp
-  ${CORE_SOURCE_FILES}
-  ${MATH_SOURCE_FILES}
 )
 
 add_library(win32_software_renderer SHARED ${SOFTWARE_RENDERER_SRC_FILES})

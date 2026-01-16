@@ -1,3 +1,6 @@
+#ifndef ENGINE_IMGUI_HUGIN_H_
+#define ENGINE_IMGUI_HUGIN_H_
+
 #include <math/vec2.h>
 #include <platform/types.h>
 #include <platform/user_input.h>
@@ -94,3 +97,5 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void;
 
 #define UI_Window(text, x, y) DeferLoop(UI_PushWindow(text, x, y, 0, 0), UI_PopWindow())
 #define UI_WindowFull(text, x, y, width, height) DeferLoop(UI_PushWindow(text, x, y, width, height), UI_PopWindow())
+
+#endif

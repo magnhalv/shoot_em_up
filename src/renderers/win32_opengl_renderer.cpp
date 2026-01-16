@@ -12,6 +12,9 @@
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
+#include "../core/lib.cpp"
+#include "../math/unit.cpp"
+
 // TODO:
 // glEnable(GL_DEBUG_OUTPUT);
 // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Calls to the callback will be synchronous

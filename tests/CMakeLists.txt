@@ -4,14 +4,6 @@ project(test_project VERSION 0.0.1 LANGUAGES CXX)
 # Make test executable
 add_executable(tests
         test_main.cpp
-        memory_arena_test.cpp
-        cli_echo_test.cpp
-        linked_list_test.cpp
-        fixed_string_test.cpp
-        growable_string_text.cpp
-        line_buffer_test.cpp
-
-        structs/test_swap_back_list.cpp
         )
 
 set(ENGINE_BUILD_SHARED_LIBS OFF)

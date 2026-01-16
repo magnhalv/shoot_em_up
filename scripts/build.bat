@@ -1,1 +1,1 @@
-cmake --build cmake-build -- -j12
+cmake --build cmake-build --verbose -- -j12 

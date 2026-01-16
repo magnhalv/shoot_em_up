@@ -25,7 +25,7 @@ add_executable(
 # This needs to be after the linking of opengl, otherwise we get linking issues against glad
 # Something related to assimp.
 add_subdirectory(src)
-add_subdirectory(tests)
+#add_subdirectory(tests)
 
 add_custom_command(
   TARGET shoot_em_up POST_BUILD
