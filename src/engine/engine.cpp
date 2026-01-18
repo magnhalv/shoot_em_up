@@ -24,6 +24,8 @@
 #include "hm_assert.h"
 #include "profiling.hpp"
 
+DebugTable* global_debug_table;
+
 struct EnemyBehaviour {
     vec2 spawn_point;
     vec2 center_point;
@@ -101,12 +103,16 @@ auto noise(f32 x) {
 }
 
 ENGINE_UPDATE_AND_RENDER(update_and_render) {
+    // TIMED_FUNCTION();
+    DebugTable debug_table = {};
+    global_debug_table = &debug_table;
+    TIMED_FUNCTION();
     auto* state = (EngineState*)memory->permanent;
     // const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
     // region Initialize
     [[unlikely]] if (!state->is_initialized) {
-        log_info("Iiiinitializing...");
+        log_info("Initializing...");
 
         state->permanent.init(static_cast<u8*>(memory->permanent) + sizeof(EngineState),
             Permanent_Memory_Block_Size - sizeof(EngineState));
@@ -479,24 +485,23 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     if (font) {
         UI_SetFont(font_id.value, font);
         renderer->add_texture(font_id.value, font->bitmap, font->bitmap_width, font->bitmap_height, font->bitmap_size_per_pixel);
-        {
-            auto* el = PushRenderElement(&ui_render_group, RenderEntryBitmap);
-            char c = 'a';
-            auto cp = font->code_points[c - font->code_point_first];
-            el->uv_min = ivec2(cp.x0, cp.y0);
-            el->uv_max = ivec2(cp.x1, cp.y1);
-
-            auto width = el->uv_max.x - el->uv_min.x;
-            auto height = el->uv_max.y - el->uv_min.y;
-            el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-            el->offset = vec2((width) / 2.0f, (height) / 2.0f);
-            el->scale = vec2((f32)width, (f32)height);
-            el->rotation = 0.0f;
-            el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
-            el->texture_id = font_id.value;
-            printf("c=%c, off=%f, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, cp.yoff, width,
-                height, height + cp.yoff, cp.x0, cp.x1, cp.y0, cp.y1);
-        }
+        // {
+        //     auto* el = PushRenderElement(&ui_render_group, RenderEntryBitmap);
+        //     char c = 'a';
+        //     auto cp = font->code_points[c - font->code_point_first];
+        //     el->uv_min = ivec2(cp.x0, cp.y0);
+        //     el->uv_max = ivec2(cp.x1, cp.y1);
+        //
+        //     auto width = el->uv_max.x - el->uv_min.x;
+        //     auto height = el->uv_max.y - el->uv_min.y;
+        //     el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f,
+        //     -0.5f) }; el->offset = vec2((width) / 2.0f, (height) / 2.0f); el->scale = vec2((f32)width, (f32)height);
+        //     el->rotation = 0.0f;
+        //     el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+        //     el->texture_id = font_id.value;
+        //     printf("c=%c, off=%f, width=%i, height=%i, yoff= %f, x0=%d, x1=%d, y0= %d, y1=%d\n", c, cp.yoff, width,
+        //         height, height + cp.yoff, cp.x0, cp.x1, cp.y0, cp.y1);
+        // }
 
         UI_Begin(&app_input->input.mouse, client_width, client_height);
         UI_Layout layout = { .layout_direction = LayoutDirection_TopToBottom };

@@ -18,7 +18,7 @@ struct DebugEvent {
 
 struct DebugTable {
     u64 event_index;
-    DebugEvent events[1 << 16];
+    DebugEvent events[1 << 2];
 };
 
 extern DebugTable* global_debug_table;
@@ -27,10 +27,10 @@ extern DebugTable* global_debug_table;
 #define UniqueFileCounterString_(A, B, C, D) UniqueFileCounterString__(A, B, C, D)
 #define DEBUG_NAME(Name) UniqueFileCounterString_(__FILE__, __LINE__, __COUNTER__, Name)
 
-/*#define TIMED_BLOCK__(GUID, Number, ...) TimedBlock TimedBlock_##Number(GUID, ##__VA_ARGS__)*/
-/*#define TIMED_BLOCK_(GUID, Number, ...) TIMED_BLOCK__(GUID, Number, ##__VA_ARGS__)*/
-/*#define TIMED_BLOCK(Name, ...) TIMED_BLOCK_(DEBUG_NAME(Name), __COUNTER__, ##__VA_ARGS__)*/
-/*#define TIMED_FUNCTION(...) TIMED_BLOCK_(DEBUG_NAME(__FUNCTION__), ##__VA_ARGS__)*/
+#define TIMED_BLOCK__(GUID, Counter) TimedBlock TimedBlock_##Counter(GUID)
+#define TIMED_BLOCK_(GUID) TIMED_BLOCK__(GUID, __COUNTER__)
+#define TIMED_BLOCK(Name) TIMED_BLOCK_(DEBUG_NAME(Name))
+#define TIMED_FUNCTION() TIMED_BLOCK_(DEBUG_NAME(__FUNCTION__))
 
 #define RECORD_DEBUG_EVENT_(GUIDInit, EventType)            \
     u64 index = ++global_debug_table->event_index;          \
@@ -38,8 +38,10 @@ extern DebugTable* global_debug_table;
     event->GUID = GUIDInit;                                 \
     event->event_type = EventType;
 
-#define BEGIN_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
-#define END_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
+#define BEGIN_BLOCK_(GUID) \
+    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
+#define END_BLOCK_(GUID) \
+    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
 
 #define END_BLOCK() END_BLOCK_("END_BLOCK_")
 
