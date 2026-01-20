@@ -6,7 +6,6 @@
 #include <engine/hm_assert.h>
 #include <platform/platform.h>
 
-#include "gl/gl_shader.h"
 #include "math/mat3.h"
 
 #include <renderers/renderer.h>
@@ -14,6 +13,8 @@
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
+
+#include "gl/gl_shader.cpp"
 
 // TODO:
 // glEnable(GL_DEBUG_OUTPUT);
@@ -53,12 +54,12 @@ static auto clear(i32 client_width, i32 client_height, vec4 color) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Remove depth buffer?
 }
 
-static auto to_gl_x(i32 screen_x_cord, i32 screen_width) -> f32 {
-    return screen_x_cord / (screen_width / 2.0) - 1.0f;
+static auto to_gl_x(f32 screen_x_cord, i32 screen_width) -> f32 {
+    return screen_x_cord / (screen_width / 2.0f) - 1.0f;
 }
 
-static auto to_gl_y(i32 screen_y_cord, i32 screen_height) -> f32 {
-    return screen_y_cord / (screen_height / 2.0) - 1.0f;
+static auto to_gl_y(f32 screen_y_cord, i32 screen_height) -> f32 {
+    return screen_y_cord / (screen_height / 2.0f) - 1.0f;
 }
 
 static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
@@ -185,8 +186,9 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 
         HGLRC tempRC = wglCreateContext(win32_context->hdc);
         wglMakeCurrent(win32_context->hdc, tempRC);
-        PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = nullptr;
-        wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
+        PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB_ = nullptr;
+        wglCreateContextAttribsARB_ =
+            (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
 
         const int attribList[] = {
             WGL_CONTEXT_MAJOR_VERSION_ARB,
@@ -199,7 +201,7 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
             WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
             0,
         };
-        win32_context->hglrc = wglCreateContextAttribsARB(win32_context->hdc, nullptr, attribList);
+        win32_context->hglrc = wglCreateContextAttribsARB_(win32_context->hdc, nullptr, attribList);
 
         wglMakeCurrent(nullptr, nullptr);
         wglDeleteContext(tempRC);
@@ -217,11 +219,11 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
         int vsynch = 0;
         if (swapControlSupported) {
             // TODO: Remove auto?
-            auto wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
-            auto wglGetSwapIntervalEXT = (PFNWGLGETSWAPINTERVALEXTPROC)wglGetProcAddress("wglGetSwapIntervalEXT");
+            auto wglSwapIntervalEXT_ = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
+            auto wglGetSwapIntervalEXT_ = (PFNWGLGETSWAPINTERVALEXTPROC)wglGetProcAddress("wglGetSwapIntervalEXT");
 
-            if (wglSwapIntervalEXT(1)) {
-                vsynch = wglGetSwapIntervalEXT();
+            if (wglSwapIntervalEXT_(1)) {
+                vsynch = wglGetSwapIntervalEXT_();
             }
             else {
                 printf("Could not enable vsync\n");
@@ -239,9 +241,9 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
         glCreateBuffers(1, &state.quad_vbo);
 
         glNamedBufferStorage(state.quad_vbo, sizeof(quad_verticies), quad_verticies, GL_DYNAMIC_STORAGE_BIT);
-        auto binding_index = 0;
-        auto stride = 2 * sizeof(f32);
-        auto offset = 0;
+        i32 binding_index = 0;
+        i32 stride = 2 * sizeof(f32);
+        i32 offset = 0;
         glVertexArrayVertexBuffer(state.quad_vao, binding_index, state.quad_vbo, offset, stride);
         auto attrib_index = 0;
 

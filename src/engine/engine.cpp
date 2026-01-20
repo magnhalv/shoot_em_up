@@ -110,7 +110,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* state = (EngineState*)memory->permanent;
     // const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
-    // region Initialize
+    // rregion Initialize
     [[unlikely]] if (!state->is_initialized) {
         log_info("Initializing...");
 

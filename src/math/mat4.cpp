@@ -1,5 +1,4 @@
 #include <cmath>
-#include <iostream>
 
 #include <math/mat4.h>
 
@@ -156,7 +155,7 @@ mat4 inverse(const mat4& m) {
     float det = determinant(m);
 
     if (det == 0.0f) { // Epsilon check would need to be REALLY small
-        std::cout << "WARNING: Trying to invert a matrix with a zero determinant\n";
+        printf("WARNING: Trying to invert a matrix with zero determinant\n");
         return mat4();
     }
     mat4 adj = adjugate(m);
@@ -168,7 +167,7 @@ void invert(mat4& m) {
     float det = determinant(m);
 
     if (det == 0.0f) {
-        std::cout << "WARNING: Trying to invert a matrix with a zero determinant\n";
+        printf("WARNING: Trying to invert a matrix with zero determinant\n");
         m = mat4();
         return;
     }
@@ -178,7 +177,7 @@ void invert(mat4& m) {
 
 mat4 frustum(float l, float r, float b, float t, float n, float f) {
     if (l == r || t == b || n == f) {
-        std::cout << "WARNING: Trying to create invalid frustum\n";
+        printf("WARNING: Trying to create invalid frustum\n");
         return mat4(); // Error
     }
     return mat4(

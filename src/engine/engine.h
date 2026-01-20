@@ -25,8 +25,8 @@ struct Pointer {
         const f32 dx = static_cast<f32>(raw.dx) * sensitivity;
         const f32 dy = static_cast<f32>(raw.dy) * sensitivity;
 
-        x = std::min(std::max(dx + x, 0.0f), static_cast<f32>(client_width));
-        y = std::min(std::max(dy + y, 0.0f), static_cast<f32>(client_height));
+        x = fmin(fmax(dx + x, 0.0f), static_cast<f32>(client_width));
+        y = fmin(fmax(dy + y, 0.0f), static_cast<f32>(client_height));
     }
 };
 

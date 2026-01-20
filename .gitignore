@@ -16,3 +16,6 @@ src/deps/archives
 
 data/*.haf
 data/assets/**/*
+
+*log
+*png

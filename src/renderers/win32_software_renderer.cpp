@@ -178,7 +178,7 @@ static void draw_rectangle(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 
 
 static auto clear(i32 client_width, i32 client_height, vec4 color) {
     vec2 min = vec2(0, 0);
-    vec2 max = vec2(client_width, client_height);
+    vec2 max = vec2((f32)client_width, (f32)client_height);
     draw_rectangle(                     //
         &state.global_offscreen_buffer, //
         min, max,                       //
@@ -327,8 +327,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     f32 sx = (u * du) + u_min;
                     f32 sy = (v * dv) + v_min;
 
-                    i32 x0 = floor(sx);
-                    i32 y0 = floor(sy);
+                    i32 x0 = (i32)floor(sx);
+                    i32 y0 = (i32)floor(sy);
                     i32 x1 = x0 + 1;
                     i32 y1 = y0 + 1;
 

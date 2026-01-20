@@ -1,5 +1,4 @@
 #include <cmath>
-#include <iostream>
 
 #include <math/mat3.h>
 
@@ -120,7 +119,7 @@ mat3 adjugate(const mat3& m) {
 mat3 inverse(const mat3& m) {
     float det = determinant(m);
     if (fabsf(det) < MAT3_EPSILON) {
-        std::cout << "WARNING: Trying to invert a matrix with zero determinant\n";
+        printf("WARNING: Trying to invert a matrix with zero determinant\n");
         return mat3();
     }
     return adjugate(m) * (1.0f / det);
@@ -129,7 +128,7 @@ mat3 inverse(const mat3& m) {
 void invert(mat3& m) {
     float det = determinant(m);
     if (fabsf(det) < MAT3_EPSILON) {
-        std::cout << "WARNING: Trying to invert a matrix with zero determinant\n";
+        printf("WARNING: Trying to invert a matrix with zero determinant\n");
         m = mat3();
         return;
     }

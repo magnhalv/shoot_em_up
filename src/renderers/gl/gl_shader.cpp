@@ -198,7 +198,7 @@ void GLShaderProgram::free() {
 }
 
 int ends_with(const char* s, const char* part) {
-    return (strstr(s, part) - s) == (strlen(s) - strlen(part));
+    return (strstr(s, part) - s) == (i32)(strlen(s) - strlen(part));
 }
 
 GLenum GLShaderType_from_file_name(const char* file_name) {

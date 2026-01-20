@@ -1,7 +1,6 @@
 // TODO: Remove
 #include <cstdio>
 #include <cwchar>
-#include <iostream>
 
 #include <intrin.h>
 #include <stdlib.h>
@@ -164,11 +163,12 @@ auto win32_print_error_msg(HRESULT hr) {
         hr, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&errorMessage, 0, nullptr);
 
     if (errorMessage) {
-        std::cerr << "Error: " << errorMessage << " (HRESULT: 0x" << std::hex << hr << ")" << std::endl;
+
+        printf("Error: %s (HRESULT: 0x%08lX)\n", errorMessage, hr);
         LocalFree(errorMessage); // Free the allocated memory
     }
     else {
-        std::cerr << "Unknown error (HRESULT: 0x" << std::hex << hr << ")" << std::endl;
+        printf("Unknown error (HRESULT: 0x%08lX)\n", hr);
     }
 }
 auto win32_init_audio(Audio& audio) -> void {
@@ -311,7 +311,7 @@ bool win32_read_text_file(const char* path, char* read_buffer, const u64 buffer_
     // Read one character less than the buffer size to save room for
     // the terminating NULL character.
     DWORD bytes_read = 0;
-    if (!ReadFile(file_handle, read_buffer, buffer_size - 1, &bytes_read, nullptr)) {
+    if (!ReadFile(file_handle, read_buffer, (u32)buffer_size - 1, &bytes_read, nullptr)) {
         printf("Unable to read from file: %s\nGetLastError=%lu\n", path, GetLastError());
         CloseHandle(file_handle);
         return false;
@@ -340,7 +340,7 @@ bool win32_write_file(const char* path, const char* data, const u64 data_size) {
     }
 
     DWORD bytes_written = 0;
-    if (!WriteFile(file_handle, data, data_size, &bytes_written, nullptr)) {
+    if (!WriteFile(file_handle, data, (u32)data_size, &bytes_written, nullptr)) {
         printf("Unable to write to file: %s\nGetLastError=%lu\n", path, GetLastError());
         CloseHandle(file_handle);
         return false;
@@ -406,7 +406,7 @@ bool win32_overwrite_file(const char* path, void* memory, size_t size) {
     }
 
     DWORD bytes_written;
-    auto is_success = WriteFile(handle, memory, size, &bytes_written, nullptr);
+    auto is_success = WriteFile(handle, memory, (u32)size, &bytes_written, nullptr);
     assert(size == bytes_written);
     CloseHandle(handle);
     if (!is_success) {
@@ -417,7 +417,7 @@ bool win32_overwrite_file(const char* path, void* memory, size_t size) {
     return true;
 }
 
-bool win32_read_binary_file(const char* path, void* destination_buffer, const u64 buffer_size) {
+bool win32_read_binary_file(const char* path, void* destination_buffer, u64 buffer_size) {
     HANDLE file_handle;
     file_handle = CreateFileA(path, // file to open
         GENERIC_READ,               // open for reading
@@ -434,7 +434,7 @@ bool win32_read_binary_file(const char* path, void* destination_buffer, const u6
     }
 
     DWORD bytes_read = 0;
-    if (!ReadFile(file_handle, destination_buffer, buffer_size, &bytes_read, nullptr)) {
+    if (!ReadFile(file_handle, destination_buffer, (u32)buffer_size, &bytes_read, nullptr)) {
         printf("[ERROR] win32_read_binary file: Unable to read file '%s'.\nWindows error code=%lu\n", path, GetLastError());
         CloseHandle(file_handle);
         return false;
@@ -1134,7 +1134,7 @@ DWORD WINAPI worker_proc(LPVOID lpParameter) {
     win32_thread_startup* thread = (win32_thread_startup*)lpParameter;
     PlatformWorkQueue* queue = thread->queue;
     // TODO: Get ThreadID
-    for (;;) {
+    while (true) {
         if (win32_do_next_work_entry(queue)) {
             WaitForSingleObjectEx(queue->SemaphoreHandle, INFINITE, FALSE);
         }
@@ -1218,13 +1218,13 @@ int main() {
 #endif
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
-    win32_delete_directory_tree(EngineDllCopyPath);
-    win32_delete_directory_tree(OpenGlRendererDllCopyPath);
-    win32_delete_directory_tree(SoftwareRendererDllCopyPath);
-
     win32_check_ticks_frequency();
     const auto tick_frequency = win32_get_ticks_per_second();
     auto main_entry_tick = win32_get_tick();
+
+    win32_delete_directory_tree(EngineDllCopyPath);
+    win32_delete_directory_tree(OpenGlRendererDllCopyPath);
+    win32_delete_directory_tree(SoftwareRendererDllCopyPath);
 
     const u32 NUM_THREADS = 4;
     PlatformWorkQueue work_queue = {};
@@ -1323,7 +1323,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
         app_input.dt_tick = this_tick - last_tick;
         if (is_slow_mode) {
-            app_input.dt_tick /= 10.0f;
+            app_input.dt_tick /= 10;
         }
         app_input.ticks += app_input.dt_tick;
         app_input.dt = static_cast<f32>(app_input.dt_tick) / tick_frequency;

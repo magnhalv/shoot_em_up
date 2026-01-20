@@ -15,10 +15,6 @@ include_directories(../shared_deps/glad/include)
 include_directories(deps/src/glm)
 
 # Dynamic configuration
-
-target_link_libraries(engine_dyn ${LIBS})
-set_target_properties(engine_dyn PROPERTIES DEBUG_POSTFIX "")
-
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(engine_dyn PUBLIC ENGINE_DEBUG=1)
 elseif (CMAKE_BUILD_TYPE MATCHES Release)
