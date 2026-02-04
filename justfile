@@ -1,6 +1,3 @@
-[working-directory: 'data']
-assets-build: build
-  time ../cmake-build/asset_builder.exe
   
 gen: env
   ./scripts/generate.bat
@@ -31,8 +28,11 @@ opengl_renderer:
 tests:
   { time ./scripts/compile.bat tests; }  > tests.log 2>&1
 
+build-assets:
+  { time ./scripts/compile.bat asset_builder; }  > build_assets.log 2>&1
+
 [parallel]
-build-all: engine main software_renderer 
+build-all: engine main software_renderer build-assets
     cat *.log
 
 [working-directory: 'data']
@@ -48,4 +48,9 @@ run-engine:
     time just engine
     cat ../engine.log
     ../build/shoot_em_up.exe
+
+[working-directory: 'data']
+assets-build: build-assets
+  cat ../build_assets.log
+  time ../build/asset_builder.exe
 

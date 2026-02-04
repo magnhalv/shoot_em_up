@@ -77,6 +77,8 @@ auto UI_Begin(Mouse* mouse, i32 client_width, i32 client_height) -> void {
     UI_Entity* entry_point = allocate<UI_Entity>(global_context->frame_arena(), 1);
     entry_point->computed_size[Axis2_X] = (f32)client_width;
     entry_point->computed_size[Axis2_Y] = (f32)client_height;
+    entry_point->semantic_position[Axis2_X] = UI_Fixed(0.0f);
+    entry_point->semantic_position[Axis2_Y] = UI_Fixed(0.0f);
     global_context->state()->parents.push(entry_point);
 
     global_context->state()->client_width = client_width;
@@ -136,29 +138,162 @@ auto UI_Begin(Mouse* mouse, i32 client_width, i32 client_height) -> void {
     }
 }
 
-auto calculate_size(UI_Entity* entity, Axis2 axis) -> void {
-    switch (entity->semantic_size[axis].kind) {
-    case UI_SizeKind_Pixels: {
-        entity->computed_size[axis] = entity->semantic_size[axis].value;
-        break;
-    }
-    case UI_SizeKind_ChildrenSum: {
+auto calculate_size(UI_Entity* entity) -> void {
+    {
         UI_Entity* child = entity->first;
-        i32 direction = axis == Axis2_Y ? global_context->state()->layout.layout_direction : 1;
-        f32 size = direction > 0 ? 0.0f : global_context->state()->client_height;
         while (child) {
-            calculate_size(child, axis);
-            f32 child_size = child->computed_rel_position[axis] + (direction * child->computed_size[Axis2_X]);
-            size = direction > 0 ? hm::max(child_size, size) : hm::min(child_size, size);
+            calculate_size(child);
             child = child->right;
         }
-        entity->computed_size[axis] = size + entity->padding[UI_Direction_Down];
+    }
+    {
+        switch (entity->semantic_size[Axis2_X].kind) {
+        case UI_SizeKind_Pixels: {
+            entity->computed_size[Axis2_X] = entity->semantic_size[Axis2_X].value;
+            break;
+        }
+        case UI_SizeKind_ChildrenSum: {
+            f32 size = 0.0f;
+            UI_Entity* child = entity->first;
+            if (entity->flex_direction == UI_Flex_Column) {
+                while (child) {
+                    size = hm::max(size, child->computed_size[Axis2_X]);
+                    child = child->right;
+                }
+            }
+            else {
+                while (child) {
+                    size += child->computed_size[Axis2_X];
+                    if (child->right) {
+                        size += child->margin[UI_Direction_Right];
+                    }
+                    child = child->right;
+                }
+            }
+            entity->computed_size[Axis2_X] = size + entity->padding[UI_Direction_Left] + entity->padding[UI_Direction_Right];
+        } break;
+
+        case UI_SizeKind_PercentOfParent: {
+            Assert(entity->parent);
+            Assert(entity->parent->semantic_size[Axis2_X].kind == UI_SizeKind_Pixels);
+            entity->computed_size[Axis2_X] =                       //
+                (                                                  //
+                    entity->parent->semantic_size[Axis2_X].value - //
+                    entity->parent->padding[UI_Direction_Left] -   //
+                    entity->parent->padding[UI_Direction_Right]    //
+                    )                                              //
+                * entity->semantic_size[Axis2_X].value;
+            break;
+        }
+        case UI_SizeKind_TextContent: {
+
+        } break;
+        }
     }
 
-    case UI_SizeKind_TextContent:
-    case UI_SizeKind_PercentOfParent: {
-        break;
+    {
+        switch (entity->semantic_size[Axis2_Y].kind) {
+        case UI_SizeKind_Pixels: {
+            entity->computed_size[Axis2_Y] = entity->semantic_size[Axis2_Y].value;
+            break;
+        }
+        case UI_SizeKind_ChildrenSum: {
+            f32 size = 0.0f;
+            UI_Entity* child = entity->first;
+            if (entity->flex_direction == UI_Flex_Row) {
+                while (child) {
+                    size = hm::max(size, child->computed_size[Axis2_Y]);
+                    child = child->right;
+                }
+            }
+            else {
+                while (child) {
+                    size += child->computed_size[Axis2_Y];
+                    if (child->right) {
+                        size += child->margin[UI_Direction_Right];
+                    }
+                    child = child->right;
+                }
+            }
+            entity->computed_size[Axis2_Y] = size + entity->padding[UI_Direction_Up] + entity->padding[UI_Direction_Down];
+        } break;
+
+        case UI_SizeKind_PercentOfParent: {
+            Assert(entity->parent);
+            Assert(entity->parent->semantic_size[Axis2_Y].kind == UI_SizeKind_Pixels);
+            entity->computed_size[Axis2_Y] =                       //
+                (                                                  //
+                    entity->parent->semantic_size[Axis2_Y].value - //
+                    entity->parent->padding[UI_Direction_Up] -     //
+                    entity->parent->padding[UI_Direction_Down]     //
+                    )                                              //
+                * entity->semantic_size[Axis2_Y].value;
+            break;
+        }
+        case UI_SizeKind_TextContent: {
+
+        } break;
+        }
     }
+}
+
+auto calculate_position_axis(UI_Entity* entity) {
+    {
+        f32 value = entity->semantic_position[Axis2_X].value;
+
+        switch (entity->semantic_position[Axis2_X].kind) {
+        case UI_PositionKind_Flex: {
+            Assert(entity->parent);
+            f32 grown = entity->parent->flex_direction == UI_Flex_Row ?
+                entity->computed_size[Axis2_X] + entity->margin[UI_Direction_Right] :
+                0.0f;
+            entity->position[Axis2_X] = entity->parent->computed_child_offset[Axis2_X];
+            entity->parent->computed_child_offset[Axis2_X] += grown;
+        } break;
+        case UI_PositionKind_Fixed: {
+            entity->position[Axis2_X] = value;
+        } break;
+        case UI_PositionKind_Relative: {
+            Assert(entity->parent);
+            entity->position[Axis2_X] = entity->parent->position[Axis2_X] + value;
+        } break;
+        }
+    }
+    {
+        f32 value = entity->semantic_position[Axis2_Y].value;
+
+        switch (entity->semantic_position[Axis2_Y].kind) {
+        case UI_PositionKind_Flex: {
+            Assert(entity->parent);
+            f32 grown = entity->parent->flex_direction == UI_Flex_Column ?
+                entity->computed_size[Axis2_Y] + entity->margin[UI_Direction_Right] :
+                0.0f;
+            entity->position[Axis2_Y] = entity->parent->computed_child_offset[Axis2_Y];
+            entity->parent->computed_child_offset[Axis2_Y] -= grown;
+        } break;
+        case UI_PositionKind_Fixed: {
+            entity->position[Axis2_Y] = value;
+        } break;
+        case UI_PositionKind_Relative: {
+            Assert(entity->parent);
+            entity->position[Axis2_Y] = entity->parent->position[Axis2_Y] + value;
+        } break;
+        }
+    }
+}
+
+auto calculate_positions(UI_Entity* entity) -> void {
+    Assert(entity);
+    calculate_position_axis(entity);
+    entity->computed_child_offset[Axis2_X] = entity->position[Axis2_X] + entity->padding[UI_Direction_Right];
+    entity->computed_child_offset[Axis2_Y] = entity->position[Axis2_Y] - entity->padding[UI_Direction_Down];
+
+    {
+        UI_Entity* child = entity->first;
+        while (child) {
+            calculate_positions(child);
+            child = child->right;
+        }
     }
 }
 
@@ -166,8 +301,8 @@ auto UI_End() -> void {
     Assert(global_context->state()->parents.count() == 1);
 
     UI_Entity* entity = global_context->state()->parents[0];
-    calculate_size(entity, Axis2_X);
-    calculate_size(entity, Axis2_Y);
+    calculate_size(entity);
+    calculate_positions(entity);
 }
 
 auto UI_SetLayout(UI_Layout layout) -> void {
@@ -179,11 +314,11 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
     UI_Entity* entity = global_context->state()->parents[0]->first;
     StackList<UI_Entity*, 1024> next = {};
     while (entity) {
-        f32 x = entity->computed_rel_position[Axis2_X];
-        f32 y = entity->computed_rel_position[Axis2_Y];
+        f32 x = entity->position[Axis2_X];
+        f32 y = entity->position[Axis2_Y];
         f32 el_width = entity->computed_size[Axis2_X];
         f32 el_height = entity->computed_size[Axis2_Y];
-        {
+        if (entity->flags & UI_WidgetFlag_DrawBackground) {
 
             if (global_context->state()->layout.layout_direction == UI_Direction_Up) {
                 entity->rect.bl = vec2(x, y);
@@ -209,7 +344,6 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
 
         if (entity->flags & UI_WidgetFlag_DrawText) {
             LoadedFont* font = global_context->font;
-            x = x + entity->padding[UI_Direction_Left];
             y = y - (entity->computed_size[Axis2_Y] - font->font_height) * 0.5f - font->ascent;
             for (const CodePoint& cp : entity->text) {
                 if (cp.c == ' ') {
@@ -271,9 +405,9 @@ auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {
         entity->parent->last = entity;
     }
 
-    entity->margin[UI_Direction_Up] = Padding_Margin_X;
+    entity->margin[UI_Direction_Up] = Padding_Margin_Y;
     entity->margin[UI_Direction_Right] = Padding_Margin_X;
-    entity->margin[UI_Direction_Down] = Padding_Margin_X;
+    entity->margin[UI_Direction_Down] = Padding_Margin_Y;
     entity->margin[UI_Direction_Left] = Padding_Margin_X;
 
     entity->padding[UI_Direction_Up] = Padding_Margin_Y;
@@ -283,54 +417,8 @@ auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {
 
     entity->background_color = global_context->style->background_color;
 
-    const UI_Entity* sib = entity->left;
-    if (x.kind == UI_PositionKind_Fixed) {
-        entity->position[Axis2_X] = x.value;
-        entity->computed_rel_position[Axis2_X] = x.value;
-        entity->computed_child_offset[Axis2_X] = x.value + Padding_Margin_X;
-    }
-    else if (x.kind == UI_PositionKind_Flex) {
-        if (sib) {
-            entity->computed_rel_position[Axis2_X] = sib->computed_rel_position[Axis2_X];
-        }
-        else {
-            f32* computed_rel_position = entity->parent->computed_rel_position;
-            entity->computed_rel_position[Axis2_X] = computed_rel_position[Axis2_X] + Padding_Margin_X;
-        }
-    }
-    if (y.kind == UI_PositionKind_Fixed) {
-        entity->position[Axis2_Y] = y.value;
-        entity->computed_rel_position[Axis2_Y] = y.value;
-        entity->computed_child_offset[Axis2_Y] = y.value - Padding_Margin_Y;
-    }
-    else if (y.kind == UI_PositionKind_Flex) {
-        UI_Direction dir = global_context->state()->layout.layout_direction;
-
-        i32 x_dir = 0;
-        i32 y_dir = 0;
-        if (dir == UI_Direction_Up) {
-            y_dir = 1;
-        }
-        if (dir == UI_Direction_Down) {
-            y_dir = -1;
-        }
-
-        if (dir == UI_Direction_Right) {
-            x_dir = 1;
-        }
-        if (dir == UI_Direction_Left) {
-            x_dir = -1;
-        }
-
-        f32* child_offset = entity->parent->computed_child_offset;
-        entity->computed_rel_position[Axis2_X] = child_offset[Axis2_X];
-        entity->computed_rel_position[Axis2_Y] = child_offset[Axis2_Y];
-
-        if (global_context->state()->layout.layout_direction == UI_Direction_Right) {
-            Assert(entity->parent);
-            child_offset[Axis2_X] += entity->computed_size[Axis2_X];
-        }
-    }
+    entity->semantic_position[Axis2_X] = x;
+    entity->semantic_position[Axis2_Y] = y;
 
     if (global_context->state()->click_released_item == entity->id) {
         status->click_released = true;
@@ -352,6 +440,7 @@ auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {
     entity->computed_size[Axis2_Y] = height.value;
 
     entity->z_index = global_context->style->z_index;
+    entity->flex_direction = global_context->style->flex_direction;
 }
 
 auto UI_PushWindow(string8 text, UI_Position x, UI_Position y, UI_Size width, UI_Size height) -> void {
@@ -440,13 +529,22 @@ auto UI_Text(string8 text) -> UI_Entity_Status {
     entity->id = hash64(text);
     entity->flags = (UI_WidgetFlags)(UI_WidgetFlag_DrawText);
     entity->text = UI_GetCodePoints(text, global_context->font, global_context->frame_arena());
-    f32 width_pixels = UI_GetCodePointsTotalLength(&entity->text) + entity->padding[UI_Direction_Left] +
-        entity->padding[UI_Direction_Right];
-    f32 height_pixels = global_context->font->font_height + entity->padding[UI_Direction_Up] + entity->padding[UI_Direction_Down];
+    f32 width_pixels = UI_GetCodePointsTotalLength(&entity->text);
+    f32 height_pixels = global_context->font->font_height;
     UI_Size width = { .kind = UI_SizeKind_Pixels, .value = width_pixels, .strictness = 1.0 };
     UI_Size height = { .kind = UI_SizeKind_Pixels, .value = height_pixels, .strictness = 1.0 };
 
     make_element(entity, &result, {}, {}, width, height);
+
+    entity->margin[UI_Direction_Up] = 0.0f;
+    entity->margin[UI_Direction_Right] = 0.0f;
+    entity->margin[UI_Direction_Down] = 0.0f;
+    entity->margin[UI_Direction_Left] = 0.0f;
+
+    entity->padding[UI_Direction_Up] = 0.0f;
+    entity->padding[UI_Direction_Right] = 0.0f;
+    entity->padding[UI_Direction_Down] = 0.0f;
+    entity->padding[UI_Direction_Left] = 0.0f;
 
     return result;
 }
@@ -460,58 +558,10 @@ auto UI_Box(string8 id, UI_Size width, UI_Size height) -> UI_Entity_Status {
 
     make_element(box, &result, {}, {}, width, height);
 
-    // Maybe make this a post pass step?
-
-    if (box->semantic_size[Axis2_X].kind == UI_SizeKind_PercentOfParent) {
-        Assert(box->parent);
-        Assert(box->parent->semantic_size[Axis2_X].kind == UI_SizeKind_Pixels);
-        box->computed_size[Axis2_X] =                       //
-            (                                               //
-                box->parent->semantic_size[Axis2_X].value - //
-                box->parent->padding[UI_Direction_Left] -   //
-                box->parent->padding[UI_Direction_Right]    //
-                )                                           //
-            * box->semantic_size[Axis2_X].value;
-    }
-    if (box->semantic_size[Axis2_Y].kind == UI_SizeKind_PercentOfParent) {
-        Assert(box->parent);
-        Assert(box->parent->semantic_size[Axis2_Y].kind == UI_SizeKind_Pixels);
-        box->computed_size[Axis2_Y] =                       //
-            (                                               //
-                box->parent->semantic_size[Axis2_Y].value - //
-                box->parent->padding[UI_Direction_Up] -     //
-                box->parent->padding[UI_Direction_Down]     //
-                )                                           //
-            * box->semantic_size[Axis2_Y].value;
-    }
-
-    // TODO: Move direction to style
-    UI_Direction dir = global_context->state()->layout.layout_direction;
-
-    i32 x_dir = 0;
-    i32 y_dir = 0;
-    if (dir == UI_Direction_Up) {
-        y_dir = 1;
-    }
-    if (dir == UI_Direction_Down) {
-        y_dir = -1;
-    }
-
-    if (dir == UI_Direction_Right) {
-        x_dir = 1;
-    }
-    if (dir == UI_Direction_Left) {
-        x_dir = -1;
-    }
-
-    f32* child_offset = box->parent->computed_child_offset;
-    box->computed_rel_position[Axis2_X] = child_offset[Axis2_X];
-    box->computed_rel_position[Axis2_Y] = child_offset[Axis2_Y];
-
-    if (global_context->state()->layout.layout_direction == UI_Direction_Right) {
-        Assert(box->parent);
-        child_offset[Axis2_X] += box->computed_size[Axis2_X];
-    }
+    box->margin[UI_Direction_Up] = 0.0f;
+    box->margin[UI_Direction_Right] = 0.0f;
+    box->margin[UI_Direction_Down] = 0.0f;
+    box->margin[UI_Direction_Left] = 0.0f;
 
     return result;
 }
@@ -549,4 +599,13 @@ auto UI_PushStyleBackgroundColor(vec4 color) -> void {
 auto UI_PopStyleBackgroundColor() -> void {
     global_context->style->background_color = *global_context->style_overrides.background_colors.last();
     global_context->style_overrides.background_colors.pop();
+}
+
+auto UI_PushStyleFlexDirection(UI_FlexDirection direction) -> void {
+    global_context->style_overrides.flex_direction.push(global_context->style->flex_direction);
+    global_context->style->flex_direction = direction;
+}
+auto UI_PopStyleFlexDirection() -> void {
+    global_context->style->flex_direction = *global_context->style_overrides.flex_direction.last();
+    global_context->style_overrides.flex_direction.pop();
 }

@@ -171,7 +171,7 @@ auto load_font(const char* path) -> Font {
     result.first_code_point = 32;
     result.last_code_point = 255;
     result.code_point_count = result.last_code_point - result.first_code_point;
-    result.font_height = 32.0f;
+    result.font_height = 20.0f;
 
     result.code_points = (CodePoint*)malloc(result.code_point_count * sizeof(CodePoint));
     stbtt_bakedchar* cdata = (stbtt_bakedchar*)malloc(result.code_point_count * sizeof(stbtt_bakedchar));
@@ -183,14 +183,13 @@ auto load_font(const char* path) -> Font {
 
     {
         stbtt_fontinfo font;
-        int i, j, ascent, descent, baseline, ch = 0;
-        float scale, xpos = 1;
+        i32 ascent, descent;
+        f32 scale;
         stbtt_InitFont(&font, file_content, 0);
         scale = stbtt_ScaleForPixelHeight(&font, result.font_height);
         stbtt_GetFontVMetrics(&font, &ascent, &descent, 0);
-        result.ascent = (i32)(ascent * scale);
-        result.descent = (i32)(descent * scale);
-        printf("Baseline %f %f\n", ascent * scale, descent * scale);
+        result.ascent = (ascent * scale);
+        result.descent = (descent * scale);
     }
 
     // Flip y-axis and turn into u32 color
@@ -208,8 +207,8 @@ auto load_font(const char* path) -> Font {
     for (i32 i = 0; i < result.code_point_count; i++) {
 
         stbtt_bakedchar* bc = &cdata[i];
-        u16 y_max = result.bitmap_height - 1 - bc->y0;
-        u16 y_min = result.bitmap_height - 1 - bc->y1;
+        u16 y_max = (u16)result.bitmap_height - 1 - bc->y0;
+        u16 y_min = (u16)result.bitmap_height - 1 - bc->y1;
 
         result.code_points[i].x0 = bc->x0;
         result.code_points[i].y0 = y_min;
@@ -269,8 +268,8 @@ auto load_wav_file(const char* path) -> WavFile {
 
     while (!feof(file)) {
         // TODO: memcopy the data into a WavFile struct, without pointers, so we can release the extra memory.
-        WavSubchunkDesc desc = { 0 };
-        u64 curr_pos = ftell(file);
+        WavSubchunkDesc desc = {};
+        i32 curr_pos = ftell(file);
         fread(&desc, sizeof(WavSubchunkDesc), 1, file);
         fseek(file, curr_pos, SEEK_SET);
 
@@ -414,7 +413,8 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
         fseek(out, (u32)header.assets_tag_block, SEEK_SET);
         fwrite(assets->asset_tags, asset_tag_array_size, 1, out);
 
-        fseek(out, header.assets_block, SEEK_SET);
+        Assert(header.assets_block <= i32_max);
+        fseek(out, (i32)header.assets_block, SEEK_SET);
         for (u32 asset_idx = 1; asset_idx < header.asset_count; asset_idx++) {
             AssetSource* source = assets->asset_sources + asset_idx;
             AssetMeta* meta = assets->assets_meta + asset_idx;

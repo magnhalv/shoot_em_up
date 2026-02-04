@@ -103,6 +103,11 @@ struct UI_Entity_Status {
     bool pressed;
 };
 
+enum UI_FlexDirection {
+    UI_Flex_Row = 0,
+    UI_Flex_Column,
+};
+
 struct UI_Entity {
     u64 id;
     UI_Entity* parent;
@@ -114,12 +119,15 @@ struct UI_Entity {
     UI_WidgetFlags flags;
 
     UI_Size semantic_size[Axis2_Count];
+    f32 computed_size[Axis2_Count];
+
     f32 margin[UI_Direction_Count];
     f32 padding[UI_Direction_Count];
 
+    UI_FlexDirection flex_direction;
+    UI_Position semantic_position[Axis2_Count];
     f32 computed_rel_position[Axis2_Count]; // Position relative to parent
     f32 position[Axis2_Count];
-    f32 computed_size[Axis2_Count];
 
     f32 computed_child_offset[Axis2_Count];
 
@@ -151,6 +159,7 @@ struct UI_StyleOverrides {
     StackList<UI_Size, UI_Max_Style_Depth> height;
     StackList<UI_Direction, UI_Max_Style_Depth> layout_direction;
     StackList<i32, UI_Max_Style_Depth> z_index;
+    StackList<UI_FlexDirection, UI_Max_Style_Depth> flex_direction;
 };
 
 struct UI_Style {
@@ -158,6 +167,7 @@ struct UI_Style {
     UI_Size width;
     UI_Size height;
     i32 z_index;
+    UI_FlexDirection flex_direction;
 };
 
 inline UI_Style default_style = {  //
@@ -172,7 +182,8 @@ inline UI_Style default_style = {  //
         .value = 0.0f,
         .strictness = 0.0,
     },
-    .z_index = -1
+    .z_index = -1,
+    .flex_direction = UI_Flex_Row
 };
 
 struct UI_Context {
@@ -229,11 +240,13 @@ auto UI_PushStyleZIndex(i32 z_index) -> void;
 auto UI_PopStyleZIndex() -> void;
 auto UI_PushStyleBackgroundColor(vec4 color) -> void;
 auto UI_PopStyleBackgroundColor() -> void;
+auto UI_PushStyleFlexDirection(UI_FlexDirection direction) -> void;
+auto UI_PopStyleFlexDirection() -> void;
 
 auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void;
 
 #define UI_SetSize(size_x, size_y) DeferLoop(UI_PushStyleSize(size_x, size_y), UI_PopStyleSize())
-#define UI_Window(text, x, y) DeferLoop(UI_PushWindow(text, x, y, 0, 0), UI_PopWindow())
+#define UI_Window(text, x, y) DeferLoop(UI_PushWindow(text, x, y), UI_PopWindow())
 #define UI_WindowFull(text, x, y, width, height) DeferLoop(UI_PushWindow(text, x, y, width, height), UI_PopWindow())
 
 #endif

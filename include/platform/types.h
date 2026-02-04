@@ -19,6 +19,39 @@ using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 
+// signed integers
+#define i8_min INT8_MIN
+#define i8_max INT8_MAX
+
+#define i16_min INT16_MIN
+#define i16_max INT16_MAX
+
+#define i32_min INT32_MIN
+#define i32_max INT32_MAX
+
+#define i64_min INT64_MIN
+#define i64_max INT64_MAX
+
+// unsigned integers
+#define u8_min 0
+#define u8_max UINT8_MAX
+
+#define u16_min 0
+#define u16_max UINT16_MAX
+
+#define u32_min 0
+#define u32_max UINT32_MAX
+
+#define u64_min 0
+#define u64_max UINT64_MAX
+
+// floating point
+#define f32_min (-FLT_MAX)
+#define f32_max FLT_MAX
+
+#define f64_min (-DBL_MAX)
+#define f64_max DBL_MAX
+
 using memory_index = size_t;
 
 const u64 us_in_second = 1000000;

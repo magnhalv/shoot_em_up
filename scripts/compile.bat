@@ -19,6 +19,7 @@ if /I "%~1"=="main" call :main
 if /I "%~1"=="software_renderer" call :software_renderer
 if /I "%~1"=="opengl_renderer" call :opengl_renderer
 if /I "%~1"=="tests" call :tests
+if /I "%~1"=="asset_builder" call :asset_builder
 
 shift
 goto loop
@@ -33,6 +34,12 @@ exit /b
 
 :main
 set CompileCmd=cl %CommonCompilerFlags% %CommonInclude% ..\src\win32_main.cpp /Feshoot_em_up.exe /link %CommonLinkerFlags%
+echo %CompileCmd%
+call %CompileCmd%
+exit /b
+
+:asset_builder
+set CompileCmd=cl %CommonCompilerFlags% %CommonInclude% ..\src\asset_builder_main.cpp /Feasset_builder.exe /link %CommonLinkerFlags%
 echo %CompileCmd%
 call %CompileCmd%
 exit /b

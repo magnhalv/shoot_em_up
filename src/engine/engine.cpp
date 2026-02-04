@@ -185,6 +185,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     {
         TIMED_BLOCK("debug_checks");
         state->permanent.check_integrity();
+        state->transient.check_integrity();
     }
 #endif
 
@@ -542,12 +543,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                             printf("%s\n", event.GUID);
                         }
                         if (box.hovered) {
-                            UI_PushStyleBackgroundColor(background_color);
+                            vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);
+                            UI_PushStyleBackgroundColor(hover_background_color);
                             UI_PushStyleZIndex(9000);
-                            UI_WindowFull("Hover window", UI_Fixed((f32)mouse->client_x),
-                                UI_Fixed((f32)mouse->client_y), UI_Pixels(100.0f), UI_Pixels(100.0f)) {
+                            UI_PushStyleFlexDirection(UI_Flex_Column);
+                            UI_Window("Hover window", UI_Fixed((f32)mouse->client_x + 5.0f), UI_Fixed((f32)mouse->client_y + 15.0f)) {
                                 UI_Text(event.GUID);
+                                UI_Text("Fraction: 0.3");
+                                UI_Text("4 ms");
                             }
+                            UI_PopStyleFlexDirection();
                             UI_PopStyleZIndex();
                             UI_PopStyleBackgroundColor();
                         }
