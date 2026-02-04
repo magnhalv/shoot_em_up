@@ -1,30 +1,13 @@
 #pragma once
 
+#include <platform/types.h>
+
 #include <core/hash.hpp>
 #include <math/util.hpp>
 
 #include "imgui.hpp"
 
-struct UI_State {
-    UI_Entity* parent; // TODO: Make this a stack
-    UI_Entity* entry_point;
-
-    UI_Layout layout;
-    i32 client_width;
-    i32 client_height;
-
-    u64 hot_item;
-    u64 active_item;
-    u64 clicked_item;
-};
-
-MemoryArena* frame_arena = nullptr;
-MemoryArena* prev_frame_arena = nullptr;
-
-static UI_State* ui_state;
-UI_State* ui_prev_state;
-LoadedFont* global_font;
-i32 g_texture_id;
+global_variable UI_Context* global_context;
 
 const i32 Padding_Margin_X = 10;
 const i32 Padding_Margin_Y = 5;
@@ -45,7 +28,7 @@ auto UI_GetCodePointsTotalLength(List<CodePoint>* code_points) -> f32 {
 
 auto UI_GetCodePoints(string8 str, LoadedFont* font, MemoryArena* arena) -> List<CodePoint> {
     List<CodePoint> result;
-    result.init(arena, str.length);
+    result.init(arena, (i32)str.length);
     for (u32 i = 0; i < str.length; i++) {
         i32 code_point_idx = (i32)str.data[i] - font->code_point_first;
         CodePoint cp = font->code_points[code_point_idx];
@@ -55,15 +38,24 @@ auto UI_GetCodePoints(string8 str, LoadedFont* font, MemoryArena* arena) -> List
     return result;
 }
 
-auto UI_Initialize(MemoryArena* arena) -> void {
-    frame_arena = arena->allocate_arena(MegaBytes(1));
-    ui_state = allocate<UI_State>(frame_arena);
-    prev_frame_arena = arena->allocate_arena(MegaBytes(1));
+auto UI_CreateContext(MemoryArena* arena) -> UI_Context* {
+    UI_Context* result = allocate<UI_Context>(arena);
+    result->frame_arenas[0] = arena->allocate_arena(MegaBytes(1));
+    result->frame_arenas[1] = arena->allocate_arena(MegaBytes(1));
+    result->arena = arena->allocate_arena(MegaBytes(1));
+    result->style = &default_style;
+
+    return result;
+}
+
+auto UI_SetContext(UI_Context* context) -> void {
+    global_context = context;
 }
 
 auto UI_SetFont(i32 texture_id, LoadedFont* font) -> void {
-    g_texture_id = texture_id;
-    global_font = font;
+    Assert(global_context);
+    global_context->texture_id = texture_id;
+    global_context->font = font;
 }
 
 auto UI_is_inside(i32 mouse_x, i32 mouse_y, UI_Entity* entity) -> bool {
@@ -77,69 +69,69 @@ auto UI_is_inside(i32 mouse_x, i32 mouse_y, UI_Entity* entity) -> bool {
 auto UI_Begin(Mouse* mouse, i32 client_width, i32 client_height) -> void {
     i32 mouse_y = client_height - mouse->client_y;
     i32 mouse_x = mouse->client_x;
-    Assert(frame_arena);
-    Assert(prev_frame_arena);
+    Assert(global_context);
 
-    ui_prev_state = ui_state;
+    global_context->flip_and_clear_state();
 
-    MemoryArena* temp = frame_arena;
-    frame_arena = prev_frame_arena;
-    prev_frame_arena = temp;
-    frame_arena->clear_to_zero();
+    global_context->state()->parents.init(global_context->frame_arena(), 100);
+    UI_Entity* entry_point = allocate<UI_Entity>(global_context->frame_arena(), 1);
+    entry_point->computed_size[Axis2_X] = (f32)client_width;
+    entry_point->computed_size[Axis2_Y] = (f32)client_height;
+    global_context->state()->parents.push(entry_point);
 
-    ui_state = allocate<UI_State>(frame_arena);
+    global_context->state()->client_width = client_width;
+    global_context->state()->client_height = client_height;
 
-    ui_state->client_width = client_width;
-    ui_state->client_height = client_height;
+    Assert(global_context->prev_state());
+    if (global_context->prev_state()->parents.count() > 0) {
+        UI_Entity* hovered_entity = global_context->prev_state()->parents[0]->first;
+        global_context->state()->active_item = 0;
+        global_context->state()->hot_item = 0;
+        if (hovered_entity && UI_is_inside(mouse_x, mouse_y, hovered_entity)) {
+            while (hovered_entity) {
 
-    Assert(ui_prev_state);
-    UI_Entity* hovered_entity = ui_prev_state->entry_point;
-    ui_state->active_item = 0;
-    ui_state->hot_item = 0;
-    if (hovered_entity && UI_is_inside(mouse_x, mouse_y, hovered_entity)) {
-        while (hovered_entity) {
-
-            if (hovered_entity->first == nullptr) {
-                break;
-            }
-            else {
-                UI_Entity* child = hovered_entity->first;
-                UI_Entity* active_child = nullptr;
-                while (child) {
-                    if (UI_is_inside(mouse_x, mouse_y, child)) {
-                        active_child = child;
-                        break;
-                    }
-                    child = child->right;
-                }
-                if (active_child != nullptr) {
-                    hovered_entity = active_child;
-                }
-                else {
+                if (hovered_entity->first == nullptr) {
                     break;
                 }
+                else {
+                    UI_Entity* child = hovered_entity->first;
+                    UI_Entity* active_child = nullptr;
+                    while (child) {
+                        if (UI_is_inside(mouse_x, mouse_y, child)) {
+                            active_child = child;
+                            break;
+                        }
+                        child = child->right;
+                    }
+                    if (active_child != nullptr) {
+                        hovered_entity = active_child;
+                    }
+                    else {
+                        break;
+                    }
+                }
             }
         }
-    }
-    else {
-        hovered_entity = nullptr;
-    }
-
-    if (mouse->left.is_released_this_frame()) {
-        if (hovered_entity && ui_prev_state->hot_item == hovered_entity->id) {
-            ui_state->clicked_item = hovered_entity->id;
+        else {
+            hovered_entity = nullptr;
         }
-    }
-    else if (ui_prev_state->hot_item != 0) {
-        ui_state->hot_item = ui_prev_state->hot_item;
-        ui_state->active_item = ui_prev_state->active_item;
-    }
 
-    if (hovered_entity && ui_state->hot_item == 0) {
-        ui_state->active_item = hovered_entity->id;
+        if (mouse->left.is_released_this_frame()) {
+            if (hovered_entity && global_context->prev_state()->hot_item == hovered_entity->id) {
+                global_context->state()->click_released_item = hovered_entity->id;
+            }
+        }
+        else if (global_context->prev_state()->hot_item != 0) {
+            global_context->state()->hot_item = global_context->prev_state()->hot_item;
+            global_context->state()->active_item = global_context->prev_state()->active_item;
+        }
 
-        if (mouse->left.is_pressed_this_frame()) {
-            ui_state->hot_item = hovered_entity->id;
+        if (hovered_entity && global_context->state()->hot_item == 0) {
+            global_context->state()->active_item = hovered_entity->id;
+
+            if (mouse->left.is_pressed_this_frame()) {
+                global_context->state()->hot_item = hovered_entity->id;
+            }
         }
     }
 }
@@ -150,11 +142,10 @@ auto calculate_size(UI_Entity* entity, Axis2 axis) -> void {
         entity->computed_size[axis] = entity->semantic_size[axis].value;
         break;
     }
-    case UI_SizeKind_ChildrenSum:
-    case UI_SizeKind_Null: {
+    case UI_SizeKind_ChildrenSum: {
         UI_Entity* child = entity->first;
-        i32 direction = axis == Axis2_Y ? ui_state->layout.layout_direction : 1;
-        f32 size = direction > 0 ? 0.0f : ui_state->client_height;
+        i32 direction = axis == Axis2_Y ? global_context->state()->layout.layout_direction : 1;
+        f32 size = direction > 0 ? 0.0f : global_context->state()->client_height;
         while (child) {
             calculate_size(child, axis);
             f32 child_size = child->computed_rel_position[axis] + (direction * child->computed_size[Axis2_X]);
@@ -172,30 +163,29 @@ auto calculate_size(UI_Entity* entity, Axis2 axis) -> void {
 }
 
 auto UI_End() -> void {
-    Assert(ui_state->entry_point);
-    Assert(ui_state->parent == nullptr);
+    Assert(global_context->state()->parents.count() == 1);
 
-    UI_Entity* entity = ui_state->entry_point;
+    UI_Entity* entity = global_context->state()->parents[0];
     calculate_size(entity, Axis2_X);
     calculate_size(entity, Axis2_Y);
 }
 
 auto UI_SetLayout(UI_Layout layout) -> void {
-    ui_state->layout = layout;
+    global_context->state()->layout = layout;
 }
 
 auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
-    Assert(ui_state->entry_point);
-    UI_Entity* entity = ui_state->entry_point;
+    Assert(global_context->state()->parents.count() == 1);
+    UI_Entity* entity = global_context->state()->parents[0]->first;
+    StackList<UI_Entity*, 1024> next = {};
     while (entity) {
-
         f32 x = entity->computed_rel_position[Axis2_X];
         f32 y = entity->computed_rel_position[Axis2_Y];
         f32 el_width = entity->computed_size[Axis2_X];
         f32 el_height = entity->computed_size[Axis2_Y];
         {
 
-            if (ui_state->layout.layout_direction == LayoutDirection_BottomToTop) {
+            if (global_context->state()->layout.layout_direction == UI_Direction_Up) {
                 entity->rect.bl = vec2(x, y);
                 entity->rect.tr = vec2(x + el_width, y + el_height);
             }
@@ -208,7 +198,7 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
             vec2 tr = entity->rect.tr;
             vec2 tl = vec2(bl.x, tr.y);
             vec2 br = vec2(tr.x, bl.y);
-            auto* rendel_el = PushRenderElement(render_group, RenderEntryBitmap);
+            auto* rendel_el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
             rendel_el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
             rendel_el->offset = vec2(x + el_width / 2, y - el_height / 2);
             rendel_el->scale = vec2(el_width, el_height);
@@ -217,103 +207,174 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
             rendel_el->color = entity->background_color;
         }
 
-        x = x + entity->padding[UI_Direction_Left];
-        y = y - (entity->computed_size[Axis2_Y] - global_font->font_height) * 0.5f - global_font->ascent;
-        for (const CodePoint& cp : entity->text) {
-            if (cp.c == ' ') {
-                x += Space_Width;
-                continue;
+        if (entity->flags & UI_WidgetFlag_DrawText) {
+            LoadedFont* font = global_context->font;
+            x = x + entity->padding[UI_Direction_Left];
+            y = y - (entity->computed_size[Axis2_Y] - font->font_height) * 0.5f - font->ascent;
+            for (const CodePoint& cp : entity->text) {
+                if (cp.c == ' ') {
+                    x += Space_Width;
+                    continue;
+                }
+
+                ivec2 uv_min = ivec2(cp.x0, cp.y0);
+                ivec2 uv_max = ivec2(cp.x1, cp.y1);
+                auto glyph_width = uv_max.x - uv_min.x;
+                auto glyph_height = uv_max.y - uv_min.y;
+
+                auto* el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
+                el->uv_min = uv_min;
+                el->uv_max = uv_max;
+
+                el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
+                el->offset = vec2((glyph_width) / 2.0f + x + cp.xoff, (glyph_height / 2.0f) + y - (glyph_height + cp.yoff));
+                el->scale = vec2((f32)glyph_width, (f32)glyph_height);
+                el->rotation = 0.0f;
+                el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+                el->texture_id = global_context->texture_id;
+
+                x += cp.xadvance;
             }
-
-            ivec2 uv_min = ivec2(cp.x0, cp.y0);
-            ivec2 uv_max = ivec2(cp.x1, cp.y1);
-            auto glyph_width = uv_max.x - uv_min.x;
-            auto glyph_height = uv_max.y - uv_min.y;
-
-            auto* el = PushRenderElement(render_group, RenderEntryBitmap);
-            el->uv_min = uv_min;
-            el->uv_max = uv_max;
-
-            el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-            el->offset = vec2((glyph_width) / 2.0f + x + cp.xoff, (glyph_height / 2.0f) + y - (glyph_height + cp.yoff));
-            el->scale = vec2((f32)glyph_width, (f32)glyph_height);
-            el->rotation = 0.0f;
-            el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
-            el->texture_id = g_texture_id;
-
-            x += cp.xadvance;
         }
 
-        if (entity->right) {
+        if (entity->first) {
+            if (entity->right) {
+                next.push(entity->right);
+            }
+            entity = entity->first;
+        }
+        else if (entity->right) {
             entity = entity->right;
         }
+        else if (next.count() > 0) {
+            entity = *next.last();
+            next.pop();
+        }
         else {
-            entity = entity->first;
+            entity = nullptr;
         }
     }
 }
 
-auto UI_PushWindow(string8 text, f32 x, f32 y, f32 width, f32 height) -> void {
-    Assert(ui_state->parent == nullptr);
-    UI_Entity* window = allocate<UI_Entity>(frame_arena, 1);
+auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {}, UI_Position y = {},
+    UI_Size width = {}, UI_Size height = {}) {
+
+    entity->parent = *global_context->state()->parents.last();
+    if (!entity->parent->first) {
+        entity->parent->first = entity;
+        entity->parent->last = entity;
+    }
+    else {
+        UI_Entity* sibling = entity->parent->last;
+        sibling->right = entity;
+        entity->left = sibling;
+        entity->parent->last = entity;
+    }
+
+    entity->margin[UI_Direction_Up] = Padding_Margin_X;
+    entity->margin[UI_Direction_Right] = Padding_Margin_X;
+    entity->margin[UI_Direction_Down] = Padding_Margin_X;
+    entity->margin[UI_Direction_Left] = Padding_Margin_X;
+
+    entity->padding[UI_Direction_Up] = Padding_Margin_Y;
+    entity->padding[UI_Direction_Right] = Padding_Margin_X;
+    entity->padding[UI_Direction_Down] = Padding_Margin_Y;
+    entity->padding[UI_Direction_Left] = Padding_Margin_X;
+
+    entity->background_color = global_context->style->background_color;
+
+    const UI_Entity* sib = entity->left;
+    if (x.kind == UI_PositionKind_Fixed) {
+        entity->position[Axis2_X] = x.value;
+        entity->computed_rel_position[Axis2_X] = x.value;
+        entity->computed_child_offset[Axis2_X] = x.value + Padding_Margin_X;
+    }
+    else if (x.kind == UI_PositionKind_Flex) {
+        if (sib) {
+            entity->computed_rel_position[Axis2_X] = sib->computed_rel_position[Axis2_X];
+        }
+        else {
+            f32* computed_rel_position = entity->parent->computed_rel_position;
+            entity->computed_rel_position[Axis2_X] = computed_rel_position[Axis2_X] + Padding_Margin_X;
+        }
+    }
+    if (y.kind == UI_PositionKind_Fixed) {
+        entity->position[Axis2_Y] = y.value;
+        entity->computed_rel_position[Axis2_Y] = y.value;
+        entity->computed_child_offset[Axis2_Y] = y.value - Padding_Margin_Y;
+    }
+    else if (y.kind == UI_PositionKind_Flex) {
+        UI_Direction dir = global_context->state()->layout.layout_direction;
+
+        i32 x_dir = 0;
+        i32 y_dir = 0;
+        if (dir == UI_Direction_Up) {
+            y_dir = 1;
+        }
+        if (dir == UI_Direction_Down) {
+            y_dir = -1;
+        }
+
+        if (dir == UI_Direction_Right) {
+            x_dir = 1;
+        }
+        if (dir == UI_Direction_Left) {
+            x_dir = -1;
+        }
+
+        f32* child_offset = entity->parent->computed_child_offset;
+        entity->computed_rel_position[Axis2_X] = child_offset[Axis2_X];
+        entity->computed_rel_position[Axis2_Y] = child_offset[Axis2_Y];
+
+        if (global_context->state()->layout.layout_direction == UI_Direction_Right) {
+            Assert(entity->parent);
+            child_offset[Axis2_X] += entity->computed_size[Axis2_X];
+        }
+    }
+
+    if (global_context->state()->click_released_item == entity->id) {
+        status->click_released = true;
+    }
+
+    if (global_context->state()->hot_item == entity->id) {
+        status->pressed = true;
+    }
+    else if (global_context->state()->active_item == entity->id) {
+        status->hovered = true;
+        if (global_context->state()->active_item != global_context->prev_state()->active_item) {
+            status->first_hovered = true;
+        }
+    }
+
+    entity->semantic_size[Axis2_X] = width;
+    entity->semantic_size[Axis2_Y] = height;
+    entity->computed_size[Axis2_X] = width.value;
+    entity->computed_size[Axis2_Y] = height.value;
+
+    entity->z_index = global_context->style->z_index;
+}
+
+auto UI_PushWindow(string8 text, UI_Position x, UI_Position y, UI_Size width, UI_Size height) -> void {
+    UI_Entity* window = allocate<UI_Entity>(global_context->frame_arena(), 1);
     window->id = hash64(text);
     window->flags = (UI_WidgetFlags)(UI_WidgetFlag_Draggable | UI_WidgetFlag_DrawBackground);
 
-    if (ui_state->layout.layout_direction == LayoutDirection_TopToBottom) {
-        y = ui_state->client_height - y;
-    }
+    y.value = global_context->state()->client_height - y.value;
 
-    window->position[Axis2_X] = x;
-    window->position[Axis2_Y] = y;
+    window->background_color = global_context->style->background_color;
 
-    if (width > 0 && height > 0) {
-        window->semantic_size[Axis2_X] = {
-            .kind = UI_SizeKind_Pixels,
-            .value = width,
-            .strictness = 1.0,
-        };
-        window->semantic_size[Axis2_Y] = {
-            .kind = UI_SizeKind_Pixels,
-            .value = height,
-            .strictness = 1.0,
-        };
-    }
-    else {
-        window->semantic_size[Axis2_X] = {
-            .kind = UI_SizeKind_ChildrenSum,
-            .value = 0,
-            .strictness = 1.0,
-        };
-        window->semantic_size[Axis2_Y] = {
-            .kind = UI_SizeKind_ChildrenSum,
-            .value = 0,
-            .strictness = 1.0,
-        };
-    }
-
-    window->padding[UI_Direction_Up] = Padding_Margin_X;
-    window->padding[UI_Direction_Right] = Padding_Margin_X;
-    window->padding[UI_Direction_Down] = Padding_Margin_X;
-    window->padding[UI_Direction_Left] = Padding_Margin_X;
-
-    window->computed_rel_position[Axis2_X] = x;
-    window->computed_rel_position[Axis2_Y] = y;
-
-    ui_state->parent = window;
-
-    window->background_color = vec4(255.0, 255.0, 0, 255.0);
-
-    Assert(ui_state->entry_point == nullptr);
-    ui_state->entry_point = window;
+    UI_Entity_Status status;
+    make_element(window, &status, x, y, width, height);
+    global_context->state()->parents.push(window);
 }
 
-auto get_y(f32 y, i32 client_height, LayoutDirection direction) -> f32 {
-    return direction == LayoutDirection_BottomToTop ? y : (f32)client_height - y;
+auto get_y(f32 y, i32 client_height, UI_Direction direction) -> f32 {
+    return direction == UI_Direction_Up ? y : (f32)client_height - y;
 }
 
 auto UI_PopWindow() -> void {
-    Assert(ui_state->parent != nullptr);
-    ui_state->parent = nullptr;
+    Assert(global_context->state()->parents.count() > 1);
+    global_context->state()->parents.pop();
 }
 
 const vec4 Button_Color = vec4(1.0f, 50.0f, 90.0f, 255.0f);
@@ -321,38 +382,14 @@ const vec4 Hover_Button_Color = vec4(10.0f, 60.0f, 100.0f, 255.0f);
 const vec4 Clicked_Button_Color = vec4(20.0f, 70.0f, 120.0f, 255.0f);
 
 auto UI_Button(string8 text) -> UI_Entity_Status {
-    UI_Entity* button = allocate<UI_Entity>(frame_arena, 1);
+    UI_Entity* button = allocate<UI_Entity>(global_context->frame_arena(), 1);
     UI_Entity_Status result = {};
 
     button->id = hash64(text);
     button->flags = (UI_WidgetFlags)(UI_WidgetFlag_Clickable | UI_WidgetFlag_DrawBackground);
+    make_element(button, &result);
 
-    if (ui_state->parent) {
-        button->parent = ui_state->parent;
-
-        if (!ui_state->parent->first) {
-            ui_state->parent->first = button;
-            ui_state->parent->last = button;
-        }
-        else {
-            UI_Entity* sibling = ui_state->parent->last;
-            sibling->right = button;
-            button->left = sibling;
-            ui_state->parent->last = button;
-        }
-    }
-
-    button->text = UI_GetCodePoints(text, global_font, frame_arena);
-
-    button->margin[UI_Direction_Up] = Padding_Margin_X;
-    button->margin[UI_Direction_Right] = Padding_Margin_X;
-    button->margin[UI_Direction_Down] = Padding_Margin_X;
-    button->margin[UI_Direction_Left] = Padding_Margin_X;
-
-    button->padding[UI_Direction_Up] = Padding_Margin_Y;
-    button->padding[UI_Direction_Right] = Padding_Margin_X;
-    button->padding[UI_Direction_Down] = Padding_Margin_Y;
-    button->padding[UI_Direction_Left] = Padding_Margin_X;
+    button->text = UI_GetCodePoints(text, global_context->font, global_context->frame_arena());
 
     button->semantic_size[Axis2_X] = {
         .kind = UI_SizeKind_Pixels,
@@ -361,11 +398,11 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
     };
     button->semantic_size[Axis2_Y] = {
         .kind = UI_SizeKind_Pixels,
-        .value = global_font->font_height + button->padding[UI_Direction_Up] + button->padding[UI_Direction_Down],
+        .value = global_context->font->font_height + button->padding[UI_Direction_Up] + button->padding[UI_Direction_Down],
         .strictness = 1.0f,
     };
 
-    const i32 y_dir = (i32)ui_state->layout.layout_direction;
+    const i32 y_dir = (i32)global_context->state()->layout.layout_direction;
     // Maybe make this a post pass step?
     if (button->left == nullptr) {
         f32* computed_rel_position = button->parent->computed_rel_position;
@@ -379,14 +416,14 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
             (y_dir * (sib->semantic_size[Axis2_Y].value + sib->margin[UI_Direction_Down]));
     }
 
-    if (ui_state->clicked_item == button->id) {
-        result.clicked = true;
+    if (global_context->state()->click_released_item == button->id) {
+        result.click_released = true;
     }
 
-    if (ui_state->hot_item == button->id) {
+    if (global_context->state()->hot_item == button->id) {
         button->background_color = Clicked_Button_Color;
     }
-    else if (ui_state->active_item == button->id) {
+    else if (global_context->state()->active_item == button->id) {
         button->background_color = Hover_Button_Color;
     }
     else {
@@ -394,4 +431,122 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
     }
 
     return result;
+}
+
+auto UI_Text(string8 text) -> UI_Entity_Status {
+    UI_Entity* entity = allocate<UI_Entity>(global_context->frame_arena(), 1);
+    UI_Entity_Status result = {};
+
+    entity->id = hash64(text);
+    entity->flags = (UI_WidgetFlags)(UI_WidgetFlag_DrawText);
+    entity->text = UI_GetCodePoints(text, global_context->font, global_context->frame_arena());
+    f32 width_pixels = UI_GetCodePointsTotalLength(&entity->text) + entity->padding[UI_Direction_Left] +
+        entity->padding[UI_Direction_Right];
+    f32 height_pixels = global_context->font->font_height + entity->padding[UI_Direction_Up] + entity->padding[UI_Direction_Down];
+    UI_Size width = { .kind = UI_SizeKind_Pixels, .value = width_pixels, .strictness = 1.0 };
+    UI_Size height = { .kind = UI_SizeKind_Pixels, .value = height_pixels, .strictness = 1.0 };
+
+    make_element(entity, &result, {}, {}, width, height);
+
+    return result;
+}
+
+auto UI_Box(string8 id, UI_Size width, UI_Size height) -> UI_Entity_Status {
+    UI_Entity* box = allocate<UI_Entity>(global_context->frame_arena(), 1);
+    UI_Entity_Status result = {};
+
+    box->id = hash64(id);
+    box->flags = (UI_WidgetFlags)(UI_WidgetFlag_DrawBackground);
+
+    make_element(box, &result, {}, {}, width, height);
+
+    // Maybe make this a post pass step?
+
+    if (box->semantic_size[Axis2_X].kind == UI_SizeKind_PercentOfParent) {
+        Assert(box->parent);
+        Assert(box->parent->semantic_size[Axis2_X].kind == UI_SizeKind_Pixels);
+        box->computed_size[Axis2_X] =                       //
+            (                                               //
+                box->parent->semantic_size[Axis2_X].value - //
+                box->parent->padding[UI_Direction_Left] -   //
+                box->parent->padding[UI_Direction_Right]    //
+                )                                           //
+            * box->semantic_size[Axis2_X].value;
+    }
+    if (box->semantic_size[Axis2_Y].kind == UI_SizeKind_PercentOfParent) {
+        Assert(box->parent);
+        Assert(box->parent->semantic_size[Axis2_Y].kind == UI_SizeKind_Pixels);
+        box->computed_size[Axis2_Y] =                       //
+            (                                               //
+                box->parent->semantic_size[Axis2_Y].value - //
+                box->parent->padding[UI_Direction_Up] -     //
+                box->parent->padding[UI_Direction_Down]     //
+                )                                           //
+            * box->semantic_size[Axis2_Y].value;
+    }
+
+    // TODO: Move direction to style
+    UI_Direction dir = global_context->state()->layout.layout_direction;
+
+    i32 x_dir = 0;
+    i32 y_dir = 0;
+    if (dir == UI_Direction_Up) {
+        y_dir = 1;
+    }
+    if (dir == UI_Direction_Down) {
+        y_dir = -1;
+    }
+
+    if (dir == UI_Direction_Right) {
+        x_dir = 1;
+    }
+    if (dir == UI_Direction_Left) {
+        x_dir = -1;
+    }
+
+    f32* child_offset = box->parent->computed_child_offset;
+    box->computed_rel_position[Axis2_X] = child_offset[Axis2_X];
+    box->computed_rel_position[Axis2_Y] = child_offset[Axis2_Y];
+
+    if (global_context->state()->layout.layout_direction == UI_Direction_Right) {
+        Assert(box->parent);
+        child_offset[Axis2_X] += box->computed_size[Axis2_X];
+    }
+
+    return result;
+}
+
+auto UI_PushStyleSize(UI_Size* width, UI_Size* height) -> void {
+    global_context->style_overrides.width.push(global_context->style->width);
+    global_context->style->width = *width;
+
+    global_context->style_overrides.height.push(global_context->style->height);
+    global_context->style->height = *height;
+}
+
+auto UI_PopStyleSize() -> void {
+    global_context->style->width = *global_context->style_overrides.width.last();
+    global_context->style_overrides.width.pop();
+
+    global_context->style->height = *global_context->style_overrides.height.last();
+    global_context->style_overrides.height.pop();
+}
+
+auto UI_PushStyleZIndex(i32 z_index) -> void {
+    global_context->style_overrides.z_index.push(global_context->style->z_index);
+    global_context->style->z_index = z_index;
+}
+
+auto UI_PopStyleZIndex() -> void {
+    global_context->style->z_index = *global_context->style_overrides.z_index.last();
+    global_context->style_overrides.z_index.pop();
+}
+
+auto UI_PushStyleBackgroundColor(vec4 color) -> void {
+    global_context->style_overrides.background_colors.push(global_context->style->background_color);
+    global_context->style->background_color = color;
+}
+auto UI_PopStyleBackgroundColor() -> void {
+    global_context->style->background_color = *global_context->style_overrides.background_colors.last();
+    global_context->style_overrides.background_colors.pop();
 }

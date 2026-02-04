@@ -14,6 +14,8 @@
 
 #include <renderers/renderer.h>
 
+#include <core/list.hpp>
+
 const i32 SCREEN_WIDTH = 960;
 const i32 SCREEN_HEIGHT = 540;
 
@@ -28,6 +30,34 @@ typedef struct {
     u32 file_count;
     void* platform;
 } PlatformFileGroup;
+
+#if !defined(COMPILER_MSVC)
+#define COMPILER_MSVC 0
+#endif
+
+#if !defined(COMPILER_LLVM)
+#define COMPILER_LLVM 0
+#endif
+
+#if !COMPILER_MSVC && !COMPILER_LLVM
+#if _MSC_VER
+#undef COMPILER_MSVC
+#define COMPILER_MSVC 1
+#else
+#unsed COMPILER_LLVM
+#define COMPILER_LLVM 1
+#endif
+#endif
+
+#include <immintrin.h>
+
+#if COMPILER_MSVC
+#include <intrin.h>
+#elif COMPILER_LLVM
+#include <x86intrin.h>
+#else
+#error SEE/NEON is not availbe for this compiler.
+#endif
 
 enum PlatformFileType : u32 { PlatformFileType_AssetFile, PlatformFileType_Count };
 
@@ -79,17 +109,28 @@ struct PlatformApi {
 };
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
-const u64 Transient_Memory_Block_Size = MegaBytes(10);
+const u64 Transient_Memory_Block_Size = MegaBytes(20);
+const u64 Platform_Memory_Block_Size = MegaBytes(20);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
 const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);
 const u64 Renderer_Transient_Memory_Size = MegaBytes(10);
 const u64 Renderer_Total_Memory_Size = Renderer_Permanent_Memory_Size + Renderer_Transient_Memory_Size;
 
+struct DebugTable;
+struct PrintDebugEvent;
 struct EngineMemory {
     void* permanent = nullptr;
     void* transient = nullptr;
 
     PlatformWorkQueue* work_queue = nullptr;
+#if HOMEMADE_DEBUG
+    DebugTable* debug_table;
+    List<PrintDebugEvent> debug_print_events;
+    f32 frame_duration_ms;
+    f32 frame_target_ms;
+    i64 frame_duration_clock_cycles;
+    i64 total_frame_duration_clock_cycles;
+#endif
 };
 
 struct EngineInput {
@@ -99,6 +140,7 @@ struct EngineInput {
     u64 dt_tick;
     f64 t;
     f32 dt;
+    i64 performance_counter_frequency;
     UserInput input;
 };
 
@@ -111,7 +153,8 @@ struct SoundBuffer {
     i32 tone_hz;
 };
 
-#define ENGINE_UPDATE_AND_RENDER(name) void name(EngineMemory* memory, EngineInput* app_input, RendererApi* renderer)
+#define ENGINE_UPDATE_AND_RENDER(name) \
+    void name(EngineMemory* engine_memory, EngineInput* app_input, RendererApi* renderer)
 typedef ENGINE_UPDATE_AND_RENDER(update_and_render_fn);
 
 #define ENGINE_LOAD(name) void name(PlatformApi* platform_api, EngineMemory* memory)
@@ -119,3 +162,6 @@ typedef ENGINE_LOAD(load_fn);
 
 #define ENGINE_GET_SOUND_SAMPLES(name) SoundBuffer name(EngineMemory* memory, i32 num_samples)
 typedef ENGINE_GET_SOUND_SAMPLES(get_sound_samples_fn);
+
+#define DEBUG_FRAME_END(name) void name(EngineMemory* engine_memory, EngineInput* engine_input, RendererApi* renderer)
+typedef DEBUG_FRAME_END(debug_frame_end_fn);

@@ -12,7 +12,7 @@
 MemoryArena* g_transient = nullptr;
 
 auto MemoryArena::allocate(u64 request_size) -> void* {
-    HM_ASSERT(m_memory != nullptr);
+    Assert(m_memory);
     if (m_size < m_used + request_size + sizeof(ArenaGuard)) {
         crash_and_burn("Failed to allocate %" PRIu64 " bytes. Only %" PRIu64 " remaining.", request_size,
             m_size - m_used - sizeof(ArenaGuard));
@@ -108,17 +108,11 @@ void set_transient_arena(MemoryArena* arena) {
     g_transient = arena;
 }
 
-#if ENGINE_TEST
 void unset_transient_arena() {
     g_transient = nullptr;
 }
-#endif
 
 void clear_transient() {
     assert(g_transient != nullptr);
     g_transient->clear_to_zero();
-}
-
-void* allocate_transient(u64 request_size) {
-    return g_transient->allocate(request_size);
 }

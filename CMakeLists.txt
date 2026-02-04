@@ -12,7 +12,7 @@ include_directories(src/deps)
 
 add_executable(
   shoot_em_up
-  src/win_main.cpp
+  src/win32_main.cpp
  )
 
 add_executable(

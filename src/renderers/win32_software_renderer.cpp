@@ -7,6 +7,7 @@
 #include <core/logger.h>
 #include <core/memory.h>
 #include <core/memory_arena.h>
+#include <core/sort.hpp>
 // TODO: Move to core
 #include <engine/hm_assert.h>
 
@@ -50,7 +51,7 @@ struct SWRendererState {
     Win32Texture textures[MaxTextureId];
 };
 
-static SWRendererState state = { 0 };
+static SWRendererState state = {};
 
 static WindowDimension get_window_dimension(HWND window) {
     WindowDimension result;
@@ -267,12 +268,16 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 min_y = round_f32_to_i32(hm::min(bl_w.y, tl_w.y, tr_w.y, br_w.y));
     i32 max_y = round_f32_to_i32(hm::max(bl_w.y, tl_w.y, tr_w.y, br_w.y));
 
+    OffscreenBuffer* buffer = &state.global_offscreen_buffer;
+    min_x = hm::max(min_x, 0);
+    max_x = hm::min(max_x, buffer->width);
+    min_y = hm::max(min_y, 0);
+    max_y = hm::min(max_y, buffer->height);
+
     vec3 edge1 = tl_w - bl_w;
     vec3 edge2 = tr_w - tl_w;
     vec3 edge3 = br_w - tr_w;
     vec3 edge4 = bl_w - br_w;
-
-    OffscreenBuffer* buffer = &state.global_offscreen_buffer;
 
     Win32Texture* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
@@ -288,7 +293,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 du = u_max - u_min;
     i32 dv = v_max - v_min;
 
-    u32 default_color = pack4x8(color);
+    vec4 default_color_l1 = srgb255_to_linear1(color);
     for (int y = min_y; y < max_y; y++) {
         for (int x = min_x; x < max_x; x++) {
 
@@ -310,8 +315,9 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
             if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
 
+                vec4 src_color_l1;
                 if (texture_id == 0) {
-                    *pixel = default_color;
+                    src_color_l1 = default_color_l1;
                 }
                 else {
 
@@ -341,36 +347,36 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     f32 v_frac = clamp(sy - (f32)y0, 0.0f, 1.0f);
 
                     Assert(texture->bytes_per_pixel == 4);
-                    if (texture->bytes_per_pixel == 4) {
-                        u32* data = (u32*)state.textures[texture_id].data;
-                        // Bilinear filtering
-                        vec4 texel00_srgb255 = unpack4x8(*(data + (y0 * texture->width) + x0));
-                        vec4 texel10_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
-                        vec4 texel01_srgb255 =
-                            unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0)); //
-                        vec4 texel11_srgb255 =
-                            unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1)); //
+                    u32* data = (u32*)state.textures[texture_id].data;
+                    // Bilinear filtering
+                    vec4 texel00_srgb255 = unpack4x8(*(data + (y0 * texture->width) + x0));
+                    vec4 texel10_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
+                    vec4 texel01_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0)); //
+                    vec4 texel11_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1)); //
 
-                        vec4 texel00_l1 = srgb255_to_linear1(texel00_srgb255);
-                        vec4 texel10_l1 = srgb255_to_linear1(texel10_srgb255);
-                        vec4 texel01_l1 = srgb255_to_linear1(texel01_srgb255);
-                        vec4 texel11_l1 = srgb255_to_linear1(texel11_srgb255);
+                    vec4 texel00_l1 = srgb255_to_linear1(texel00_srgb255);
+                    vec4 texel10_l1 = srgb255_to_linear1(texel10_srgb255);
+                    vec4 texel01_l1 = srgb255_to_linear1(texel01_srgb255);
+                    vec4 texel11_l1 = srgb255_to_linear1(texel11_srgb255);
 
-                        vec4 texel_l1 = lerp(                      //
-                            lerp(texel00_l1, u_frac, texel10_l1),  //
-                            v_frac,                                //
-                            lerp(texel01_l1, u_frac, texel11_l1)); //
-
-                        vec4 dest_l1 = srgb255_to_linear1(unpack4x8(*pixel));
-
-                        vec4 blended = dest_l1 * (1.0f - texel_l1.a) + texel_l1;
-                        vec4 blended_srgb255 = linear1_to_srgb255(blended);
-
-                        *pixel = pack4x8(blended_srgb255);
-                    }
+                    src_color_l1 = lerp(                       //
+                        lerp(texel00_l1, u_frac, texel10_l1),  //
+                        v_frac,                                //
+                        lerp(texel01_l1, u_frac, texel11_l1)); //
                 }
 
-                // TODO: Do alpha blending
+                vec4 dest_l1 = srgb255_to_linear1(unpack4x8(*pixel));
+
+                // Cout = Cf * Af + Cb * (1 - Af)
+                vec4 blended = src_color_l1;
+                if (blended.a < 1.0f) {
+                    blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
+                }
+                // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
+
+                vec4 blended_srgb255 = linear1_to_srgb255(blended);
+
+                *pixel = pack4x8(blended_srgb255);
             }
         }
     }
@@ -445,7 +451,11 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
-    for (u32 base_address = 0; base_address < group->push_buffer_size;) {
+
+    i32* entries_draw_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
+
+    for (i32 i = 0; i < group->sort_keys.count(); i++) {
+        u64 base_address = group->sort_entries_offset[entries_draw_order[i]];
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(group->push_buffer + base_address);
         base_address += sizeof(RenderGroupEntryHeader);
 
@@ -495,8 +505,7 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
         copy_memory(src_row, dest_row, width * bytes_per_pixel);
     }
 
-    int offset = 0;
-    auto result = StretchDIBits(             //
+    u32 result = StretchDIBits(              //
         device_context,                      //
         0, 0,                                //
         width, height, 0, 0,                 //

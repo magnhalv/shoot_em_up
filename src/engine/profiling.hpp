@@ -1,10 +1,31 @@
+#pragma once
+
+#include <platform/platform.h>
 #include <platform/types.h>
 
-#ifndef PROFILING_H_HUGIN
-#define PROFILING_H_HUGIN
+enum PrintDebugEventType {
+    PrintDebugEventType_Unknown = 0,
+    PrintDebugEventType_Frame,
+    PrintDebugEventType_Block,
+};
+
+struct PrintDebugEvent {
+    PrintDebugEventType event_type;
+    u64 clock_start;
+    u64 clock_end;
+    const char* GUID;
+    union {
+        f32 value_f32;
+    };
+
+    i32 parent_index;
+    i32 depth;
+};
 
 enum DebugEventType {
     DebugEventType_Unknown = 0,
+    DebugEventType_BeginFrame,
+    DebugEventType_EndFrame,
     DebugEventType_BeginBlock,
     DebugEventType_EndBlock,
     DebugEventType_Count,
@@ -14,20 +35,28 @@ struct DebugEvent {
     DebugEventType event_type;
     u64 clock;
     const char* GUID;
+    union {
+        f32 value_f32;
+    };
 };
 
+constexpr i32 Debug_Max_Event_Count = 1 << 16;
 struct DebugTable {
-    u64 event_index;
-    DebugEvent events[1 << 2];
+    u32 event_index;
+    DebugEvent events[Debug_Max_Event_Count];
 };
 
 extern DebugTable* global_debug_table;
 
-#if defined(_MSC_VER)
-#define HM_FUNCTION_NAME __FUNCTION__
-#else
-#define HM_FUNCTION_NAME " "
-#endif
+inline auto record_debug_event(DebugTable* debug_table, const char* GUID, DebugEventType type) -> DebugEvent* {
+    u64 index = global_debug_table->event_index++;
+    Assert(index < Debug_Max_Event_Count);
+    DebugEvent* event = &global_debug_table->events[index];
+    event->GUID = GUID;
+    event->event_type = type;
+    event->clock = __rdtsc();
+    return event;
+}
 
 #define UniqueFileCounterString__(A, B, C, D) A "|" #B "|" #C "|" D
 #define UniqueFileCounterString_(A, B, C, D) UniqueFileCounterString__(A, B, C, D)
@@ -36,17 +65,13 @@ extern DebugTable* global_debug_table;
 #define TIMED_BLOCK__(GUID, Counter) TimedBlock TimedBlock_##Counter(GUID)
 #define TIMED_BLOCK_(GUID) TIMED_BLOCK__(GUID, __COUNTER__)
 #define TIMED_BLOCK(Name) TIMED_BLOCK_(DEBUG_NAME(Name))
-#define TIMED_FUNCTION() TIMED_BLOCK_(DEBUG_NAME(HM_FUNCTION_NAME))
 
-#define RECORD_DEBUG_EVENT_(GUIDInit, EventType)            \
-    u64 index = ++global_debug_table->event_index;          \
-    DebugEvent* event = &global_debug_table->events[index]; \
-    event->GUID = GUIDInit;                                 \
-    event->event_type = EventType;
+#define RECORD_DEBUG_EVENT_(GUID, EventType) record_debug_event(global_debug_table, GUID, EventType);
 
 #define BEGIN_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
 #define END_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
 
+#define BEGIN_BLOCK(Name) BEGIN_BLOCK_(DEBUG_NAME(Name))
 #define END_BLOCK() END_BLOCK_("END_BLOCK_")
 
 struct TimedBlock {
@@ -58,5 +83,3 @@ struct TimedBlock {
         END_BLOCK();
     }
 };
-
-#endif

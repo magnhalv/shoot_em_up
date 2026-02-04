@@ -49,7 +49,6 @@ endif()
 find_package(OpenGL REQUIRED)
 
 set(OPENGL_RENDERER_SRC_FILES
-  renderers/gl/gl_shader.cpp
   renderers/win32_opengl_renderer.cpp
   ${GLAD_SOURCES}
 )

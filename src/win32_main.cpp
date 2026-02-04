@@ -12,12 +12,13 @@
 #include <platform/user_input.h>
 
 #include <core/memory.h>
+#include <engine/profiling.hpp>
 
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
 #include "platform/platform.h"
-#include "win_main.hpp"
+#include "win32_main.hpp"
 
 #include <core/lib.cpp>
 
@@ -265,6 +266,7 @@ struct EngineDll {
     update_and_render_fn* update_and_render = nullptr;
     load_fn* load = nullptr;
     get_sound_samples_fn* get_sound_samples = nullptr;
+    debug_frame_end_fn* debug_frame_end = nullptr;
     FILETIME last_loaded_dll_write_time = { 0, 0 };
 };
 
@@ -525,14 +527,14 @@ void win32_stop_playback(Playback& playback) {
 }
 
 ////////////// DLL ///////////////////////
-LPCWSTR EngineDllPath = LR"(..\bin\app\engine_dyn.dll)";
-LPCWSTR EnginePdbPath = LR"(..\bin\app\engine_dyn.pdb)";
+LPCWSTR EngineDllPath = LR"(..\build\engine_dyn.dll)";
+LPCWSTR EnginePdbPath = LR"(..\build\engine_dyn.pdb)";
 
-LPCWSTR SoftwareRendererDllPath = LR"(..\bin\app\win32_software_renderer.dll)";
-LPCWSTR SoftwareRendererPdbPath = LR"(..\bin\app\win32_software_renderer.pdb)";
+LPCWSTR SoftwareRendererDllPath = LR"(..\build\win32_software_renderer.dll)";
+LPCWSTR SoftwareRendererPdbPath = LR"(..\build\win32_software_renderer.pdb)";
 
-LPCWSTR OpenGlRendererDllPath = LR"(..\bin\app\opengl_renderer.dll)";
-LPCWSTR OpenGlRendererPdbPath = LR"(..\bin\app\opengl_renderer.pdb)";
+LPCWSTR OpenGlRendererDllPath = LR"(..\build\opengl_renderer.dll)";
+LPCWSTR OpenGlRendererPdbPath = LR"(..\build\opengl_renderer.pdb)";
 
 LPCWSTR EngineDllCopyPath = LR"(..\bin\engine\)";
 LPCWSTR SoftwareRendererDllCopyPath = LR"(..\bin\software_renderer\)";
@@ -669,6 +671,12 @@ void win32_load_dll(EngineDll* functions) {
     functions->get_sound_samples = (get_sound_samples_fn*)GetProcAddress(functions->handle, "get_sound_samples");
     if (functions->get_sound_samples == nullptr) {
         printf("Unable to load 'get_sound_samples' function in engine_dyn.dll\n");
+        FreeLibrary(functions->handle);
+    }
+
+    functions->debug_frame_end = (debug_frame_end_fn*)GetProcAddress(functions->handle, "debug_frame_end");
+    if (functions->debug_frame_end == nullptr) {
+        printf("Unable to load 'debug_frame_end' function in engine_dyn.dll\n");
         FreeLibrary(functions->handle);
     }
 
@@ -1008,7 +1016,7 @@ void win32_process_pending_messages(HWND hwnd, UserInput& new_input, UserInput& 
     }
 }
 
-static inline auto win32_get_ticks_per_second() -> i64 {
+static inline auto win32_get_performance_counter_frequency() -> i64 {
     LARGE_INTEGER frequency;
     if (!QueryPerformanceFrequency(&frequency)) {
         printf("Error retrieving QueryPerformanceFrequency\n");
@@ -1018,7 +1026,7 @@ static inline auto win32_get_ticks_per_second() -> i64 {
 }
 
 static inline auto win32_check_ticks_frequency() -> void {
-    auto frequency = win32_get_ticks_per_second();
+    auto frequency = win32_get_performance_counter_frequency();
     const auto expected_num_ticks = us_in_second * 10;
     if (frequency != expected_num_ticks) {
         printf("QueryPerformanceFrequency is %lld, not %lld.\n", frequency, expected_num_ticks);
@@ -1217,9 +1225,14 @@ int main() {
 #pragma comment(linker, "/subsystem:windows")
 #endif
 
+#if HOMEMADE_DEBUG
+global_variable DebugTable debug_table_ = {};
+DebugTable* global_debug_table = &debug_table_;
+#endif
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
     win32_check_ticks_frequency();
-    const auto tick_frequency = win32_get_ticks_per_second();
+    const auto performance_counter_frequency = win32_get_performance_counter_frequency();
     auto main_entry_tick = win32_get_tick();
 
     win32_delete_directory_tree(EngineDllCopyPath);
@@ -1242,12 +1255,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         printf("Unable to allocate memory: %lu", error);
         return -1;
     }
-    engine_memory.permanent = memory_block;
-    engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
 
-    engine_memory.work_queue = &work_queue;
-
-    MemoryBlock renderer_memory = { 0 };
+    MemoryBlock renderer_memory = {};
     renderer_memory.size = Renderer_Total_Memory_Size;
     renderer_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
         (SIZE_T)renderer_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -1256,17 +1265,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         printf("Unable to allocate renderer memory: %lu", error);
         return -1;
     }
+
+    MemoryBlock platform_layer_memory = {};
+    platform_layer_memory.size = Platform_Memory_Block_Size;
+    platform_layer_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
+        (SIZE_T)platform_layer_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (platform_layer_memory.data == nullptr) {
+        auto error = GetLastError();
+        printf("Unable to allocate renderer memory: %lu", error);
+        return -1;
+    }
+    MemoryArena platform_arena;
+    platform_arena.init(platform_layer_memory.data, platform_layer_memory.size);
+
+    engine_memory.permanent = memory_block;
+    engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
+
+    engine_memory.work_queue = &work_queue;
+#if HOMEMADE_DEBUG
+    engine_memory.debug_table = global_debug_table;
+    engine_memory.debug_print_events.init(&platform_arena, 1024);
+#endif
+
     // END SETUP MEMORY
 
     // INIT RENDERER //
     RendererDll renderer_dll = {};
     RendererType renderer_type = RendererType_Software;
     win32_load_renderer_dll(&renderer_dll, renderer_type);
-    Win32RenderContext render_context = { 0 };
+    Win32RenderContext render_context = {};
     render_context.window = window;
     renderer_dll.api.init(&render_context, &renderer_memory);
 
-    EngineInput app_input = {};
+    EngineInput engine_input = {};
+    engine_input.performance_counter_frequency = performance_counter_frequency;
     EngineDll engine_dll = {};
 
     UserInput inputs[2] = {};
@@ -1290,7 +1322,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     platform.complete_all_work = &win32_complete_all_work;
     // endregion
 
-    Audio audio = { 0 };
+    Audio audio = {};
     win32_init_audio(audio);
     /* MAIN LOOP */
     auto is_recording = false;
@@ -1302,14 +1334,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     engine_dll.load(&platform, &engine_memory);
 
     const f32 target_fps = 60;
-    const f32 ticks_per_frame = tick_frequency / target_fps;
+    const f32 ticks_per_frame = performance_counter_frequency / target_fps;
     const f32 seconds_per_frame = 1.0 / target_fps;
+    const f32 ms_per_frame = seconds_per_frame * 1000.0f;
+    engine_memory.frame_target_ms = ms_per_frame;
 
     i64 last_tick = win32_get_tick();
     bool is_first_frame = true;
 
     auto loop_started_tick = win32_get_tick();
-    auto main_to_loop_duration = static_cast<f32>(loop_started_tick - main_entry_tick) / tick_frequency;
+    auto main_to_loop_duration = (f32)(loop_started_tick - main_entry_tick) / performance_counter_frequency;
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
 
@@ -1317,118 +1351,130 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     UpdateWindow(window);
 
     bool is_slow_mode = false;
+    i64 high_freq_clock = __rdtsc();
     while (global_is_running) {
+        engine_memory.total_frame_duration_clock_cycles = __rdtsc() - high_freq_clock;
+        high_freq_clock = __rdtsc();
 
+        record_debug_event(global_debug_table, "BeginFrame", DebugEventType_BeginFrame);
+
+        engine_input.performance_counter_frequency = win32_get_performance_counter_frequency();
         const auto this_tick = win32_get_tick();
 
-        app_input.dt_tick = this_tick - last_tick;
+        engine_input.dt_tick = this_tick - last_tick;
         if (is_slow_mode) {
-            app_input.dt_tick /= 10;
+            engine_input.dt_tick /= 10;
         }
-        app_input.ticks += app_input.dt_tick;
-        app_input.dt = static_cast<f32>(app_input.dt_tick) / tick_frequency;
-        app_input.t += app_input.dt;
+        engine_input.ticks += engine_input.dt_tick;
+        engine_input.dt = static_cast<f32>(engine_input.dt_tick) / performance_counter_frequency;
+        engine_input.t += engine_input.dt;
         last_tick = this_tick;
 
-        win32_process_pending_messages(window, *current_input, *previous_input);
-
-        if (win32_should_reload_dll(&engine_dll)) {
-            printf("Hot reloading dll...\n");
-            win32_load_dll(&engine_dll);
-            engine_dll.load(&platform, &engine_memory);
-        }
-
-        // DEBUG INPUT HANDLING
-        if (current_input->n.ended_down) {
-            continue;
-        }
-        is_slow_mode = current_input->m.ended_down;
-
-        if (current_input->o.is_pressed_this_frame()) {
-            global_is_reloading_renderer = true;
-
-            ZeroSize(Renderer_Total_Memory_Size, renderer_memory.data);
-            renderer_type = renderer_type == RendererType_Software ? RendererType_OpenGL : RendererType_Software;
-
-            // NOTE: We destroy and recreate he window, since OpenGL will
-            // permanently set the pixel format of the window to a software incompatible format.
-            DestroyWindow(window);
-            window = win32_create_window(hInstance, szCmdLine);
-            ShowWindow(window, SW_SHOW);
-            UpdateWindow(window);
-
-            render_context.window = window;
-            win32_load_renderer_dll(&renderer_dll, renderer_type);
-            renderer_dll.api.init(&render_context, &renderer_memory);
-
-            global_is_reloading_renderer = false;
-        }
         {
-            if (current_input->r.is_pressed_this_frame()) {
-                if (!is_recording) {
-                    auto is_success = win32_start_recording(&engine_memory, recording);
-                    if (is_success) {
-                        is_recording = true;
-                        printf("Started recording.\n");
-                    }
-                    else {
-                        printf("Failed to start recording.\n");
-                    }
-                }
-                else {
-                    is_recording = false;
-                    win32_stop_recording(recording);
-                    printf("Recording successfully stopped.\n");
-                }
+            BEGIN_BLOCK("process input");
+            win32_process_pending_messages(window, *current_input, *previous_input);
+
+            if (win32_should_reload_dll(&engine_dll)) {
+                printf("Hot reloading dll...\n");
+                win32_load_dll(&engine_dll);
+                engine_dll.load(&platform, &engine_memory);
             }
 
-            if (current_input->p.is_pressed_this_frame() && !is_recording) {
-                if (!is_playing_back) {
-                    auto is_success = win32_init_playback(playback);
-                    if (is_success) {
-                        printf("Started playback.\n");
-                        is_playing_back = true;
+            // DEBUG INPUT HANDLING
+            if (current_input->n.ended_down) {
+                continue;
+            }
+            is_slow_mode = current_input->m.ended_down;
+
+            if (current_input->o.is_pressed_this_frame()) {
+                global_is_reloading_renderer = true;
+
+                ZeroSize(Renderer_Total_Memory_Size, renderer_memory.data);
+                renderer_type = renderer_type == RendererType_Software ? RendererType_OpenGL : RendererType_Software;
+
+                // NOTE: We destroy and recreate he window, since OpenGL will
+                // permanently set the pixel format of the window to a software incompatible format.
+                DestroyWindow(window);
+                window = win32_create_window(hInstance, szCmdLine);
+                ShowWindow(window, SW_SHOW);
+                UpdateWindow(window);
+
+                render_context.window = window;
+                win32_load_renderer_dll(&renderer_dll, renderer_type);
+                renderer_dll.api.init(&render_context, &renderer_memory);
+
+                global_is_reloading_renderer = false;
+            }
+            {
+                if (current_input->r.is_pressed_this_frame()) {
+                    if (!is_recording) {
+                        auto is_success = win32_start_recording(&engine_memory, recording);
+                        if (is_success) {
+                            is_recording = true;
+                            printf("Started recording.\n");
+                        }
+                        else {
+                            printf("Failed to start recording.\n");
+                        }
+                    }
+                    else {
+                        is_recording = false;
+                        win32_stop_recording(recording);
+                        printf("Recording successfully stopped.\n");
+                    }
+                }
+
+                if (current_input->p.is_pressed_this_frame() && !is_recording) {
+                    if (!is_playing_back) {
+                        auto is_success = win32_init_playback(playback);
+                        if (is_success) {
+                            printf("Started playback.\n");
+                            is_playing_back = true;
+                            copy_memory(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
+                        }
+                        else {
+                            printf("Failed to start playback.\n");
+                        }
+                    }
+                    else {
+                        win32_stop_playback(playback);
+                        is_playing_back = false;
+                    }
+                }
+
+                if (is_playing_back) {
+                    if (playback.current_playback_frame == playback.num_frames_recorded) {
                         copy_memory(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
+                        playback.current_playback_frame = 0;
                     }
-                    else {
-                        printf("Failed to start playback.\n");
-                    }
+                    engine_input = playback.input[playback.current_playback_frame++];
                 }
                 else {
-                    win32_stop_playback(playback);
-                    is_playing_back = false;
+                    engine_input.input = *current_input;
                 }
-            }
 
-            if (is_playing_back) {
-                if (playback.current_playback_frame == playback.num_frames_recorded) {
-                    copy_memory(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
-                    playback.current_playback_frame = 0;
-                }
-                app_input = playback.input[playback.current_playback_frame++];
-            }
-            else {
-                app_input.input = *current_input;
-            }
-
-            if (is_recording) {
-                if (!win32_record_frame_input(&app_input, recording)) {
-                    printf("Recording failed. Stopping.\n");
-                    win32_stop_recording(recording);
-                    is_recording = false;
+                if (is_recording) {
+                    if (!win32_record_frame_input(&engine_input, recording)) {
+                        printf("Recording failed. Stopping.\n");
+                        win32_stop_recording(recording);
+                        is_recording = false;
+                    }
                 }
             }
+            END_BLOCK();
         }
 
         renderer_dll.api.begin_frame(&render_context);
 
         RECT client_rect;
         GetClientRect(window, &client_rect);
-        app_input.client_height = client_rect.bottom - client_rect.top;
-        app_input.client_width = client_rect.right - client_rect.left;
-        engine_dll.update_and_render(&engine_memory, &app_input, &renderer_dll.api);
+        engine_input.client_height = client_rect.bottom - client_rect.top;
+        engine_input.client_width = client_rect.right - client_rect.left;
+
+        engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_dll.api);
 
         if (audio.is_initialized) {
+            BEGIN_BLOCK("audio");
             XAUDIO2_VOICE_STATE state;
             audio.sourceVoice->GetState(&state);
             // We make sure there is max 2 frames of sound data available for the sound  card.
@@ -1440,11 +1486,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                 }
                 audio.sourceVoice->GetState(&state);
             }
+            END_BLOCK();
         }
 
-        renderer_dll.api.end_frame(&render_context);
-
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
+
+        {
+            f32 frame_duration_ms = ((f32)(win32_get_tick() - last_tick) / performance_counter_frequency) * 1000.0f;
+            DebugEvent* end_frame = record_debug_event(global_debug_table, "EndFrame", DebugEventType_EndFrame);
+            end_frame->value_f32 = frame_duration_ms;
+
+            if (engine_dll.debug_frame_end) {
+                engine_dll.debug_frame_end(&engine_memory, &engine_input, &renderer_dll.api);
+            }
+        }
+
+        BEGIN_BLOCK("end_frame");
+        renderer_dll.api.end_frame(&render_context);
+        END_BLOCK();
+        {
+
+            // Pepare next frame
+            global_debug_table->event_index = 0;
+        }
+
         if (ticks_used_this_frame > ticks_per_frame && !is_first_frame) {
             printf("Failed to hit ticks per frame target!\n");
             printf("Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);

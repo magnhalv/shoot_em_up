@@ -28,15 +28,24 @@ software_renderer:
 opengl_renderer:
   { time ./scripts/compile.bat opengl_renderer; }  > opengl_renderer.log 2>&1
 
+tests:
+  { time ./scripts/compile.bat tests; }  > tests.log 2>&1
+
 [parallel]
-build-all: engine main software_renderer opengl_renderer
-    cat main.log
-    cat engine.log
-    cat software_renderer.log
-    cat opengl_renderer.log
+build-all: engine main software_renderer 
+    cat *.log
 
 [working-directory: 'data']
 run: 
-  time just build-all
-  ../bin/app/shoot_em_up.exe
+    rm -f *.log
+    time just build-all
+    ../build/shoot_em_up.exe
+
+
+[working-directory: 'data']
+run-engine: 
+    rm -f ../*.log
+    time just engine
+    cat ../engine.log
+    ../build/shoot_em_up.exe
 

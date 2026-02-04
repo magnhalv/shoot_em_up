@@ -6,6 +6,8 @@
 #include <math/vec3.h>
 #include <math/vec4.h>
 
+#include <core/list.hpp>
+
 #include <engine/hugin_file_formats.h>
 
 // Move somewhere else
@@ -68,13 +70,17 @@ struct RenderGroup {
     i32 screen_width;
     i32 screen_height;
 
+    List<u64> sort_entries_offset;
+    List<i32> sort_keys;
+
     u64 max_push_buffer_size;
     u64 push_buffer_size;
     u8* push_buffer;
 };
 
-#define PushRenderElement(group, type) (type*)push_render_element_(group, sizeof(type), RenderCommands_##type)
-auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type) {
+#define PushRenderElement(group, type, sort_key) \
+    (type*)push_render_element_(group, sizeof(type), RenderCommands_##type, sort_key)
+auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type, i32 sort_key) {
     void* result = 0;
 
     size += sizeof(RenderGroupEntryHeader);
@@ -82,12 +88,16 @@ auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGrou
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(render_group->push_buffer + render_group->push_buffer_size);
         header->type = type;
         result = (u8*)(header) + sizeof(*header);
+        render_group->sort_entries_offset.push(render_group->push_buffer_size);
+        render_group->sort_keys.push(sort_key);
+
         render_group->push_buffer_size += size;
     }
     else {
         // TODO: return a null struct perhaps?
         InvalidCodePath;
     }
+
     return result;
 }
 

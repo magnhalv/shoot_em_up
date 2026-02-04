@@ -40,7 +40,4 @@ extern MemoryArena* g_transient; // This one is erased every frame.
 
 void set_transient_arena(MemoryArena* arena);
 void clear_transient();
-void* allocate_transient(u64 request_size);
-#if ENGINE_TEST
 void unset_transient_arena();
-#endif

@@ -1,4 +1,3 @@
-#include <engine/fixed_string.h>
 #include <engine/structs/swap_back_list.h>
 
 #include "../util.h"

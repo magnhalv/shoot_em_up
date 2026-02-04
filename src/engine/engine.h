@@ -1,5 +1,7 @@
 #pragma once
 
+#include <platform/platform.h>
+
 #include <core/memory_arena.h>
 
 #include <engine/assets.h>
@@ -7,11 +9,11 @@
 
 #include <math/mat4.h>
 #include <math/vec4.h>
+#include <platform/platform.h>
 #include <platform/types.h>
 
-#include "options.hpp"
-#include "platform/platform.h"
 #include <engine/audio.hpp>
+#include <engine/gui/imgui.hpp>
 #include <engine/structs/swap_back_list.h>
 
 /// Processed mouse input
@@ -112,7 +114,6 @@ struct EngineState {
 
     TaskSystem task_system;
 
-    Options graphics_options;
     TimeInfo time;
 
     Entity player;
@@ -121,8 +122,48 @@ struct EngineState {
     f64 enemy_timer;
     SwapBackList<Entity> player_projectiles;
     SwapBackList<Entity> enemy_projectiles;
+
+    UI_Context* ui_context;
+};
+
+global_variable const i32 Global_Color_Palette_Count = 32;
+global_variable vec4 global_color_palette[Global_Color_Palette_Count] = {
+    vec4(230.0f, 25.0f, 75.0f, 255.0f),   // vivid red
+    vec4(60.0f, 180.0f, 75.0f, 255.0f),   // green
+    vec4(255.0f, 225.0f, 25.0f, 255.0f),  // yellow
+    vec4(0.0f, 130.0f, 200.0f, 255.0f),   // blue
+    vec4(245.0f, 130.0f, 48.0f, 255.0f),  // orange
+    vec4(145.0f, 30.0f, 180.0f, 255.0f),  // purple
+    vec4(70.0f, 240.0f, 240.0f, 255.0f),  // cyan
+    vec4(240.0f, 50.0f, 230.0f, 255.0f),  // magenta
+    vec4(210.0f, 245.0f, 60.0f, 255.0f),  // lime
+    vec4(250.0f, 190.0f, 212.0f, 255.0f), // pink
+    vec4(0.0f, 128.0f, 128.0f, 255.0f),   // teal
+    vec4(220.0f, 190.0f, 255.0f, 255.0f), // lavender
+    vec4(170.0f, 110.0f, 40.0f, 255.0f),  // brown
+    vec4(255.0f, 250.0f, 200.0f, 255.0f), // beige
+    vec4(128.0f, 0.0f, 0.0f, 255.0f),     // maroon
+    vec4(170.0f, 255.0f, 195.0f, 255.0f), // mint
+
+    vec4(128.0f, 128.0f, 0.0f, 255.0f),   // olive
+    vec4(255.0f, 215.0f, 180.0f, 255.0f), // apricot
+    vec4(0.0f, 0.0f, 128.0f, 255.0f),     // navy
+    vec4(255.0f, 225.0f, 180.0f, 255.0f), // peach
+    vec4(0.0f, 255.0f, 0.0f, 255.0f),     // bright green
+    vec4(255.0f, 160.0f, 122.0f, 255.0f), // salmon
+    vec4(0.0f, 255.0f, 255.0f, 255.0f),   // aqua
+    vec4(186.0f, 85.0f, 211.0f, 255.0f),  // medium purple
+    vec4(255.0f, 99.0f, 71.0f, 255.0f),   // tomato
+    vec4(154.0f, 205.0f, 50.0f, 255.0f),  // yellow green
+    vec4(72.0f, 61.0f, 139.0f, 255.0f),   // slate blue
+    vec4(255.0f, 140.0f, 0.0f, 255.0f),   // dark orange
+    vec4(64.0f, 224.0f, 208.0f, 255.0f),  // turquoise
+    vec4(199.0f, 21.0f, 133.0f, 255.0f),  // medium violet red
+    vec4(135.0f, 206.0f, 235.0f, 255.0f), // sky blue
+    vec4(255.0f, 255.0f, 255.0f, 255.0f)  // white
 };
 
 extern "C" __declspec(dllexport) ENGINE_UPDATE_AND_RENDER(update_and_render);
 extern "C" __declspec(dllexport) ENGINE_LOAD(load);
 extern "C" __declspec(dllexport) ENGINE_GET_SOUND_SAMPLES(get_sound_samples);
+extern "C" __declspec(dllexport) DEBUG_FRAME_END(debug_frame_end);

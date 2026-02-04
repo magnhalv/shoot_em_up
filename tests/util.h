@@ -8,7 +8,7 @@
 
 #include <core/memory_arena.h>
 
-const size_t default_size = 1024;
+const size_t default_size = KiloBytes(1);
 
 struct SingleArenaFixture {
     SingleArenaFixture() {
