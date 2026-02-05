@@ -12,8 +12,6 @@
 #include "types.h"
 #include "user_input.h"
 
-#include <renderers/renderer.h>
-
 #include <core/list.hpp>
 
 const i32 SCREEN_WIDTH = 960;
@@ -87,7 +85,7 @@ typedef PLATFORM_OPEN_FILE(platform_open_next_file);
 typedef PLATFORM_READ_FILE(platform_read_file);
 
 struct PlatformWorkQueue;
-#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* Queue, void* Data)
+#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* queue, void* data)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 
 typedef void platform_add_work_queue_entry(PlatformWorkQueue* Queue, platform_work_queue_callback* Callback, void* Data);
@@ -153,6 +151,7 @@ struct SoundBuffer {
     i32 tone_hz;
 };
 
+struct RendererApi;
 #define ENGINE_UPDATE_AND_RENDER(name) \
     void name(EngineMemory* engine_memory, EngineInput* app_input, RendererApi* renderer)
 typedef ENGINE_UPDATE_AND_RENDER(update_and_render_fn);

@@ -16,6 +16,7 @@
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
+#include "platform/types.h"
 
 struct WindowDimension {
     i32 width;
@@ -52,6 +53,8 @@ struct SWRendererState {
 };
 
 static SWRendererState state = {};
+
+global_variable PlatformApi* platform;
 
 static WindowDimension get_window_dimension(HWND window) {
     WindowDimension result;
@@ -395,6 +398,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     state.permanent.init(memory->data, memory->size);
     state.transient = *state.permanent.allocate_arena(MegaBytes(10));
 
+    platform = platform_api;
+
     Win32Texture* null_texture = &state.textures[0];
     null_texture->height = 1;
     null_texture->width = 1;
@@ -448,39 +453,59 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     }
 }
 
-extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
+auto execute_render_commands(RenderCommands* commands) -> void {
+    i32* entries_draw_order = merge_sort_indices(commands->sort_keys.data(), commands->sort_keys.count(), &state.transient);
 
-    i32* entries_draw_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
-
-    for (i32 i = 0; i < group->sort_keys.count(); i++) {
-        u64 base_address = group->sort_entries_offset[entries_draw_order[i]];
-        RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(group->push_buffer + base_address);
+    for (i32 i = 0; i < commands->sort_keys.count(); i++) {
+        u64 base_address = commands->sort_entries_offset[entries_draw_order[i]];
+        RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(commands->push_buffer + base_address);
         base_address += sizeof(RenderGroupEntryHeader);
 
         void* data = (u8*)header + sizeof(*header);
         switch (header->type) {
         case RenderCommands_RenderEntryClear: {
             RenderEntryClear* entry = (RenderEntryClear*)data;
-            clear(group->screen_width, group->screen_height, entry->color);
+            clear(commands->screen_width, commands->screen_height, entry->color);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryQuadrilateral: {
             auto* entry = (RenderEntryQuadrilateral*)data;
-            draw_quad(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, group->screen_width,
-                group->screen_height);
+            draw_quad(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, commands->screen_width,
+                commands->screen_height);
 
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
             draw_bitmap(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
-                entry->uv_min, entry->uv_max, group->screen_width, group->screen_height);
+                entry->uv_min, entry->uv_max, commands->screen_width, commands->screen_height);
 
             base_address += sizeof(*entry);
         } break;
         default: InvalidCodePath;
         }
     }
+}
+
+struct RenderTileJob {
+    RenderCommands* commands;
+};
+
+static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
+    RenderTileJob* job = (RenderTileJob*)data;
+
+    Assert(job);
+    Assert(job->commands);
+    execute_render_commands(job->commands);
+}
+
+extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
+
+    RenderTileJob* render_tile_job = allocate<RenderTileJob>(state.transient);
+    render_tile_job->commands = commands;
+
+    platform->add_work_queue_entry(render_queue, execute_render_tile_job, render_tile_job);
+    platform->complete_all_work(render_queue);
 }
 
 extern "C" __declspec(dllexport) RENDERER_BEGIN_FRAME(win32_renderer_begin_frame) {

@@ -25,9 +25,9 @@ struct LoadAssetWork {
 };
 
 static PLATFORM_WORK_QUEUE_CALLBACK(load_asset_work) {
-    LoadAssetWork* work = (LoadAssetWork*)Data;
+    LoadAssetWork* work = (LoadAssetWork*)data;
 
-    HM_ASSERT(Queue);
+    HM_ASSERT(queue);
     if (work->asset->asset_memory->asset_type == AssetType_Bitmap) {
         Platform->read_file(&work->handle, work->offset, work->size, work->asset->asset_memory->bitmap.data);
         work->asset->state = AssetState_Loaded;

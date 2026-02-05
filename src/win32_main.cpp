@@ -1287,14 +1287,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     // END SETUP MEMORY
 
-    // INIT RENDERER //
-    RendererDll renderer_dll = {};
-    RendererType renderer_type = RendererType_Software;
-    win32_load_renderer_dll(&renderer_dll, renderer_type);
-    Win32RenderContext render_context = {};
-    render_context.window = window;
-    renderer_dll.api.init(&render_context, &renderer_memory);
-
     EngineInput engine_input = {};
     engine_input.performance_counter_frequency = performance_counter_frequency;
     EngineDll engine_dll = {};
@@ -1318,7 +1310,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     platform.add_work_queue_entry = &win32_add_entry;
     platform.complete_all_work = &win32_complete_all_work;
-    // endregion
+
+    // INIT RENDERER //
+    RendererDll renderer_dll = {};
+    RendererType renderer_type = RendererType_Software;
+    win32_load_renderer_dll(&renderer_dll, renderer_type);
+    Win32RenderContext render_context = {};
+    render_context.window = window;
+    renderer_dll.api.init(&render_context, &platform, &renderer_memory);
 
     Audio audio = {};
     win32_init_audio(audio);
@@ -1399,7 +1398,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
                 render_context.window = window;
                 win32_load_renderer_dll(&renderer_dll, renderer_type);
-                renderer_dll.api.init(&render_context, &renderer_memory);
+                renderer_dll.api.init(&render_context, &platform, &renderer_memory);
 
                 global_is_reloading_renderer = false;
             }

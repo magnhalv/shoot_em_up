@@ -243,7 +243,7 @@ auto UI_PopStyleBackgroundColor() -> void;
 auto UI_PushStyleFlexDirection(UI_FlexDirection direction) -> void;
 auto UI_PopStyleFlexDirection() -> void;
 
-auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void;
+auto UI_Generate_Render_Commands(RenderCommands* render_group) -> void;
 
 #define UI_SetSize(size_x, size_y) DeferLoop(UI_PushStyleSize(size_x, size_y), UI_PopStyleSize())
 #define UI_Window(text, x, y) DeferLoop(UI_PushWindow(text, x, y), UI_PopWindow())

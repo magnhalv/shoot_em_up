@@ -368,7 +368,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
         TIMED_BLOCK("render_game");
-        RenderGroup group{};
+        RenderCommands group{};
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
         group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
@@ -490,7 +490,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
-        renderer->render(&group, client_width, client_height);
+        renderer->render(engine_memory->work_queue, &group);
     }
 
     {
@@ -498,7 +498,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (state->ui_context) {
             BEGIN_BLOCK("gui_create");
 
-            RenderGroup ui_render_group{};
+            RenderCommands ui_render_group{};
             ui_render_group.push_buffer_size = 0;
             ui_render_group.max_push_buffer_size = MegaBytes(4);
             ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
@@ -567,7 +567,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             END_BLOCK();
 
             BEGIN_BLOCK("gui_render");
-            renderer->render(&ui_render_group, client_width, client_height);
+            renderer->render(engine_memory->work_queue, &ui_render_group);
             END_BLOCK();
         }
     }

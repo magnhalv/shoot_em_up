@@ -1,5 +1,6 @@
 #pragma once
 
+#include <platform/platform.h>
 #include <platform/types.h>
 
 #include <math/vec2.h>
@@ -65,7 +66,7 @@ typedef struct {
     ivec2 uv_max;
 } RenderEntryBitmap;
 
-struct RenderGroup {
+struct RenderCommands {
     f32 meters_to_pixels;
     i32 screen_width;
     i32 screen_height;
@@ -80,7 +81,7 @@ struct RenderGroup {
 
 #define PushRenderElement(group, type, sort_key) \
     (type*)push_render_element_(group, sizeof(type), RenderCommands_##type, sort_key)
-auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type, i32 sort_key) {
+auto inline push_render_element_(RenderCommands* render_group, u32 size, RenderGroupEntryType type, i32 sort_key) {
     void* result = 0;
 
     size += sizeof(RenderGroupEntryHeader);
@@ -105,13 +106,13 @@ const i32 MaxTextureId = 1024;
 
 #define RENDERER_API __cdecl
 
-#define RENDERER_INIT(name) void name(void* context, MemoryBlock* memory)
+#define RENDERER_INIT(name) void name(void* context, PlatformApi* platform_api, MemoryBlock* memory)
 typedef RENDERER_INIT(renderer_init_fn);
 
 #define RENDERER_ADD_TEXTURE(name) bool name(i32 texture_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 
-#define RENDERER_RENDER(name) void name(RenderGroup* group, i32 client_width, i32 client_height)
+#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, RenderCommands* commands)
 typedef RENDERER_RENDER(renderer_render_fn);
 
 #define RENDERER_BEGIN_FRAME(name) void name(void* context)

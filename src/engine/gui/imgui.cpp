@@ -309,7 +309,7 @@ auto UI_SetLayout(UI_Layout layout) -> void {
     global_context->state()->layout = layout;
 }
 
-auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
+auto UI_Generate_Render_Commands(RenderCommands* render_group) -> void {
     Assert(global_context->state()->parents.count() == 1);
     UI_Entity* entity = global_context->state()->parents[0]->first;
     StackList<UI_Entity*, 1024> next = {};

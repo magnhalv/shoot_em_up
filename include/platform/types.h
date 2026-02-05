@@ -91,6 +91,7 @@ constexpr auto operator+(T e) noexcept -> std::enable_if_t<std::is_enum<T>::valu
 
 #define local_persist static
 #define global_variable static
+#define internal static
 
 #define Assert(expr)                                                                   \
     if (!(expr)) {                                                                     \
