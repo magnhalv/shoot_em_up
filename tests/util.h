@@ -2,7 +2,6 @@
 
 #include <csetjmp>
 #include <cstdlib>
-#include <cstring>
 
 #include "doctest.h"
 

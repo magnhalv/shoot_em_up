@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set CommonCompilerFlags=-Od -MTd -nologo -fp:fast -fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 -D_CRT_SECURE_NO_WARNINGS -FC /std:c++20 /arch:AVX2
+set CommonCompilerFlags=-Od -MTd -nologo /utf-8 -fp:fast -fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 -D_CRT_SECURE_NO_WARNINGS -FC /std:c++20 /arch:AVX2
 set CommonCompilerFlags=-DHOMEMADE_DEBUG=1 -DHOMEMADE_SLOW=1 -DHOMEMADE_WIN32=1 %CommonCompilerFlags%
 set CommonLinkerFlags= -incremental:no -opt:ref user32.lib gdi32.lib winmm.lib opengl32.lib ole32.lib
 set CommonInclude=/I..\src\ /I..\include\

@@ -109,8 +109,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     global_debug_table = engine_memory->debug_table;
 
     if (!state->is_initialized) {
-        log_info("Initializing...");
-
         state->permanent.init(static_cast<u8*>(engine_memory->permanent) + sizeof(EngineState),
             Permanent_Memory_Block_Size - sizeof(EngineState));
 
@@ -142,7 +140,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         init_audio_system(&state->audio, &state->permanent);
 
         state->is_initialized = true;
-        log_debug("Initializing complete");
     }
 
     if (state->ui_context == nullptr) {
@@ -531,6 +528,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                             block_fraction = (f32)event_cycle_count / parent_cycle_count;
                         }
                         f32 frame_fraction = (f32)(event.clock_end - event.clock_start) / engine_memory->total_frame_duration_clock_cycles;
+                        f32 ms = engine_memory->frame_duration_ms * frame_fraction;
                         /*printf("%*sEvent=%s, Frame_fraction=%f, block_fraction=%f, ms=%f\n", 2 * event.depth, "",*/
                         /*    event.GUID, frame_fraction, block_fraction, engine_memory->frame_duration_ms * frame_fraction);*/
                         vec4 box_color = global_color_palette[i % Global_Color_Palette_Count];
@@ -549,8 +547,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                             UI_PushStyleFlexDirection(UI_Flex_Column);
                             UI_Window("Hover window", UI_Fixed((f32)mouse->client_x + 5.0f), UI_Fixed((f32)mouse->client_y + 15.0f)) {
                                 UI_Text(event.GUID);
-                                UI_Text("Fraction: 0.3");
-                                UI_Text("4 ms");
+                                UI_Text(string8_format(g_transient, "Fraction: %.2f", frame_fraction));
+                                UI_Text(string8_format(g_transient, "%.2f ms", ms));
                             }
                             UI_PopStyleFlexDirection();
                             UI_PopStyleZIndex();

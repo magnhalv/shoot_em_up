@@ -383,7 +383,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
-    log_info("Init software renderer...\n");
+    log_info("Using software renderer.");
 
     // TODO: We should check for need of resizing on every draw call.
 
@@ -404,8 +404,6 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     null_texture->data = allocate<u32>(state.permanent);
     u32* data = (u32*)null_texture->data;
     *data = pack4x8(vec4(1.0f, 0.0f, 0.0f, 1.0f));
-
-    log_info("Software renderer ready to go.\n");
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {

@@ -8,7 +8,7 @@ auto inline fnv_1a_32bit(string8 s) -> u32 {
 
     u32 hash = FNV_offset_basis;
 
-    for (u32 i = 0; i < s.length; i++) {
+    for (i32 i = 0; i < s.size; i++) {
         unsigned char c = s.data[i];
         hash = hash XOR c;
         hash = hash * FNV_prime;
@@ -23,7 +23,7 @@ auto inline fnv_1a_64bit(string8 s) -> u64 {
     u64 hash = FNV_offset_basis;
 
     // NOTE: Potentially have to add detection for if the hash becomes zero. Appearently a weakness of the algorithm.
-    for (u32 i = 0; i < s.length; i++) {
+    for (i32 i = 0; i < s.size; i++) {
         unsigned char c = s.data[i];
         hash = hash XOR c;
         hash = hash * FNV_prime;

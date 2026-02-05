@@ -552,8 +552,6 @@ bool win32_delete_directory_tree(const wchar_t* path) {
             wchar_t file_name[512];
             swprintf(file_name, 512, L"%ls\\%ls", path, find_data.cFileName);
 
-            wprintf(L"%ls\n", file_name);
-
             if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 win32_delete_directory_tree(file_name);
                 RemoveDirectoryW(file_name);

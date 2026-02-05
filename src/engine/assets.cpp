@@ -40,7 +40,6 @@ static PLATFORM_WORK_QUEUE_CALLBACK(load_asset_work) {
         // Bitmap lies right behind the codepoints in memory, so it gets loaded here as well.
         Platform->read_file(&work->handle, work->offset, work->size, work->asset->asset_memory->font.code_points);
         work->asset->state = AssetState_Loaded;
-        printf("Loaded font!\n");
     }
     end_task(work->task);
 }

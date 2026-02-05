@@ -13,24 +13,24 @@ MemoryArena* g_transient = nullptr;
 
 auto MemoryArena::allocate(u64 request_size) -> void* {
     Assert(m_memory);
-    if (m_size < m_used + request_size + sizeof(ArenaGuard)) {
+    if (m_size < m_used + request_size + sizeof(MemorySentinel)) {
         crash_and_burn("Failed to allocate %" PRIu64 " bytes. Only %" PRIu64 " remaining.", request_size,
-            m_size - m_used - sizeof(ArenaGuard));
+            m_size - m_used - sizeof(MemorySentinel));
     }
 
-    auto* previous_guard = reinterpret_cast<ArenaGuard*>(&m_memory[m_used - sizeof(ArenaGuard)]);
-    HM_ASSERT(previous_guard->guard_pattern == GUARD_PATTERN);
+    auto* previous_guard = reinterpret_cast<MemorySentinel*>(&m_memory[m_used - sizeof(MemorySentinel)]);
+    HM_ASSERT(previous_guard->sentinel_pattern == SENTINEL_PATTERN);
 
     memset(&m_memory[m_used], 0, request_size);
 
     void* result = &m_memory[m_used];
-    m_used += request_size + sizeof(ArenaGuard);
+    m_used += request_size + sizeof(MemorySentinel);
 
-    auto* new_guard = reinterpret_cast<ArenaGuard*>(&m_memory[m_used - sizeof(ArenaGuard)]);
-    new_guard->guard_pattern = GUARD_PATTERN;
-    new_guard->next = nullptr;
+    auto* new_guard = reinterpret_cast<MemorySentinel*>(&m_memory[m_used - sizeof(MemorySentinel)]);
+    new_guard->sentinel_pattern = SENTINEL_PATTERN;
+    new_guard->block_size = 0;
 
-    previous_guard->next = new_guard;
+    previous_guard->block_size = request_size;
     m_last = new_guard;
 
     // log_info("MemoryArena: allocated %llu bytes. Capacity: %.2f %%.", request_size,
@@ -39,22 +39,23 @@ auto MemoryArena::allocate(u64 request_size) -> void* {
     return result;
 }
 
-auto MemoryArena::extend(void* block_in, u64 size) -> void {
+auto MemoryArena::shrink(void* block_in, u64 reduction_size) -> void {
     u8* block = static_cast<u8*>(block_in);
-    auto* previous_guard = reinterpret_cast<ArenaGuard*>(block - sizeof(ArenaGuard));
-    if (previous_guard->next != m_last) {
-        crash_and_burn("MemoryArena: Tried to extend memory block that is not the final block.");
+    MemorySentinel* previous_guard = (MemorySentinel*)(block - sizeof(MemorySentinel));
+    MemorySentinel* last_guard = (MemorySentinel*)(block + previous_guard->block_size);
+    if (last_guard->block_size != 0) {
+        crash_and_burn("MemoryArena: Tried to shrink memory block that is not the final block.");
     }
 
-    m_used += size;
-    memset(previous_guard->next, 0, size);
-
-    auto* new_guard = reinterpret_cast<ArenaGuard*>(&m_memory[m_used - sizeof(ArenaGuard)]);
-    new_guard->guard_pattern = GUARD_PATTERN;
-    new_guard->next = nullptr;
-
-    previous_guard->next = new_guard;
-    m_last = new_guard;
+    if (reduction_size > previous_guard->block_size) {
+        crash_and_burn("MemoryArena: Tried to shrink memory block passed itself.");
+    }
+    m_used -= reduction_size;
+    previous_guard->block_size -= reduction_size;
+    memset(m_memory + m_used, 0, reduction_size);
+    MemorySentinel* new_last_sentinel = (MemorySentinel*)(m_memory + m_used - sizeof(MemorySentinel));
+    new_last_sentinel->block_size = 0;
+    new_last_sentinel->sentinel_pattern = SENTINEL_PATTERN;
 }
 
 auto MemoryArena::allocate_arena(u64 request_size) -> MemoryArena* {
@@ -67,31 +68,36 @@ auto MemoryArena::allocate_arena(u64 request_size) -> MemoryArena* {
 auto MemoryArena::clear_to_zero() -> void {
     clear_memory(m_memory, m_size);
 
-    m_used = sizeof(ArenaGuard);
-    auto* first_guard = reinterpret_cast<ArenaGuard*>(m_memory);
-    first_guard->guard_pattern = GUARD_PATTERN;
-    first_guard->next = nullptr;
+    m_used = sizeof(MemorySentinel);
+    auto* first_guard = reinterpret_cast<MemorySentinel*>(m_memory);
+    first_guard->sentinel_pattern = SENTINEL_PATTERN;
+    first_guard->block_size = 0;
     m_last = first_guard;
 }
 
 auto MemoryArena::check_integrity() const -> void {
-    auto* guard = reinterpret_cast<ArenaGuard*>(m_memory);
+    u8* memory = m_memory;
+    MemorySentinel* guard = (MemorySentinel*)(memory);
 
     if (guard == nullptr) {
         crash_and_burn("MemoryArena: is not initialized. Always initialize arenas before use!");
-        return;
     }
 
     i32 guard_index = 0;
-    if (guard->guard_pattern != GUARD_PATTERN) {
+    if (guard->sentinel_pattern != SENTINEL_PATTERN) {
         crash_and_burn("MemoryArena: integrity check failed at guard index %d", guard_index);
     }
 
-    while (guard->next != nullptr) {
-        guard = guard->next;
+    while (guard->block_size != 0) {
+        memory += sizeof(MemorySentinel) + guard->block_size;
+        guard = (MemorySentinel*)memory;
         guard_index++;
-        if (guard->guard_pattern != GUARD_PATTERN) {
+        if (guard->sentinel_pattern != SENTINEL_PATTERN) {
             crash_and_burn("MemoryArena: integrity check failed at guard index %d", guard_index);
+        }
+
+        if (memory > m_memory + m_size) {
+            crash_and_burn("MemoryArena: integrity check failed. We went passed the capacity");
         }
     }
 }

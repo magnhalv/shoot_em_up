@@ -28,8 +28,8 @@ auto UI_GetCodePointsTotalLength(List<CodePoint>* code_points) -> f32 {
 
 auto UI_GetCodePoints(string8 str, LoadedFont* font, MemoryArena* arena) -> List<CodePoint> {
     List<CodePoint> result;
-    result.init(arena, (i32)str.length);
-    for (u32 i = 0; i < str.length; i++) {
+    result.init(arena, (i32)str.size);
+    for (i32 i = 0; i < str.size; i++) {
         i32 code_point_idx = (i32)str.data[i] - font->code_point_first;
         CodePoint cp = font->code_points[code_point_idx];
         cp.c = str.data[i];
