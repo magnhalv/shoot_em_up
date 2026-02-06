@@ -12,8 +12,6 @@
 #include "types.h"
 #include "user_input.h"
 
-#include <core/list.hpp>
-
 const i32 SCREEN_WIDTH = 960;
 const i32 SCREEN_HEIGHT = 540;
 
@@ -84,6 +82,9 @@ typedef PLATFORM_OPEN_FILE(platform_open_next_file);
 #define PLATFORM_READ_FILE(name) void name(PlatformFileHandle* platform_file_handle, u64 offset, u64 size, void* dest)
 typedef PLATFORM_READ_FILE(platform_read_file);
 
+#define PLATFORM_PRINT_STACK_TRACE(name) void name()
+typedef PLATFORM_PRINT_STACK_TRACE(platform_print_stack_trace);
+
 struct PlatformWorkQueue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* queue, void* data)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
@@ -104,7 +105,11 @@ struct PlatformApi {
 
     platform_add_work_queue_entry* add_work_queue_entry;
     platform_complete_all_work* complete_all_work;
+
+    platform_print_stack_trace* print_stack_trace;
 };
+
+global_variable PlatformApi* Platform = nullptr;
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
 const u64 Transient_Memory_Block_Size = MegaBytes(20);
@@ -114,53 +119,19 @@ const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);
 const u64 Renderer_Transient_Memory_Size = MegaBytes(10);
 const u64 Renderer_Total_Memory_Size = Renderer_Permanent_Memory_Size + Renderer_Transient_Memory_Size;
 
-struct DebugTable;
-struct PrintDebugEvent;
-struct EngineMemory {
-    void* permanent = nullptr;
-    void* transient = nullptr;
+#define Assert(expr)                                                                   \
+    if (!(expr)) {                                                                     \
+        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
+        abort();                                                                       \
+    }
+#define InvalidCodePath Assert(!"InvalidCodePath")
+#define InvalidDefaultCase \
+    default: {             \
+        InvalidCodePath;   \
+    } break
 
-    PlatformWorkQueue* work_queue = nullptr;
-#if HOMEMADE_DEBUG
-    DebugTable* debug_table;
-    List<PrintDebugEvent> debug_print_events;
-    f32 frame_duration_ms;
-    f32 frame_target_ms;
-    i64 frame_duration_clock_cycles;
-    i64 total_frame_duration_clock_cycles;
-#endif
-};
-
-struct EngineInput {
-    i32 client_width;
-    i32 client_height;
-    u64 ticks;
-    u64 dt_tick;
-    f64 t;
-    f32 dt;
-    i64 performance_counter_frequency;
-    UserInput input;
-};
-
-constexpr i32 SoundSampleSize = sizeof(i16);
-struct SoundBuffer {
-    i16* samples;
-    i32 num_samples;
-    i32 sample_size_in_bytes;
-    i32 samples_per_second;
-    i32 tone_hz;
-};
-
-struct RendererApi;
-#define ENGINE_UPDATE_AND_RENDER(name) \
-    void name(EngineMemory* engine_memory, EngineInput* app_input, RendererApi* renderer)
-typedef ENGINE_UPDATE_AND_RENDER(update_and_render_fn);
-
-#define ENGINE_LOAD(name) void name(PlatformApi* platform_api, EngineMemory* memory)
-typedef ENGINE_LOAD(load_fn);
-
-#define ENGINE_GET_SOUND_SAMPLES(name) SoundBuffer name(EngineMemory* memory, i32 num_samples)
-typedef ENGINE_GET_SOUND_SAMPLES(get_sound_samples_fn);
-
-#define DEBUG_FRAME_END(name) void name(EngineMemory* engine_memory, EngineInput* engine_input, RendererApi* renderer)
-typedef DEBUG_FRAME_END(debug_frame_end_fn);
+inline u32 safe_truncate_u64(u64 value) {
+    Assert(value <= 0xFFFFFFFF);
+    u32 result = (u32)value;
+    return result;
+}

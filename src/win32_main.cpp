@@ -12,6 +12,7 @@
 #include <platform/user_input.h>
 
 #include <core/memory.h>
+#include <engine/engine.h>
 #include <engine/profiling.hpp>
 
 #include <renderers/renderer.h>
@@ -25,6 +26,7 @@
 // TEMP REMOVE
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
+#pragma comment(lib, "dbghelp.lib")
 
 ////////////////// GLOBALS ///////////////////////////////
 
@@ -1237,7 +1239,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     win32_delete_directory_tree(OpenGlRendererDllCopyPath);
     win32_delete_directory_tree(SoftwareRendererDllCopyPath);
 
-    const u32 NUM_THREADS = 4;
+    const u32 NUM_THREADS = 16;
     PlatformWorkQueue work_queue = {};
     win32_thread_startup thread_startups[NUM_THREADS] = {};
     win32_make_queue(&work_queue, NUM_THREADS, thread_startups);

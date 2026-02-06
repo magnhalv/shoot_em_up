@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include <platform/platform.h>
 #include <platform/types.h>
 
 #include <core/memory_arena.h>
@@ -23,12 +24,12 @@ template <typename T> struct List {
     }
 
     T& operator[](i32 index) {
-        assert(index < m_count && index >= 0);
+        Assert(index < m_count && index >= 0);
         return m_data[index];
     }
 
     const T& operator[](i32 index) const {
-        assert(index < m_count);
+        Assert(index < m_count);
         return m_data[index];
     }
 

@@ -1,6 +1,9 @@
 #pragma once
 
+#include <engine/profiling.hpp>
 #include <platform/platform.h>
+
+#include <core/memory_arena.h>
 
 struct TaskWithMemory {
     bool in_use;
@@ -12,10 +15,8 @@ struct TaskSystem {
     TaskWithMemory tasks[4];
 };
 
-extern PlatformApi* Platform;
 extern TaskSystem* Task_System;
-
-global_variable DebugTable* global_debug_table = nullptr;
+extern DebugTable* global_debug_table;
 
 void load(PlatformApi* platform);
 

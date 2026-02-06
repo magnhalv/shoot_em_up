@@ -1,8 +1,9 @@
-#include "engine/globals.hpp"
-#include "platform/platform.h"
+#include <platform/platform.h>
 
-PlatformApi* Platform = nullptr;
+#include <engine/globals.hpp>
+
 TaskSystem* Task_System = nullptr;
+DebugTable* global_debug_table = nullptr;
 
 auto load(PlatformApi* in_platform) -> void {
     Platform = in_platform;

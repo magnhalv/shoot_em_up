@@ -3,6 +3,7 @@
 #include <platform/platform.h>
 
 #include <math/math.h>
+#include <math/util.hpp>
 
 #include <core/logger.h>
 #include <core/memory.h>
@@ -142,50 +143,30 @@ inline vec4 linear1_to_srgb255(vec4 color) {
     return (result);
 }
 
-static void draw_rectangle(OffscreenBuffer* buffer, vec2 v_min, vec2 v_max, f32 r, f32 g, f32 b) {
-    i32 min_x = round_f32_to_i32(v_min.x);
-    i32 max_x = round_f32_to_i32(v_max.x);
-    i32 min_y = round_f32_to_i32(v_min.y);
-    i32 max_y = round_f32_to_i32(v_max.y);
-    if (min_x < 0) {
-        min_x = 0;
-    }
-    if (max_x > buffer->width) {
-        max_x = buffer->width;
-    }
-
-    if (min_y < 0) {
-        min_y = 0;
-    }
-    if (max_y > buffer->height) {
-        max_y = buffer->height;
-    }
-
-    // Flip coordinate system
-    min_y = buffer->height - min_y;
-    max_y = buffer->height - max_y;
-    auto temp = min_y;
-    min_y = max_y;
-    max_y = temp;
+static void draw_rectangle(OffscreenBuffer* buffer, Rectangle2i rect, f32 r, f32 g, f32 b) {
+    rect.min_x = hm::max(rect.min_x, 0);
+    rect.max_x = hm::min(rect.max_x, buffer->width - 1);
+    rect.min_y = hm::max(rect.min_y, 0);
+    rect.max_y = hm::max(rect.max_y, buffer->height - 1);
 
     u32 color = (round_f32_to_i32(r * 255.0f) << 16) | (round_f32_to_i32(g * 255.0f) << 8) | (round_f32_to_i32(b * 255.0f));
 
-    u8* row = ((u8*)buffer->memory + (min_y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
-    for (int y = min_y; y < max_y; y++) {
+    u8* row = ((u8*)buffer->memory + (rect.min_y * buffer->pitch) + (rect.min_x * buffer->bytes_per_pixel));
+    for (int y = rect.min_y; y <= rect.max_y; y++) {
         u32* pixel = (u32*)row;
-        for (int x = min_x; x < max_x; x++) {
+        for (int x = rect.min_x; x <= rect.max_x; x++) {
             *pixel++ = color;
         }
         row += buffer->pitch;
     }
 }
 
-static auto clear(i32 client_width, i32 client_height, vec4 color) {
+static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i* clip_rect) {
     vec2 min = vec2(0, 0);
     vec2 max = vec2((f32)client_width, (f32)client_height);
     draw_rectangle(                     //
         &state.global_offscreen_buffer, //
-        min, max,                       //
+        *clip_rect,                     //
         color.r, color.g, color.b       //
     );
 }
@@ -239,7 +220,7 @@ auto color_channel_f32_to_u8(f32 channel) {
 }
 
 static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height) {
+    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect) {
 
     auto model_width = (quad.br.x - quad.bl.x);
     auto model_height = (quad.tr.y - quad.br.y);
@@ -272,10 +253,10 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 max_y = round_f32_to_i32(hm::max(bl_w.y, tl_w.y, tr_w.y, br_w.y));
 
     OffscreenBuffer* buffer = &state.global_offscreen_buffer;
-    min_x = hm::max(min_x, 0);
-    max_x = hm::min(max_x, buffer->width);
-    min_y = hm::max(min_y, 0);
-    max_y = hm::min(max_y, buffer->height);
+    min_x = hm::max(min_x, clip_rect->min_x);
+    max_x = hm::min(max_x, clip_rect->max_x);
+    min_y = hm::max(min_y, clip_rect->min_y);
+    max_y = hm::min(max_y, clip_rect->max_y);
 
     vec3 edge1 = tl_w - bl_w;
     vec3 edge2 = tr_w - tl_w;
@@ -453,11 +434,9 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     }
 }
 
-auto execute_render_commands(RenderCommands* commands) -> void {
-    i32* entries_draw_order = merge_sort_indices(commands->sort_keys.data(), commands->sort_keys.count(), &state.transient);
-
+auto execute_render_commands(RenderCommands* commands, i32* command_render_order, Rectangle2i clip_rect) -> void {
     for (i32 i = 0; i < commands->sort_keys.count(); i++) {
-        u64 base_address = commands->sort_entries_offset[entries_draw_order[i]];
+        u64 base_address = commands->sort_entries_offset[command_render_order[i]];
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(commands->push_buffer + base_address);
         base_address += sizeof(RenderGroupEntryHeader);
 
@@ -465,20 +444,21 @@ auto execute_render_commands(RenderCommands* commands) -> void {
         switch (header->type) {
         case RenderCommands_RenderEntryClear: {
             RenderEntryClear* entry = (RenderEntryClear*)data;
-            clear(commands->screen_width, commands->screen_height, entry->color);
+            clear(commands->screen_width, commands->screen_height, entry->color, &clip_rect);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryQuadrilateral: {
-            auto* entry = (RenderEntryQuadrilateral*)data;
-            draw_quad(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, commands->screen_width,
-                commands->screen_height);
-
-            base_address += sizeof(*entry);
+            /*auto* entry = (RenderEntryQuadrilateral*)data;*/
+            /*draw_quad(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, commands->screen_width,*/
+            /*    commands->screen_height, &clip_rect);*/
+            /**/
+            /*base_address += sizeof(*entry);*/
+            InvalidCodePath;
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
             draw_bitmap(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
-                entry->uv_min, entry->uv_max, commands->screen_width, commands->screen_height);
+                entry->uv_min, entry->uv_max, commands->screen_width, commands->screen_height, &clip_rect);
 
             base_address += sizeof(*entry);
         } break;
@@ -489,6 +469,8 @@ auto execute_render_commands(RenderCommands* commands) -> void {
 
 struct RenderTileJob {
     RenderCommands* commands;
+    i32* command_render_order;
+    Rectangle2i clip_rect;
 };
 
 static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
@@ -496,15 +478,50 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
 
     Assert(job);
     Assert(job->commands);
-    execute_render_commands(job->commands);
+    execute_render_commands(job->commands, job->command_render_order, job->clip_rect);
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
-    RenderTileJob* render_tile_job = allocate<RenderTileJob>(state.transient);
-    render_tile_job->commands = commands;
+    i32 const tile_count_x = 4;
+    i32 const tile_count_y = 4;
 
-    platform->add_work_queue_entry(render_queue, execute_render_tile_job, render_tile_job);
+    i32 tile_width = commands->screen_width / tile_count_x;
+    i32 tile_height = commands->screen_height / tile_count_y;
+
+    const i32 sse_width = 1;
+    tile_width = (tile_width + (sse_width - 1) / sse_width) * sse_width;
+
+    RenderTileJob render_tile_jobs[tile_count_x * tile_count_y];
+
+    i32* command_render_order = merge_sort_indices(commands->sort_keys.data(), commands->sort_keys.count(), &state.transient);
+
+    i32 job_count = 0;
+    for (i32 y = 0; y < tile_count_y; y++) {
+        for (i32 x = 0; x < tile_count_x; x++) {
+            RenderTileJob* job = render_tile_jobs + job_count++;
+
+            Rectangle2i rect = {};
+            rect.min_x = x * tile_width;
+            rect.max_x = rect.min_x + tile_width;
+            if (x == tile_count_x - 1) {
+                rect.max_x = commands->screen_width - 1;
+            }
+
+            rect.min_y = y * tile_height;
+            rect.max_y = rect.min_y + tile_height;
+            if (y == tile_count_y - 1) {
+                rect.max_y = commands->screen_height - 1;
+            }
+
+            job->clip_rect = rect;
+            job->commands = commands;
+            job->command_render_order = command_render_order;
+
+            platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
+        }
+    }
+
     platform->complete_all_work(render_queue);
 }
 
