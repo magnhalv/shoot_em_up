@@ -7,21 +7,41 @@ const u32 SENTINEL_PATTERN = 0xEFBEADDE; // DEADBEEF
 struct MemorySentinel {
     u32 sentinel_pattern;
     u64 block_size;
+    // Afterwards padding will potientially follow.
 };
+
+enum ArenaPushFlag : u32 {
+    ArenaPushFlag_ClearToZero = 0x1,
+};
+
+struct ArenaPushParams {
+    u32 alignment;
+    u32 flags;
+};
+
+auto constexpr DefaultArenaParams() -> ArenaPushParams {
+    ArenaPushParams result = {};
+    result.alignment = 4;
+    result.flags = ArenaPushFlag_ClearToZero;
+    return result;
+}
 
 struct MemoryArena {
     u8* m_memory = nullptr;
-    u64 m_used = 0;
     u64 m_size = 0;
+    u64 m_capacity = 0;
     MemorySentinel* m_last = nullptr; // perhaps rather keep track of the last block?
 
     auto init(void* in_memory, u64 in_size) -> void;
-    auto allocate(u64 request_size) -> void*;
+    auto allocate(u64 request_size, ArenaPushParams params = DefaultArenaParams()) -> void*;
     auto shrink(void* memory, u64 size) -> void;
     auto allocate_arena(u64 request_size) -> MemoryArena*;
     auto clear_to_zero() -> void;
     auto check_integrity() const -> void;
 };
+
+#define PushArray(Arena, Count, Type, ...) \
+    ((Type*)((Arena)->allocate(sizeof(Type) * (Count)__VA_OPT__(, ) __VA_ARGS__)))
 
 template <typename T> auto inline allocate(MemoryArena& arena, u64 count = 1) -> T* {
     return static_cast<T*>(arena.allocate(sizeof(T) * count));

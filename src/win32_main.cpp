@@ -1105,7 +1105,7 @@ static void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_callba
 
 bool win32_do_next_work_entry(PlatformWorkQueue* queue) {
 
-    bool we_should_sleep = true;
+    bool we_should_sleep = false;
 
     u32 original_next_entry_to_read = queue->NextEntryToRead;
     u32 new_next_entry_to_read = (original_next_entry_to_read + 1) % array_length(queue->entries);

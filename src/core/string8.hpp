@@ -1,5 +1,6 @@
 #pragma once
 
+#include <platform/platform.h>
 #include <platform/types.h>
 
 #include <core/memory.h>

@@ -2,6 +2,8 @@
 #include <cinttypes>
 #include <cstring>
 
+#include <platform/platform.h>
+
 #include <core/logger.h>
 #include <core/memory.h>
 
@@ -11,38 +13,59 @@
 
 MemoryArena* g_transient = nullptr;
 
-auto MemoryArena::allocate(u64 request_size) -> void* {
+auto is_power_of_two(u32 value) -> bool {
+    return value && ((value & (value - 1)) == 0);
+}
+
+auto MemoryArena::allocate(u64 request_size, ArenaPushParams params) -> void* {
+    Assert(is_power_of_two(params.alignment));
     Assert(m_memory);
-    if (m_size < m_used + request_size + sizeof(MemorySentinel)) {
-        crash_and_burn("Failed to allocate %" PRIu64 " bytes. Only %" PRIu64 " remaining.", request_size,
-            m_size - m_used - sizeof(MemorySentinel));
+
+    MemorySentinel* previous_sentinel = (MemorySentinel*)(m_memory + m_size - sizeof(MemorySentinel));
+    HM_ASSERT(previous_sentinel->sentinel_pattern == SENTINEL_PATTERN);
+
+    u64 alignment_mask = params.alignment - 1;
+    const u64 padding_size = 1;
+    u64 base = (u64)m_memory + m_size;
+    u64 base_with_padding = base + padding_size;
+    u64 aligned_address = (base_with_padding + alignment_mask) & ~(alignment_mask);
+    u64 padding = aligned_address - base;
+
+    u64 block_size = padding + request_size;
+    u64 total_size = block_size + sizeof(MemorySentinel);
+
+    if (m_capacity < m_size + total_size) {
+        crash_and_burn("Failed to allocate %" PRIu64 " bytes. Only %" PRIu64 " remaining.", total_size, m_capacity - m_size);
     }
 
-    auto* previous_guard = reinterpret_cast<MemorySentinel*>(&m_memory[m_used - sizeof(MemorySentinel)]);
-    HM_ASSERT(previous_guard->sentinel_pattern == SENTINEL_PATTERN);
+    memset(m_memory + m_size, 0, total_size);
 
-    memset(&m_memory[m_used], 0, request_size);
+    void* result = (void*)aligned_address;
+    m_size += total_size;
 
-    void* result = &m_memory[m_used];
-    m_used += request_size + sizeof(MemorySentinel);
+    // Store how much padding was added in the byte previous to the returned address.
+    u8* padding_address = (u8*)(aligned_address)-1;
+    Assert(padding <= 255);
+    *padding_address = (u8)padding;
 
-    auto* new_guard = reinterpret_cast<MemorySentinel*>(&m_memory[m_used - sizeof(MemorySentinel)]);
-    new_guard->sentinel_pattern = SENTINEL_PATTERN;
-    new_guard->block_size = 0;
+    auto* new_sentinel = (MemorySentinel*)(m_memory + m_size - sizeof(MemorySentinel));
+    new_sentinel->sentinel_pattern = SENTINEL_PATTERN;
+    new_sentinel->block_size = 0;
 
-    previous_guard->block_size = request_size;
-    m_last = new_guard;
-
-    // log_info("MemoryArena: allocated %llu bytes. Capacity: %.2f %%.", request_size,
-    //   (static_cast<f32>(used) * 100.0f) / static_cast<f32>(size));
+    previous_sentinel->block_size = block_size;
+    m_last = new_sentinel;
 
     return result;
 }
 
-auto MemoryArena::shrink(void* block_in, u64 reduction_size) -> void {
-    u8* block = static_cast<u8*>(block_in);
-    MemorySentinel* previous_guard = (MemorySentinel*)(block - sizeof(MemorySentinel));
-    MemorySentinel* last_guard = (MemorySentinel*)(block + previous_guard->block_size);
+auto MemoryArena::shrink(void* aligned_block_in, u64 reduction_size) -> void {
+    u8* aligned_block = (u8*)aligned_block_in;
+    u8 padding = *((u8*)aligned_block - 1);
+    MemorySentinel* previous_guard = (MemorySentinel*)(aligned_block - padding - sizeof(MemorySentinel));
+    MemorySentinel* last_guard = (MemorySentinel*)(aligned_block - padding + previous_guard->block_size);
+
+    Assert(previous_guard->sentinel_pattern == SENTINEL_PATTERN);
+    Assert(last_guard->sentinel_pattern == SENTINEL_PATTERN);
     if (last_guard->block_size != 0) {
         crash_and_burn("MemoryArena: Tried to shrink memory block that is not the final block.");
     }
@@ -50,10 +73,10 @@ auto MemoryArena::shrink(void* block_in, u64 reduction_size) -> void {
     if (reduction_size > previous_guard->block_size) {
         crash_and_burn("MemoryArena: Tried to shrink memory block passed itself.");
     }
-    m_used -= reduction_size;
+    m_size -= reduction_size;
     previous_guard->block_size -= reduction_size;
-    memset(m_memory + m_used, 0, reduction_size);
-    MemorySentinel* new_last_sentinel = (MemorySentinel*)(m_memory + m_used - sizeof(MemorySentinel));
+    memset(m_memory + m_size, 0, reduction_size);
+    MemorySentinel* new_last_sentinel = (MemorySentinel*)(m_memory + m_size - sizeof(MemorySentinel));
     new_last_sentinel->block_size = 0;
     new_last_sentinel->sentinel_pattern = SENTINEL_PATTERN;
 }
@@ -66,10 +89,9 @@ auto MemoryArena::allocate_arena(u64 request_size) -> MemoryArena* {
 }
 
 auto MemoryArena::clear_to_zero() -> void {
-    clear_memory(m_memory, m_size);
-
-    m_used = sizeof(MemorySentinel);
-    auto* first_guard = reinterpret_cast<MemorySentinel*>(m_memory);
+    clear_memory(m_memory, m_capacity);
+    m_size = sizeof(MemorySentinel);
+    MemorySentinel* first_guard = (MemorySentinel*)(m_memory);
     first_guard->sentinel_pattern = SENTINEL_PATTERN;
     first_guard->block_size = 0;
     m_last = first_guard;
@@ -96,7 +118,7 @@ auto MemoryArena::check_integrity() const -> void {
             crash_and_burn("MemoryArena: integrity check failed at guard index %d", guard_index);
         }
 
-        if (memory > m_memory + m_size) {
+        if (memory > m_memory + m_capacity) {
             crash_and_burn("MemoryArena: integrity check failed. We went passed the capacity");
         }
     }
@@ -104,7 +126,7 @@ auto MemoryArena::check_integrity() const -> void {
 
 auto MemoryArena::init(void* in_memory, u64 in_size) -> void {
     m_memory = (u8*)in_memory;
-    m_size = in_size;
+    m_capacity = in_size;
     clear_to_zero();
 }
 
