@@ -660,8 +660,8 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
-    i32 const tile_count_x = 4;
-    i32 const tile_count_y = 4;
+    i32 const tile_count_x = 2;
+    i32 const tile_count_y = 2;
 
     i32 tile_width = commands->screen_width / tile_count_x;
     i32 tile_height = commands->screen_height / tile_count_y;

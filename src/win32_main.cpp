@@ -1239,7 +1239,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     win32_delete_directory_tree(OpenGlRendererDllCopyPath);
     win32_delete_directory_tree(SoftwareRendererDllCopyPath);
 
-    const u32 NUM_THREADS = 16;
+    const u32 NUM_THREADS = 4;
     PlatformWorkQueue work_queue = {};
     win32_thread_startup thread_startups[NUM_THREADS] = {};
     win32_make_queue(&work_queue, NUM_THREADS, thread_startups);
@@ -1350,6 +1350,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     UpdateWindow(window);
 
     bool is_slow_mode = false;
+    bool is_freeze_mode = false;
     i64 high_freq_clock = __rdtsc();
     while (global_is_running) {
         engine_memory.total_frame_duration_clock_cycles = __rdtsc() - high_freq_clock;
@@ -1380,9 +1381,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }
 
             // DEBUG INPUT HANDLING
-            if (current_input->n.ended_down) {
-                continue;
-            }
+            is_freeze_mode = current_input->n.ended_down;
             is_slow_mode = current_input->m.ended_down;
 
             if (current_input->o.is_pressed_this_frame()) {
@@ -1463,33 +1462,39 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             END_BLOCK();
         }
 
-        renderer_dll.api.begin_frame(&render_context);
+        if (!is_freeze_mode) {
+            renderer_dll.api.begin_frame(&render_context);
 
-        RECT client_rect;
-        GetClientRect(window, &client_rect);
-        engine_input.client_height = client_rect.bottom - client_rect.top;
-        engine_input.client_width = client_rect.right - client_rect.left;
+            RECT client_rect;
+            GetClientRect(window, &client_rect);
+            engine_input.client_height = client_rect.bottom - client_rect.top;
+            engine_input.client_width = client_rect.right - client_rect.left;
 
-        engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_dll.api);
+            engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_dll.api);
 
-        if (audio.is_initialized) {
-            BEGIN_BLOCK("audio");
-            XAUDIO2_VOICE_STATE state;
-            audio.sourceVoice->GetState(&state);
-            // We make sure there is max 2 frames of sound data available for the sound  card.
-            while (state.BuffersQueued < 2) {
-                const auto num_samples_to_add = static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
-                if (num_samples_to_add > 0) {
-                    auto sound_buffer = engine_dll.get_sound_samples(&engine_memory, num_samples_to_add);
-                    win32_add_sound_samples_to_queue(audio, sound_buffer);
-                }
+            if (audio.is_initialized) {
+                BEGIN_BLOCK("audio");
+                XAUDIO2_VOICE_STATE state;
                 audio.sourceVoice->GetState(&state);
+                // We make sure there is max 2 frames of sound data available for the sound  card.
+                while (state.BuffersQueued < 2) {
+                    const auto num_samples_to_add =
+                        static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
+                    if (num_samples_to_add > 0) {
+                        auto sound_buffer = engine_dll.get_sound_samples(&engine_memory, num_samples_to_add);
+                        win32_add_sound_samples_to_queue(audio, sound_buffer);
+                    }
+                    audio.sourceVoice->GetState(&state);
+                }
+                END_BLOCK();
             }
+
+            BEGIN_BLOCK("end_frame");
+            renderer_dll.api.end_frame(&render_context);
             END_BLOCK();
         }
 
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
-
         {
             f32 frame_duration_ms = ((f32)(win32_get_tick() - last_tick) / performance_counter_frequency) * 1000.0f;
             DebugEvent* end_frame = record_debug_event(global_debug_table, "EndFrame", DebugEventType_EndFrame);
@@ -1500,11 +1505,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }
         }
 
-        BEGIN_BLOCK("end_frame");
-        renderer_dll.api.end_frame(&render_context);
-        END_BLOCK();
         {
-
             // Pepare next frame
             global_debug_table->event_index = 0;
         }
