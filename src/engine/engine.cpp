@@ -122,8 +122,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         state->pointer.x = 200;
         state->pointer.y = 200;
 
-        // renderer_init();
-
         state->assets = initialize_game_assets(&state->permanent);
 
         auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip);

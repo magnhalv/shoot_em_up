@@ -1232,7 +1232,7 @@ DebugTable* global_debug_table = &debug_table_;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
     win32_check_ticks_frequency();
-    const auto performance_counter_frequency = win32_get_performance_counter_frequency();
+    const i64 performance_counter_frequency = win32_get_performance_counter_frequency();
     auto main_entry_tick = win32_get_tick();
 
     win32_delete_directory_tree(EngineDllCopyPath);
@@ -1241,7 +1241,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     HANDLE timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
 
-    const u32 NUM_THREADS = 2;
+    const u32 NUM_THREADS = 16;
     PlatformWorkQueue work_queue = {};
     win32_thread_startup thread_startups[NUM_THREADS] = {};
     win32_make_queue(&work_queue, NUM_THREADS, thread_startups);
@@ -1509,21 +1509,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         }
 
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
-        f32 frame_duration_s = ((f32)(win32_get_tick() - last_tick) / performance_counter_frequency);
+        const f32 frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
         prev_frame_duration_ms = frame_duration_s * 1000.0f;
 
         BEGIN_BLOCK("sleep");
-        f32 remaning_frame_duration_s = seconds_per_frame - frame_duration_s;
-        if (remaning_frame_duration_s > 0.0f) {
-            if (timer) {
-                i64 useconds = (i64)(remaning_frame_duration_s * 1e6);
-                // WaitForSingleObject(timer, INFINITE); // Wait for the next timer event to be signaled
-
+        // Only sleep if there's more than 1.6ms left, otherwise we might sleep passed the frame target.
+        const i64 min_remainder_for_sleep_us = 1600;
+        bool did_sleep = false;
+        i64 remainder_us = (i64)((seconds_per_frame - frame_duration_s) * 1e6);
+        if (timer) {
+            // Sleep in intervals, to avoid sleeping too long
+            while (remainder_us >= min_remainder_for_sleep_us) {
+                did_sleep = true;
                 LARGE_INTEGER due_time;
-                // This is in 100s of ns, hence * 10. Negative value means a relative date!
-                due_time.QuadPart = -(useconds > 0 ? (useconds * 10) : 1); // Make sure we have values <= -1
+                i64 max_sleep_us = 1000;
+                // This is in 100s of ns, hence * 10000. Negative value means a relative date!
+                due_time.QuadPart = -(max_sleep_us > 0 ? (max_sleep_us * 10) : 1); // Make sure we have values <= -1
                 SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, FALSE);
                 WaitForSingleObject(timer, INFINITE);
+
+                f32 f_dur_s = ((f32)(win32_get_tick() - last_tick) / performance_counter_frequency);
+                remainder_us = (i64)((seconds_per_frame - f_dur_s) * 1e6);
             }
         }
         END_BLOCK();
@@ -1531,8 +1537,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         BEGIN_BLOCK("spin_wait");
         ticks_used_this_frame = win32_get_tick() - last_tick;
         if (ticks_used_this_frame > ticks_per_frame && !is_first_frame) {
-            printf("Failed to hit ticks per frame target!\n");
-            printf("Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
+            if (did_sleep) {
+                printf("Failed hitting frame target WITH SLEEP:\n");
+            }
+            else {
+                printf("Failed hitting frame target\n");
+            }
+            printf("  Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
         }
         else {
             // TODO: Not very power friendly, should probably sleep.
