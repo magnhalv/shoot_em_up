@@ -3,6 +3,8 @@
 #include <platform/platform.h>
 #include <platform/types.h>
 
+#include <math/vec2.h>
+
 enum PrintDebugEventType {
     PrintDebugEventType_Unknown = 0,
     PrintDebugEventType_Frame,
@@ -32,6 +34,8 @@ struct PrintEventNode {
     const char* GUID;
     union {
         f32 value_f32;
+        u32 value_u32;
+        vec2 value_v2;
     };
 
     u32 parent_idx;
