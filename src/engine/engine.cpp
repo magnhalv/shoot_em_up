@@ -106,13 +106,13 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* state = (EngineState*)engine_memory->permanent;
     // const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
-    global_debug_table = engine_memory->debug_table;
+    global_debug_table = Platform->debug_table;
 
     if (!state->is_initialized) {
         state->permanent.init(static_cast<u8*>(engine_memory->permanent) + sizeof(EngineState),
             Permanent_Memory_Block_Size - sizeof(EngineState));
 
-        state->task_system.queue = engine_memory->work_queue;
+        state->task_system.queue = Platform->work_queue;
         TaskSystem* task_system = &state->task_system;
         for (u32 i = 0; i < array_length(task_system->tasks); i++) {
             TaskWithMemory* task = task_system->tasks + i;
@@ -488,7 +488,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
-        renderer->render(engine_memory->work_queue, &group);
+        renderer->render(Platform->work_queue, &group);
     }
 
     {
@@ -515,24 +515,22 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(100.0f)) {
 
                 i32 i = 0;
-                for (PrintDebugEvent& event : engine_memory->debug_print_events) {
+                List<PrintDebugEvent>& debug_print_events = engine_memory->debug_print_events[1];
+                for (PrintDebugEvent& event : debug_print_events) {
                     if (event.depth == 1) {
                         f32 block_fraction = 1.0f;
                         if (event.depth > 0) {
-                            PrintDebugEvent* parent = &engine_memory->debug_print_events[event.parent_index];
+                            PrintDebugEvent* parent = &debug_print_events[event.parent_index];
                             i64 parent_cycle_count = (parent->clock_end - parent->clock_start);
                             i64 event_cycle_count = (event.clock_end - event.clock_start);
                             Assert(parent_cycle_count > event_cycle_count);
                             block_fraction = (f32)event_cycle_count / parent_cycle_count;
                         }
-                        f32 frame_fraction = (f32)(event.clock_end - event.clock_start) / engine_memory->total_frame_duration_clock_cycles;
-                        f32 ms = engine_memory->frame_duration_ms * frame_fraction;
-                        /*printf("%*sEvent=%s, Frame_fraction=%f, block_fraction=%f, ms=%f\n", 2 * event.depth, "",*/
-                        /*    event.GUID, frame_fraction, block_fraction, engine_memory->frame_duration_ms * frame_fraction);*/
+                        f32 frame_fraction = (f32)(event.clock_end - event.clock_start) / Platform->total_frame_duration_clock_cycles;
+                        f32 ms = Platform->frame_duration_ms * frame_fraction;
                         vec4 box_color = global_color_palette[i % Global_Color_Palette_Count];
                         UI_PushStyleBackgroundColor(box_color);
 
-                        // UI_Text("testlol");
                         string8 box_id = string8_concat(event.GUID, "_profile_box", g_transient);
                         UI_Entity_Status box = UI_Box(box_id.data, UI_PercentOfParent(frame_fraction), UI_PercentOfParent(1.0f));
                         if (box.first_hovered) {
@@ -565,7 +563,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             END_BLOCK();
 
             BEGIN_BLOCK("gui_render");
-            renderer->render(engine_memory->work_queue, &ui_render_group);
+            renderer->render(Platform->work_queue, &ui_render_group);
             END_BLOCK();
         }
     }

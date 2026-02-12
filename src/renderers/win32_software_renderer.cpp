@@ -1,3 +1,4 @@
+#include "engine/profiling.hpp"
 #include "math/mat3.h"
 #include <cstdio>
 #include <platform/platform.h>
@@ -55,7 +56,7 @@ struct SWRendererState {
 
 static SWRendererState state = {};
 
-global_variable PlatformApi* platform;
+DebugTable* global_debug_table = nullptr;
 
 static WindowDimension get_window_dimension(HWND window) {
     WindowDimension result;
@@ -518,7 +519,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     state.permanent.init(memory->data, memory->size);
     state.transient = *state.permanent.allocate_arena(MegaBytes(10));
 
-    platform = platform_api;
+    Platform = platform_api;
+    global_debug_table = Platform->debug_table;
 
     Win32Texture* null_texture = &state.textures[0];
     null_texture->height = 1;
@@ -654,7 +656,9 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
 
     Assert(job);
     Assert(job->commands);
+    BEGIN_BLOCK("Execute render commands");
     execute_render_commands(job->id, job->commands, job->command_render_order, job->clip_rect);
+    END_BLOCK();
     MemoryBarrier();
 }
 
@@ -696,11 +700,11 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
             job->commands = commands;
             job->command_render_order = command_render_order;
 
-            platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
+            Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
         }
     }
 
-    platform->complete_all_work(render_queue);
+    Platform->complete_all_work(render_queue);
 }
 
 extern "C" __declspec(dllexport) RENDERER_BEGIN_FRAME(win32_renderer_begin_frame) {

@@ -19,16 +19,8 @@
 struct EngineMemory {
     void* permanent = nullptr;
     void* transient = nullptr;
-
-    PlatformWorkQueue* work_queue = nullptr;
 #if HOMEMADE_DEBUG
-    DebugTable* debug_table;
-    List<PrintDebugEvent> debug_print_events;
-    f32 frame_duration_ms;
-    f32 frame_target_ms;
-    i64 frame_duration_clock_cycles;
-    i64 total_frame_duration_clock_cycles;
-    u32 main_thread_id;
+    List<PrintDebugEvent> debug_print_events[TOTAL_THREAD_COUNT];
 #endif
 };
 

@@ -15,6 +15,9 @@
 const i32 SCREEN_WIDTH = 960;
 const i32 SCREEN_HEIGHT = 540;
 
+const u32 WORKER_THREAD_COUNT = 2;
+const u32 TOTAL_THREAD_COUNT = WORKER_THREAD_COUNT + 1;
+
 const u32 Gl_Invalid_Id = 0;
 
 typedef struct {
@@ -92,6 +95,7 @@ typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 typedef void platform_add_work_queue_entry(PlatformWorkQueue* Queue, platform_work_queue_callback* Callback, void* Data);
 typedef void platform_complete_all_work(PlatformWorkQueue* Queue);
 
+struct DebugTable;
 struct PlatformApi {
     platform_get_file_last_modified* get_file_last_modified;
     debug_platform_read_file* debug_read_file;
@@ -107,6 +111,18 @@ struct PlatformApi {
     platform_complete_all_work* complete_all_work;
 
     platform_print_stack_trace* print_stack_trace;
+
+    PlatformWorkQueue* work_queue = nullptr;
+#if HOMEMADE_DEBUG
+    DebugTable* debug_table;
+    f32 frame_duration_ms;
+    f32 frame_target_ms;
+    i64 frame_duration_clock_cycles;
+    i64 total_frame_duration_clock_cycles;
+    u32 main_thread_id;
+#endif
+
+    u32 thread_ids[TOTAL_THREAD_COUNT];
 };
 
 global_variable PlatformApi* Platform = nullptr;

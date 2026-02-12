@@ -1150,7 +1150,8 @@ DWORD WINAPI worker_proc(LPVOID lpParameter) {
     return 0;
 }
 
-static void win32_make_queue(PlatformWorkQueue* queue, u32 num_threads, win32_thread_startup* startups) {
+static void win32_make_queue(PlatformApi* platform, u32 num_threads, win32_thread_startup* startups) {
+    PlatformWorkQueue* queue = platform->work_queue;
     queue->completion_goal = 0;
     queue->completion_count = 0;
 
@@ -1159,13 +1160,15 @@ static void win32_make_queue(PlatformWorkQueue* queue, u32 num_threads, win32_th
 
     u32 initial_count = 0;
     queue->SemaphoreHandle = CreateSemaphoreEx(0, initial_count, num_threads, 0, 0, SEMAPHORE_ALL_ACCESS);
-
+    platform->thread_ids[0] = platform->main_thread_id;
+    Assert(platform->main_thread_id != 0);
     for (u32 i = 0; i < num_threads; i++) {
         win32_thread_startup* startup = startups + i;
         startup->queue = queue;
 
         DWORD thread_id;
         HANDLE thread_handle = CreateThread(0, 0, &worker_proc, startup, 0, &thread_id);
+        platform->thread_ids[i + 1] = thread_id;
 
         // Only windows 10+
         std::wstring name = L"WorkerThread_" + std::to_wstring(i);
@@ -1241,11 +1244,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     HANDLE timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
 
-    const u32 NUM_THREADS = 16;
-    PlatformWorkQueue work_queue = {};
-    win32_thread_startup thread_startups[NUM_THREADS] = {};
-    win32_make_queue(&work_queue, NUM_THREADS, thread_startups);
-
     HWND window = win32_create_window(hInstance, szCmdLine);
     // SETUP MEMORY
     EngineMemory engine_memory = {};
@@ -1283,11 +1281,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     engine_memory.permanent = memory_block;
     engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
 
-    engine_memory.work_queue = &work_queue;
 #if HOMEMADE_DEBUG
-    engine_memory.debug_table = global_debug_table;
-    engine_memory.debug_print_events.init(&platform_arena, 1024);
-    engine_memory.main_thread_id = get_thread_id();
+    for (auto& thread_print_events : engine_memory.debug_print_events) {
+        thread_print_events.init(&platform_arena, 1024);
+    }
 #endif
 
     // END SETUP MEMORY
@@ -1315,6 +1312,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     platform.add_work_queue_entry = &win32_add_entry;
     platform.complete_all_work = &win32_complete_all_work;
+#if HOMEMADE_DEBUG
+    platform.debug_table = global_debug_table;
+    platform.main_thread_id = get_thread_id();
+#endif
+
+    PlatformWorkQueue work_queue = {};
+    win32_thread_startup thread_startups[WORKER_THREAD_COUNT] = {};
+    platform.work_queue = &work_queue;
+    win32_make_queue(&platform, WORKER_THREAD_COUNT, thread_startups);
+    printf("Made teh queue\n");
 
     // INIT RENDERER //
     RendererDll renderer_dll = {};
@@ -1339,7 +1346,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     const f32 ticks_per_frame = performance_counter_frequency / target_fps;
     const f32 seconds_per_frame = 1.0 / target_fps;
     const f32 ms_per_frame = seconds_per_frame * 1000.0f;
-    engine_memory.frame_target_ms = ms_per_frame;
+    platform.frame_target_ms = ms_per_frame;
 
     i64 last_tick = win32_get_tick();
     bool is_first_frame = true;
@@ -1367,7 +1374,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             global_debug_table->event_index = 0;
         }
 
-        engine_memory.total_frame_duration_clock_cycles = __rdtsc() - high_freq_clock;
+        platform.total_frame_duration_clock_cycles = __rdtsc() - high_freq_clock;
         high_freq_clock = __rdtsc();
 
         record_debug_event(global_debug_table, "BeginFrame", DebugEventType_BeginFrame);
