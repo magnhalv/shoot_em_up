@@ -135,3 +135,19 @@ inline u32 safe_truncate_u64(u64 value) {
     u32 result = (u32)value;
     return result;
 }
+
+#if COMPILER_MSVC
+inline auto atomic_add_u64(u64 volatile* value, u64 addend) -> u64 {
+    u64 result = _InterlockedExchangeAdd64((i64 volatile*)value, addend);
+    return result;
+}
+
+inline auto get_thread_id() -> u32 {
+    u8* ThreadLocalStorage = (u8*)__readgsqword(0x30);
+    u32 ThreadID = *(u32*)(ThreadLocalStorage + 0x48);
+
+    return (ThreadID);
+}
+#else
+#error Unsupported architecture
+#endif

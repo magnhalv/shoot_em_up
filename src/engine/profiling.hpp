@@ -34,6 +34,7 @@ enum DebugEventType {
 struct DebugEvent {
     DebugEventType event_type;
     u64 clock;
+    u32 thread_id;
     const char* GUID;
     union {
         f32 value_f32;
@@ -42,19 +43,20 @@ struct DebugEvent {
 
 constexpr i32 Debug_Max_Event_Count = 1 << 16;
 struct DebugTable {
-    u32 event_index;
+    volatile u64 event_index;
     DebugEvent events[Debug_Max_Event_Count];
 };
 
 extern DebugTable* global_debug_table;
 
 inline auto record_debug_event(DebugTable* debug_table, const char* GUID, DebugEventType type) -> DebugEvent* {
-    u64 index = global_debug_table->event_index++;
+    u64 index = atomic_add_u64(&global_debug_table->event_index, 1);
     Assert(index < Debug_Max_Event_Count);
     DebugEvent* event = &global_debug_table->events[index];
     event->GUID = GUID;
     event->event_type = type;
     event->clock = __rdtsc();
+    event->thread_id = get_thread_id();
     return event;
 }
 

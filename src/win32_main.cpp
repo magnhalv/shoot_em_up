@@ -30,9 +30,9 @@
 
 ////////////////// GLOBALS ///////////////////////////////
 
-bool global_is_running = true;
-bool global_is_reloading_renderer = false;
-bool Global_Debug_Show_Cursor = true;
+global_variable bool global_is_running = true;
+global_variable bool global_is_reloading_renderer = false;
+global_variable bool Global_Debug_Show_Cursor = true;
 
 ///////////////// FILE HANDLING /////////////////////////////
 
@@ -1239,7 +1239,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     win32_delete_directory_tree(OpenGlRendererDllCopyPath);
     win32_delete_directory_tree(SoftwareRendererDllCopyPath);
 
-    const u32 NUM_THREADS = 4;
+    HANDLE timer = CreateWaitableTimerEx(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+
+    const u32 NUM_THREADS = 2;
     PlatformWorkQueue work_queue = {};
     win32_thread_startup thread_startups[NUM_THREADS] = {};
     win32_make_queue(&work_queue, NUM_THREADS, thread_startups);
@@ -1285,6 +1287,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 #if HOMEMADE_DEBUG
     engine_memory.debug_table = global_debug_table;
     engine_memory.debug_print_events.init(&platform_arena, 1024);
+    engine_memory.main_thread_id = get_thread_id();
 #endif
 
     // END SETUP MEMORY
@@ -1351,8 +1354,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     bool is_slow_mode = false;
     bool is_freeze_mode = false;
+    f32 prev_frame_duration_ms = 0.0f;
     i64 high_freq_clock = __rdtsc();
     while (global_is_running) {
+        if (global_debug_table->event_index > 0) {
+            DebugEvent* end_frame = record_debug_event(global_debug_table, "EndFrame", DebugEventType_EndFrame);
+            end_frame->value_f32 = prev_frame_duration_ms;
+
+            if (engine_dll.debug_frame_end) {
+                engine_dll.debug_frame_end(&engine_memory, &engine_input, &renderer_dll.api);
+            }
+            global_debug_table->event_index = 0;
+        }
+
         engine_memory.total_frame_duration_clock_cycles = __rdtsc() - high_freq_clock;
         high_freq_clock = __rdtsc();
 
@@ -1495,21 +1509,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         }
 
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
-        {
-            f32 frame_duration_ms = ((f32)(win32_get_tick() - last_tick) / performance_counter_frequency) * 1000.0f;
-            DebugEvent* end_frame = record_debug_event(global_debug_table, "EndFrame", DebugEventType_EndFrame);
-            end_frame->value_f32 = frame_duration_ms;
+        f32 frame_duration_s = ((f32)(win32_get_tick() - last_tick) / performance_counter_frequency);
+        prev_frame_duration_ms = frame_duration_s * 1000.0f;
 
-            if (engine_dll.debug_frame_end) {
-                engine_dll.debug_frame_end(&engine_memory, &engine_input, &renderer_dll.api);
+        BEGIN_BLOCK("sleep");
+        f32 remaning_frame_duration_s = seconds_per_frame - frame_duration_s;
+        if (remaning_frame_duration_s > 0.0f) {
+            if (timer) {
+                i64 useconds = (i64)(remaning_frame_duration_s * 1e6);
+                // WaitForSingleObject(timer, INFINITE); // Wait for the next timer event to be signaled
+
+                LARGE_INTEGER due_time;
+                // This is in 100s of ns, hence * 10. Negative value means a relative date!
+                due_time.QuadPart = -(useconds > 0 ? (useconds * 10) : 1); // Make sure we have values <= -1
+                SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, FALSE);
+                WaitForSingleObject(timer, INFINITE);
             }
         }
+        END_BLOCK();
 
-        {
-            // Pepare next frame
-            global_debug_table->event_index = 0;
-        }
-
+        BEGIN_BLOCK("spin_wait");
+        ticks_used_this_frame = win32_get_tick() - last_tick;
         if (ticks_used_this_frame > ticks_per_frame && !is_first_frame) {
             printf("Failed to hit ticks per frame target!\n");
             printf("Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
@@ -1520,6 +1540,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                 ticks_used_this_frame = win32_get_tick() - last_tick;
             }
         }
+        END_BLOCK();
 
         auto prev_input_idx = curr_input_idx;
         curr_input_idx = curr_input_idx == 0 ? 1 : 0;

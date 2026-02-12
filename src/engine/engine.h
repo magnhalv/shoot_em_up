@@ -28,6 +28,7 @@ struct EngineMemory {
     f32 frame_target_ms;
     i64 frame_duration_clock_cycles;
     i64 total_frame_duration_clock_cycles;
+    u32 main_thread_id;
 #endif
 };
 
