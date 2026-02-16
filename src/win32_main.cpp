@@ -1266,26 +1266,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         return -1;
     }
 
-    MemoryBlock platform_layer_memory = {};
-    platform_layer_memory.size = Platform_Memory_Block_Size;
-    platform_layer_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
-        (SIZE_T)platform_layer_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (platform_layer_memory.data == nullptr) {
+    MemoryBlock debug_memory = {};
+    debug_memory.size = Debug_Memory_Block_Size;
+    debug_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
+        (SIZE_T)debug_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (debug_memory.data == nullptr) {
         auto error = GetLastError();
-        printf("Unable to allocate renderer memory: %lu", error);
+        printf("Unable to allocate debug memory: %lu", error);
         return -1;
     }
-    MemoryArena platform_arena;
-    platform_arena.init(platform_layer_memory.data, platform_layer_memory.size);
 
     engine_memory.permanent = memory_block;
     engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
-
-#if HOMEMADE_DEBUG
-    for (auto& thread_print_events : engine_memory.debug_print_events) {
-        thread_print_events.init(&platform_arena, 1024);
-    }
-#endif
+    engine_memory.debug = debug_memory.data;
 
     // END SETUP MEMORY
 
@@ -1361,25 +1354,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     bool is_slow_mode = false;
     bool is_freeze_mode = false;
-    f32 prev_frame_duration_ms = 0.0f;
-    i64 high_freq_clock = __rdtsc();
+
     while (global_is_running) {
-        if (global_debug_table->event_index > 0) {
-            DebugEvent* end_frame = record_debug_event(global_debug_table, "EndFrame", DebugEventType_EndFrame);
-            end_frame->value_f32 = prev_frame_duration_ms;
+        i64 frame_start_rdtsc_clock = __rdtsc();
 
-            if (engine_dll.debug_frame_end) {
-                engine_dll.debug_frame_end(&engine_memory, &engine_input, &renderer_dll.api);
-            }
-            global_debug_table->event_index = 0;
-        }
-
-        platform.total_frame_duration_clock_cycles = __rdtsc() - high_freq_clock;
-        high_freq_clock = __rdtsc();
-
-        record_debug_event(global_debug_table, "BeginFrame", DebugEventType_BeginFrame);
+        platform.total_frame_duration_clock_cycles = __rdtsc() - frame_start_rdtsc_clock;
+        frame_start_rdtsc_clock = __rdtsc();
 
         engine_input.performance_counter_frequency = win32_get_performance_counter_frequency();
+
         const auto this_tick = win32_get_tick();
 
         engine_input.dt_tick = this_tick - last_tick;
@@ -1392,7 +1375,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         last_tick = this_tick;
 
         {
-            BEGIN_BLOCK("process input");
+            // BEGIN_BLOCK("process input");
             win32_process_pending_messages(window, *current_input, *previous_input);
 
             if (win32_should_reload_dll(&engine_dll)) {
@@ -1480,7 +1463,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                     }
                 }
             }
-            END_BLOCK();
+            // END_BLOCK();
         }
 
         if (!is_freeze_mode) {
@@ -1494,7 +1477,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_dll.api);
 
             if (audio.is_initialized) {
-                BEGIN_BLOCK("audio");
+                // BEGIN_BLOCK("audio");
                 XAUDIO2_VOICE_STATE state;
                 audio.sourceVoice->GetState(&state);
                 // We make sure there is max 2 frames of sound data available for the sound  card.
@@ -1507,20 +1490,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                     }
                     audio.sourceVoice->GetState(&state);
                 }
-                END_BLOCK();
+                // END_BLOCK();
             }
 
-            BEGIN_BLOCK("end_frame");
+            // BEGIN_BLOCK("end_frame");
             renderer_dll.api.end_frame(&render_context);
-            END_BLOCK();
+            // END_BLOCK();
         }
 
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
-        const f32 frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
-        prev_frame_duration_ms = frame_duration_s * 1000.0f;
+        f32 frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
 
         BEGIN_BLOCK("sleep");
-        // Only sleep if there's more than 1.6ms left, otherwise we might sleep passed the frame target.
+        //  Only sleep if there's more than 1.6ms left, otherwise we might sleep passed the frame target.
         const i64 min_remainder_for_sleep_us = 1600;
         bool did_sleep = false;
         i64 remainder_us = (i64)((seconds_per_frame - frame_duration_s) * 1e6);
@@ -1529,8 +1511,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             while (remainder_us >= min_remainder_for_sleep_us) {
                 did_sleep = true;
                 LARGE_INTEGER due_time;
+                // TODO: Check if shorter sleeps are possible??
                 i64 max_sleep_us = 1000;
-                // This is in 100s of ns, hence * 10000. Negative value means a relative date!
+                // This is in 100s of ns, hence * 10. Negative value means a relative date!
                 due_time.QuadPart = -(max_sleep_us > 0 ? (max_sleep_us * 10) : 1); // Make sure we have values <= -1
                 SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, FALSE);
                 WaitForSingleObject(timer, INFINITE);
@@ -1559,6 +1542,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             }
         }
         END_BLOCK();
+
+        frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
+        if (engine_dll.debug_frame_end) {
+            engine_dll.debug_frame_end(frame_start_rdtsc_clock, frame_duration_s, &engine_memory, &engine_input);
+        }
+        global_debug_table->event_index = 0;
 
         auto prev_input_idx = curr_input_idx;
         curr_input_idx = curr_input_idx == 0 ? 1 : 0;

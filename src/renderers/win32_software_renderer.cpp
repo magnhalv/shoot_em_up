@@ -1,6 +1,3 @@
-#include "engine/profiling.hpp"
-#include "math/mat3.h"
-#include <cstdio>
 #include <platform/platform.h>
 
 #include <math/math.h>
@@ -12,9 +9,12 @@
 #include <core/sort.hpp>
 // TODO: Move to core
 #include <engine/hm_assert.h>
+#include <engine/profiling.hpp>
 
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
+
+#include <math/mat3.h>
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
@@ -656,16 +656,16 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
 
     Assert(job);
     Assert(job->commands);
-    BEGIN_BLOCK("Execute render commands");
+    // BEGIN_BLOCK("Execute render commands");
     execute_render_commands(job->id, job->commands, job->command_render_order, job->clip_rect);
-    END_BLOCK();
+    // END_BLOCK();
     MemoryBarrier();
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
-    i32 const tile_count_x = 4;
-    i32 const tile_count_y = 4;
+    i32 const tile_count_x = 1;
+    i32 const tile_count_y = 1;
 
     i32 tile_width = commands->screen_width / tile_count_x;
     i32 tile_height = commands->screen_height / tile_count_y;
@@ -700,7 +700,9 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
             job->commands = commands;
             job->command_render_order = command_render_order;
 
-            Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
+            // Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
+
+            execute_render_commands(job->id, job->commands, job->command_render_order, job->clip_rect);
         }
     }
 

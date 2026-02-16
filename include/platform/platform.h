@@ -15,7 +15,7 @@
 const i32 SCREEN_WIDTH = 960;
 const i32 SCREEN_HEIGHT = 540;
 
-const u32 WORKER_THREAD_COUNT = 2;
+const u32 WORKER_THREAD_COUNT = 1;
 const u32 TOTAL_THREAD_COUNT = WORKER_THREAD_COUNT + 1;
 
 const u32 Gl_Invalid_Id = 0;
@@ -129,8 +129,8 @@ global_variable PlatformApi* Platform = nullptr;
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
 const u64 Transient_Memory_Block_Size = MegaBytes(20);
-const u64 Platform_Memory_Block_Size = MegaBytes(20);
-const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size;
+const u64 Debug_Memory_Block_Size = MegaBytes(20);
+const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Debug_Memory_Block_Size;
 const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);
 const u64 Renderer_Transient_Memory_Size = MegaBytes(10);
 const u64 Renderer_Total_Memory_Size = Renderer_Permanent_Memory_Size + Renderer_Transient_Memory_Size;
@@ -154,8 +154,13 @@ inline u32 safe_truncate_u64(u64 value) {
 
 #if COMPILER_MSVC
 inline auto atomic_add_u64(u64 volatile* value, u64 addend) -> u64 {
-    u64 result = _InterlockedExchangeAdd64((i64 volatile*)value, addend);
-    return result;
+    u64 original_value = _InterlockedExchangeAdd64((i64 volatile*)value, addend);
+    return original_value;
+}
+
+inline auto atomic_exchange_u64(u64 volatile* value, u64 exchange) -> u64 {
+    u64 orignal_value = _InterlockedExchange64((i64 volatile*)value, exchange);
+    return orignal_value;
 }
 
 inline auto get_thread_id() -> u32 {

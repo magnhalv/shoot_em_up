@@ -153,8 +153,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    BEGIN_BLOCK("prepare_frame")
-    // TODO: Gotta set this on hot reload
+    // BEGIN_BLOCK("prepare_frame")
+    //  TODO: Gotta set this on hot reload
     clear_transient();
     remove_finished_sounds(&state->audio);
 
@@ -172,20 +172,20 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     time.dt = app_input->dt;
     time.t += time.dt;
     time.num_frames_this_second++;
-    END_BLOCK();
+    // END_BLOCK();
 
     // endregion
 
 #if HOMEMADE_DEBUG
     {
-        TIMED_BLOCK("debug_checks");
+        // TIMED_BLOCK("debug_checks");
         state->permanent.check_integrity();
         state->transient.check_integrity();
     }
 #endif
 
     {
-        TIMED_BLOCK("game_update");
+        // TIMED_BLOCK("game_update");
         auto& input = app_input->input;
 
         // Update based on input
@@ -365,7 +365,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     ///////////////////////////
 
     {
-        TIMED_BLOCK("render_game");
+        // TIMED_BLOCK("render_game");
         RenderCommands group{};
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
@@ -488,13 +488,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
+        BEGIN_BLOCK("game_render");
         renderer->render(Platform->work_queue, &group);
+        END_BLOCK();
     }
 
     {
 
-        if (state->ui_context) {
-            BEGIN_BLOCK("gui_create");
+        DebugState* debug_state = (DebugState*)engine_memory->debug;
+        if (state->ui_context && debug_state->is_initialized) {
+            // BEGIN_BLOCK("gui_create");
 
             RenderCommands ui_render_group{};
             ui_render_group.push_buffer_size = 0;
@@ -515,44 +518,42 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(100.0f)) {
 
                 i32 i = 0;
-                List<PrintDebugEvent>& debug_print_events = engine_memory->debug_print_events[1];
-                for (PrintDebugEvent& event : debug_print_events) {
-                    if (event.depth == 1) {
-                        f32 block_fraction = 1.0f;
-                        if (event.depth > 0) {
-                            PrintDebugEvent* parent = &debug_print_events[event.parent_index];
-                            i64 parent_cycle_count = (parent->clock_end - parent->clock_start);
-                            i64 event_cycle_count = (event.clock_end - event.clock_start);
-                            Assert(parent_cycle_count > event_cycle_count);
-                            block_fraction = (f32)event_cycle_count / parent_cycle_count;
-                        }
-                        f32 frame_fraction = (f32)(event.clock_end - event.clock_start) / Platform->total_frame_duration_clock_cycles;
-                        f32 ms = Platform->frame_duration_ms * frame_fraction;
-                        vec4 box_color = global_color_palette[i % Global_Color_Palette_Count];
-                        UI_PushStyleBackgroundColor(box_color);
+                List<PrintEventNode>& debug_nodes = debug_state->nodes;
 
-                        string8 box_id = string8_concat(event.GUID, "_profile_box", g_transient);
-                        UI_Entity_Status box = UI_Box(box_id.data, UI_PercentOfParent(frame_fraction), UI_PercentOfParent(1.0f));
-                        if (box.first_hovered) {
-                            printf("%s\n", event.GUID);
-                        }
-                        if (box.hovered) {
-                            vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);
-                            UI_PushStyleBackgroundColor(hover_background_color);
-                            UI_PushStyleZIndex(9000);
-                            UI_PushStyleFlexDirection(UI_Flex_Column);
-                            UI_Window("Hover window", UI_Fixed((f32)mouse->client_x + 5.0f), UI_Fixed((f32)mouse->client_y + 15.0f)) {
-                                UI_Text(event.GUID);
-                                UI_Text(string8_format(g_transient, "Fraction: %.2f", frame_fraction));
-                                UI_Text(string8_format(g_transient, "%.2f ms", ms));
-                            }
-                            UI_PopStyleFlexDirection();
-                            UI_PopStyleZIndex();
-                            UI_PopStyleBackgroundColor();
-                        }
-                        UI_PopStyleBackgroundColor();
-                        i++;
+                PrintEventNode* frame_node = &debug_nodes[1];
+                u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
+                PrintEventNode* node = &debug_nodes[frame_node->first_kid_idx];
+                while (node->kind != PrintDebugEventType_Nil) {
+                    u64 node_cycle_count = node->clock_end - node->clock_start;
+                    Assert(frame_cycle_count > node_cycle_count);
+                    f32 block_fraction = (f32)node_cycle_count / frame_cycle_count;
+
+                    f32 ms = Platform->frame_duration_ms * block_fraction;
+                    vec4 box_color = global_color_palette[i % Global_Color_Palette_Count];
+                    UI_PushStyleBackgroundColor(box_color);
+
+                    string8 box_id = string8_concat(node->GUID, "_profile_box", g_transient);
+                    UI_Entity_Status box = UI_Box(box_id.data, UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f));
+                    if (box.first_hovered) {
+                        printf("%s\n", node->GUID);
                     }
+                    if (box.hovered) {
+                        vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);
+                        UI_PushStyleBackgroundColor(hover_background_color);
+                        UI_PushStyleZIndex(9000);
+                        UI_PushStyleFlexDirection(UI_Flex_Column);
+                        UI_Window("Hover window", UI_Fixed((f32)mouse->client_x + 5.0f), UI_Fixed((f32)mouse->client_y + 15.0f)) {
+                            UI_Text(node->GUID);
+                            UI_Text(string8_format(g_transient, "Fraction: %.2f", block_fraction));
+                            UI_Text(string8_format(g_transient, "%.2f ms", ms));
+                        }
+                        UI_PopStyleFlexDirection();
+                        UI_PopStyleZIndex();
+                        UI_PopStyleBackgroundColor();
+                    }
+                    UI_PopStyleBackgroundColor();
+                    i++;
+                    node = &debug_nodes[node->next_sib_idx];
                 }
             }
             UI_PopStyleBackgroundColor();
@@ -560,7 +561,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             UI_End();
             UI_Generate_Render_Commands(&ui_render_group);
 
-            END_BLOCK();
+            // END_BLOCK();
 
             BEGIN_BLOCK("gui_render");
             renderer->render(Platform->work_queue, &ui_render_group);

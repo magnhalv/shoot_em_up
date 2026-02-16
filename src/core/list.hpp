@@ -43,6 +43,7 @@ template <typename T> struct List {
 
     auto clear() -> void {
         m_count = 0;
+        memset(m_data, 0, m_max_count * sizeof(T));
     }
 
     auto is_empty() -> bool {

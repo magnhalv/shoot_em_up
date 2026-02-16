@@ -3,32 +3,20 @@
 #include <platform/platform.h>
 #include <platform/types.h>
 
+#include <core/list.hpp>
+#include <core/memory_arena.h>
+
 #include <math/vec2.h>
 
 enum PrintDebugEventType {
-    PrintDebugEventType_Unknown = 0,
+    PrintDebugEventType_Nil = 0,
     PrintDebugEventType_Frame,
-    PrintDebugEventType_Block,
+    PrintDebugEventType_TimeBlock,
     PrintDebugEventType_Thread,
 };
 
-struct PrintDebugEvent {
-    PrintDebugEventType event_type;
-    u32 thread_idx;
-    u64 clock_start;
-    u64 clock_end;
-    const char* GUID;
-    union {
-        f32 value_f32;
-    };
-
-    i32 parent_index;
-    i32 depth;
-};
-
 struct PrintEventNode {
-    PrintDebugEventType event_type;
-    u32 thread_idx;
+    PrintDebugEventType kind;
     u64 clock_start;
     u64 clock_end;
     const char* GUID;
@@ -40,13 +28,19 @@ struct PrintEventNode {
 
     u32 parent_idx;
     u32 first_kid_idx;
+    u32 last_kid_idx;
     u32 next_sib_idx;
+};
+
+struct DebugState {
+    MemoryArena per_frame_arena;
+
+    List<PrintEventNode> nodes;
+    bool is_initialized;
 };
 
 enum DebugEventType {
     DebugEventType_Unknown = 0,
-    DebugEventType_BeginFrame,
-    DebugEventType_EndFrame,
     DebugEventType_BeginBlock,
     DebugEventType_EndBlock,
     DebugEventType_Count,
@@ -64,16 +58,20 @@ struct DebugEvent {
 
 constexpr i32 Debug_Max_Event_Count = 1 << 16;
 struct DebugTable {
+    // We store which table to use in the upmost 32 bits, to make the switch proper atomic, even though we "waste" 31 bits.
     volatile u64 event_index;
-    DebugEvent events[Debug_Max_Event_Count];
+    u32 current_debug_table;
+    DebugEvent events[2][Debug_Max_Event_Count];
 };
 
 extern DebugTable* global_debug_table;
 
 inline auto record_debug_event(DebugTable* debug_table, const char* GUID, DebugEventType type) -> DebugEvent* {
     u64 index = atomic_add_u64(&global_debug_table->event_index, 1);
+    u32 event_index = index & 0xFFFFFFFF;
+    u32 array_index = index >> 32;
     Assert(index < Debug_Max_Event_Count);
-    DebugEvent* event = &global_debug_table->events[index];
+    DebugEvent* event = &global_debug_table->events[array_index][event_index];
     event->GUID = GUID;
     event->event_type = type;
     event->clock = __rdtsc();
@@ -91,10 +89,8 @@ inline auto record_debug_event(DebugTable* debug_table, const char* GUID, DebugE
 
 #define RECORD_DEBUG_EVENT_(GUID, EventType) record_debug_event(global_debug_table, GUID, EventType);
 
-#define BEGIN_BLOCK_(GUID) \
-    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
-#define END_BLOCK_(GUID) \
-    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
+#define BEGIN_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
+#define END_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
 
 #define BEGIN_BLOCK(Name) BEGIN_BLOCK_(DEBUG_NAME(Name))
 #define END_BLOCK() END_BLOCK_("END_BLOCK_")
