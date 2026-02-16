@@ -42,6 +42,7 @@ enum UI_SizeKind {
     UI_SizeKind_Pixels,
     UI_SizeKind_TextContent,
     UI_SizeKind_PercentOfParent,
+    UI_SizeKind_Grow,
 };
 
 struct UI_Size {
@@ -62,6 +63,14 @@ constexpr auto UI_PercentOfParent(f32 value) -> UI_Size {
     return UI_Size{                          //
         .kind = UI_SizeKind_PercentOfParent, //
         .value = value,                      //
+        .strictness = 1.0f
+    };
+};
+
+constexpr auto UI_Grow(f32 value) -> UI_Size {
+    return UI_Size{               //
+        .kind = UI_SizeKind_Grow, //
+        .value = value,           //
         .strictness = 1.0f
     };
 };
@@ -104,12 +113,14 @@ struct UI_Entity_Status {
 };
 
 enum UI_FlexDirection {
-    UI_Flex_Row = 0,
-    UI_Flex_Column,
+    UI_FlexDirection_None = 0,
+    UI_FlexDirection_Row,
+    UI_FlexDirection_Column,
 };
 
 struct UI_Entity {
     u64 id;
+    const char* name;
     UI_Entity* parent;
     UI_Entity* last;  // child
     UI_Entity* first; // child
@@ -183,7 +194,7 @@ inline UI_Style default_style = {  //
         .strictness = 0.0,
     },
     .z_index = -1,
-    .flex_direction = UI_Flex_Row
+    .flex_direction = UI_FlexDirection_Row
 };
 
 struct UI_Context {
