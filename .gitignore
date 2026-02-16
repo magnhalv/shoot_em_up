@@ -7,8 +7,6 @@ build
 *.dat
 
 *vim
-compile_commands.json
-
 
 py-env
 src/deps/libs

@@ -1,0 +1,38 @@
+[
+  {
+    "directory": "C:/Users/nomag/repos/shoot_em_up/scripts/build",
+    "command": "cl.exe /nologo /TP /DHOMEMADE_DEBUG=1 /DHOMEMADE_SLOW=1 /DHOMEMADE_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Od /MTd /utf-8 /fp:fast /fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 /FC /std:c++20 /arch:AVX2 /Zc:preprocessor /IC:\\Users\\nomag\\repos\\shoot_em_up\\src /IC:\\Users\\nomag\\repos\\shoot_em_up\\include /c C:\\Users\\nomag\\repos\\shoot_em_up\\src\\engine\\unit.cpp",
+    "file": "C:\\Users\\nomag\\repos\\shoot_em_up\\src\\engine\\unit.cpp",
+    "output": "unit.obj"
+  },
+  {
+    "directory": "C:/Users/nomag/repos/shoot_em_up/scripts/build",
+    "command": "cl.exe /nologo /TP /DHOMEMADE_DEBUG=1 /DHOMEMADE_SLOW=1 /DHOMEMADE_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Od /MTd /utf-8 /fp:fast /fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 /FC /std:c++20 /arch:AVX2 /Zc:preprocessor /IC:\\Users\\nomag\\repos\\shoot_em_up\\src /IC:\\Users\\nomag\\repos\\shoot_em_up\\include /c C:\\Users\\nomag\\repos\\shoot_em_up\\src\\win32_main.cpp",
+    "file": "C:\\Users\\nomag\\repos\\shoot_em_up\\src\\win32_main.cpp",
+    "output": "win32_main.obj"
+  },
+  {
+    "directory": "C:/Users/nomag/repos/shoot_em_up/scripts/build",
+    "command": "cl.exe /nologo /TP /DHOMEMADE_DEBUG=1 /DHOMEMADE_SLOW=1 /DHOMEMADE_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Od /MTd /utf-8 /fp:fast /fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 /FC /std:c++20 /arch:AVX2 /Zc:preprocessor /IC:\\Users\\nomag\\repos\\shoot_em_up\\src /IC:\\Users\\nomag\\repos\\shoot_em_up\\include /c C:\\Users\\nomag\\repos\\shoot_em_up\\src\\renderers\\win32_software_renderer.cpp",
+    "file": "C:\\Users\\nomag\\repos\\shoot_em_up\\src\\renderers\\win32_software_renderer.cpp",
+    "output": "win32_software_renderer.obj"
+  },
+  {
+    "directory": "C:/Users/nomag/repos/shoot_em_up/scripts/build",
+    "command": "cl.exe /nologo /TP /DHOMEMADE_DEBUG=1 /DHOMEMADE_SLOW=1 /DHOMEMADE_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Od /MTd /utf-8 /fp:fast /fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 /FC /std:c++20 /arch:AVX2 /Zc:preprocessor /IC:\\Users\\nomag\\repos\\shoot_em_up\\src /IC:\\Users\\nomag\\repos\\shoot_em_up\\include /IC:\\Users\\nomag\\repos\\shoot_em_up\\shared_deps\\glad\\include /c C:\\Users\\nomag\\repos\\shoot_em_up\\src\\renderers\\win32_opengl_renderer.cpp",
+    "file": "C:\\Users\\nomag\\repos\\shoot_em_up\\src\\renderers\\win32_opengl_renderer.cpp",
+    "output": "win32_opengl_renderer.obj"
+  },
+  {
+    "directory": "C:/Users/nomag/repos/shoot_em_up/scripts/build",
+    "command": "cl.exe /nologo /TP /DHOMEMADE_DEBUG=1 /DHOMEMADE_SLOW=1 /DHOMEMADE_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /DENGINE_TEST /DDOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS /Od /MTd /utf-8 /fp:fast /fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 /wd4611 /wd4702 /FC /std:c++20 /arch:AVX2 /Zc:preprocessor /IC:\\Users\\nomag\\repos\\shoot_em_up\\src /IC:\\Users\\nomag\\repos\\shoot_em_up\\include /c C:\\Users\\nomag\\repos\\shoot_em_up\\tests\\test_main.cpp",
+    "file": "C:\\Users\\nomag\\repos\\shoot_em_up\\tests\\test_main.cpp",
+    "output": "test_main.obj"
+  },
+  {
+    "directory": "C:/Users/nomag/repos/shoot_em_up/scripts/build",
+    "command": "cl.exe /nologo /TP /DHOMEMADE_DEBUG=1 /DHOMEMADE_SLOW=1 /DHOMEMADE_WIN32=1 /D_CRT_SECURE_NO_WARNINGS /Od /MTd /utf-8 /fp:fast /fp:except- /GR- /EHa- /Z7 /Oi /WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4127 /FC /std:c++20 /arch:AVX2 /Zc:preprocessor /IC:\\Users\\nomag\\repos\\shoot_em_up\\src /IC:\\Users\\nomag\\repos\\shoot_em_up\\include /c C:\\Users\\nomag\\repos\\shoot_em_up\\src\\asset_builder_main.cpp",
+    "file": "C:\\Users\\nomag\\repos\\shoot_em_up\\src\\asset_builder_main.cpp",
+    "output": "asset_builder_main.obj"
+  }
+]
