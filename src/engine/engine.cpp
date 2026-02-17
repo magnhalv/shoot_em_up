@@ -545,11 +545,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                                     f32 ms = frame_node->value_f32 * block_fraction * 1000;
 
-                                    string8 box_id = string8_concat(node->GUID, "_profile_box", g_transient);
+                                    string8 box_id =
+                                        string8_format(g_transient, "%s_thread_idx_%d_profile_box", node->GUID, thread_idx);
                                     UI_Entity_Status box =
                                         UI_Box(box_id.data, UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f));
                                     if (box.first_hovered) {
-                                        printf("%s\n", node->GUID);
+                                        printf("GUID: %s, thread idx: %d\n", node->GUID, thread_idx);
                                     }
                                     if (box.hovered) {
                                         vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);

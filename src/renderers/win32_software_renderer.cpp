@@ -79,7 +79,7 @@ static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
 
     buffer->Info.bmiHeader.biSize = sizeof(buffer->Info.bmiHeader);
     buffer->Info.bmiHeader.biWidth = buffer->width;
-    buffer->Info.bmiHeader.biHeight = -buffer->height;
+    buffer->Info.bmiHeader.biHeight = buffer->height;
     buffer->Info.bmiHeader.biPlanes = 1;
     buffer->Info.bmiHeader.biBitCount = 32;
     buffer->Info.bmiHeader.biCompression = BI_RGB;
@@ -664,8 +664,8 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
-    i32 const tile_count_x = 2;
-    i32 const tile_count_y = 2;
+    i32 const tile_count_x = 4;
+    i32 const tile_count_y = 4;
 
     i32 tile_width = commands->screen_width / tile_count_x;
     i32 tile_height = commands->screen_height / tile_count_y;
@@ -717,24 +717,15 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
 
     i32 width = state.global_offscreen_buffer.width;
     i32 height = state.global_offscreen_buffer.height;
-    i32 bytes_per_pixel = state.global_offscreen_buffer.bytes_per_pixel;
 
-    // Flip the y-axis.
-    u8* buffer = allocate<u8>(state.transient, state.global_offscreen_buffer.memory_size);
-    for (i32 y = 0; y < height; y++) {
-        u8* src_row = (u8*)state.global_offscreen_buffer.memory + (y * width * bytes_per_pixel);
-        u8* dest_row = buffer + ((height - y - 1) * width * bytes_per_pixel);
-        copy_memory(src_row, dest_row, width * bytes_per_pixel);
-    }
-
-    u32 result = StretchDIBits(              //
-        device_context,                      //
-        0, 0,                                //
-        width, height, 0, 0,                 //
-        width, height,                       //
-        buffer,                              //
-        &state.global_offscreen_buffer.Info, //
-        DIB_RGB_COLORS, SRCCOPY              //
+    u32 result = StretchDIBits(               //
+        device_context,                       //
+        0, 0,                                 //
+        width, height, 0, 0,                  //
+        width, height,                        //
+        state.global_offscreen_buffer.memory, //
+        &state.global_offscreen_buffer.Info,  //
+        DIB_RGB_COLORS, SRCCOPY               //
     );
     if (result == 0 || result == GDI_ERROR) {
         log_error("StretchDIBits failed\n");

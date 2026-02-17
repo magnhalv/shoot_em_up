@@ -1499,9 +1499,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                 // END_BLOCK();
             }
 
-            // BEGIN_BLOCK("end_frame");
-            renderer_dll.api.end_frame(&render_context);
-            // END_BLOCK();
+            {
+                TIMED_BLOCK("rendere_end_frame");
+                renderer_dll.api.end_frame(&render_context);
+            }
         }
 
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
