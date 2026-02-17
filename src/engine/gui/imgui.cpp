@@ -201,12 +201,23 @@ auto calculate_grow_size(UI_Entity* entity) -> void {
             remaning_size -= children_size;
             if (remaning_size > 0.0f) {
                 UI_Entity* child = entity->first;
+
+                i32 child_count = 0;
                 while (child) {
                     if (child->semantic_size[Axis2_Y].kind == UI_SizeKind_Grow) {
-                        child->computed_size[Axis2_Y] += remaning_size;
-                        break;
+                        child_count++;
                     }
                     child = child->right;
+                }
+                if (child_count > 0) {
+                    child = entity->first;
+                    f32 size_to_grow = remaning_size / child_count;
+                    while (child) {
+                        if (child->semantic_size[Axis2_Y].kind == UI_SizeKind_Grow) {
+                            child->computed_size[Axis2_Y] += size_to_grow;
+                        }
+                        child = child->right;
+                    }
                 }
             }
         }
@@ -297,7 +308,6 @@ auto calculate_size(UI_Entity* entity) -> void {
             entity->computed_size[Axis2_X] = entity->semantic_size[Axis2_X].value;
             break;
         }
-        case UI_SizeKind_Grow:
         case UI_SizeKind_ChildrenSum: {
             f32 size = 0.0f;
             UI_Entity* child = entity->first;
@@ -319,6 +329,7 @@ auto calculate_size(UI_Entity* entity) -> void {
             entity->computed_size[Axis2_X] = size + entity->padding[UI_Direction_Left] + entity->padding[UI_Direction_Right];
         } break;
 
+        case UI_SizeKind_Grow:
         case UI_SizeKind_PercentOfParent:
         case UI_SizeKind_TextContent: {
 

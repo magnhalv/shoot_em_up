@@ -163,7 +163,7 @@ struct UI_FrameState {
     u64 click_released_item;
 };
 
-i32 const UI_Max_Style_Depth = 10;
+i32 const UI_Max_Style_Depth = 20;
 struct UI_StyleOverrides {
     StackList<vec4, UI_Max_Style_Depth> background_colors;
     StackList<UI_Size, UI_Max_Style_Depth> width;

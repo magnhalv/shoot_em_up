@@ -510,32 +510,40 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 vec4 red = vec4(120.0f, 20.0f, 20.0f, 255.0f);
                 UI_PushStyleBackgroundColor(background_color);
                 UI_PushStyleFlexDirection(UI_FlexDirection_Row);
-                UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(200.0f)) {
+                UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(400.0f)) {
 
                     UI_Text("Frame profiling");
 
-                    UI_PushStyleBackgroundColor(red);
-                    UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
-                        UI_Text("Main thread");
-                        UI_PushStyleBackgroundColor(title_background_color);
+                    i32 i = 0;
+                    List<PrintEventNode>& debug_nodes = debug_state->nodes;
 
-                        UI_PushStyleFlexDirection(UI_FlexDirection_Column);
-                        UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
-                            {
-                                i32 i = 0;
-                                List<PrintEventNode>& debug_nodes = debug_state->nodes;
+                    PrintEventNode* frame_node = &debug_nodes[1];
+                    u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
+                    PrintEventNode* thread_node = &debug_nodes[frame_node->first_kid_idx];
 
-                                PrintEventNode* frame_node = &debug_nodes[1];
-                                u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
-                                PrintEventNode* node = &debug_nodes[frame_node->first_kid_idx];
+                    for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
+                        Assert(thread_node->kind == PrintDebugEventType_Thread);
+                        PrintEventNode* node = &debug_nodes[thread_node->first_kid_idx];
+                        UI_PushStyleBackgroundColor(red);
+                        UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
+                            if (thread_idx == 0) {
+                                UI_Text(string8_format(g_transient, "Main thread (%d):", thread_node->value_u32));
+                            }
+                            else {
+                                UI_Text(string8_format(g_transient, "Thread %d (%d):", thread_idx, thread_node->value_u32));
+                            }
+
+                            UI_PushStyleBackgroundColor(title_background_color);
+                            UI_PushStyleFlexDirection(UI_FlexDirection_Column);
+                            UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                 while (node->kind != PrintDebugEventType_Nil) {
+                                    UI_PushStyleBackgroundColor(global_color_palette[i % Global_Color_Palette_Count]);
+
                                     u64 node_cycle_count = node->clock_end - node->clock_start;
                                     Assert(frame_cycle_count > node_cycle_count);
                                     f32 block_fraction = (f32)node_cycle_count / frame_cycle_count;
 
                                     f32 ms = frame_node->value_f32 * block_fraction * 1000;
-                                    vec4 box_color = global_color_palette[i % Global_Color_Palette_Count];
-                                    UI_PushStyleBackgroundColor(box_color);
 
                                     string8 box_id = string8_concat(node->GUID, "_profile_box", g_transient);
                                     UI_Entity_Status box =
@@ -558,18 +566,19 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         UI_PopStyleZIndex();
                                         UI_PopStyleBackgroundColor();
                                     }
-                                    UI_PopStyleBackgroundColor();
                                     i++;
                                     node = &debug_nodes[node->next_sib_idx];
+
+                                    UI_PopStyleBackgroundColor();
                                 }
                             }
+                            UI_PopStyleFlexDirection();
+                            UI_PopStyleBackgroundColor();
                         }
-                        UI_PopStyleFlexDirection();
-
                         UI_PopStyleBackgroundColor();
-                    }
 
-                    UI_PopStyleBackgroundColor();
+                        thread_node = &debug_nodes[thread_node->next_sib_idx];
+                    }
                 }
                 UI_PopStyleFlexDirection();
                 UI_PopStyleBackgroundColor();
@@ -579,12 +588,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             RenderCommands ui_render_group{};
             ui_render_group.push_buffer_size = 0;
-            ui_render_group.max_push_buffer_size = MegaBytes(4);
+            ui_render_group.max_push_buffer_size = MegaBytes(10);
             ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
             ui_render_group.screen_width = client_width;
             ui_render_group.screen_height = client_height;
-            ui_render_group.sort_keys.init(g_transient, 1024);
-            ui_render_group.sort_entries_offset.init(g_transient, 1024);
+            ui_render_group.sort_keys.init(g_transient, 2048);
+            ui_render_group.sort_entries_offset.init(g_transient, 2048);
             ui_render_group.screen_height = client_height;
             UI_Generate_Render_Commands(&ui_render_group);
 

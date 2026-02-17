@@ -1161,6 +1161,8 @@ static void win32_make_queue(PlatformApi* platform, u32 num_threads, win32_threa
     u32 initial_count = 0;
     queue->SemaphoreHandle = CreateSemaphoreEx(0, initial_count, num_threads, 0, 0, SEMAPHORE_ALL_ACCESS);
     platform->thread_ids[0] = platform->main_thread_id;
+    printf("Num threads: %d\n", num_threads);
+    printf("Main thread: %d\n", platform->main_thread_id);
     Assert(platform->main_thread_id != 0);
     for (u32 i = 0; i < num_threads; i++) {
         win32_thread_startup* startup = startups + i;
@@ -1168,7 +1170,8 @@ static void win32_make_queue(PlatformApi* platform, u32 num_threads, win32_threa
 
         DWORD thread_id;
         HANDLE thread_handle = CreateThread(0, 0, &worker_proc, startup, 0, &thread_id);
-        platform->thread_ids[i + 1] = thread_id;
+        printf("Created thread: %lu\n", thread_id);
+        platform->thread_ids[i + 1] = (u32)thread_id;
 
         // Only windows 10+
         std::wstring name = L"WorkerThread_" + std::to_wstring(i);
