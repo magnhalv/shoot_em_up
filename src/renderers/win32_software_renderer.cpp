@@ -701,8 +701,6 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
             job->command_render_order = command_render_order;
 
             Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
-
-            // execute_render_commands(job->id, job->commands, job->command_render_order, job->clip_rect);
         }
     }
 

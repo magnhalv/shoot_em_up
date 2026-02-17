@@ -15,7 +15,7 @@
 const i32 SCREEN_WIDTH = 960;
 const i32 SCREEN_HEIGHT = 540;
 
-const u32 WORKER_THREAD_COUNT = 4;
+const u32 WORKER_THREAD_COUNT = 3;
 const u32 TOTAL_THREAD_COUNT = WORKER_THREAD_COUNT + 1;
 
 const u32 Gl_Invalid_Id = 0;

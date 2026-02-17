@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string>
 #include <windows.h>
+#include <winnt.h>
 #include <xaudio2.h>
 
 #include <platform/types.h>
@@ -1131,7 +1132,9 @@ bool win32_do_next_work_entry(PlatformWorkQueue* queue) {
 
 static void win32_complete_all_work(PlatformWorkQueue* queue) {
     while (queue->completion_count != queue->completion_goal) {
-        win32_do_next_work_entry(queue);
+        if (win32_do_next_work_entry(queue)) {
+            YieldProcessor();
+        };
     }
 
     queue->completion_goal = 0;
