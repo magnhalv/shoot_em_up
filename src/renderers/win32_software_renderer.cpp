@@ -1,5 +1,7 @@
 #include <platform/platform.h>
 
+#include <math/mat2.h>
+#include <math/mat3.h>
 #include <math/math.h>
 #include <math/util.hpp>
 
@@ -13,8 +15,6 @@
 
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
-
-#include <math/mat3.h>
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
@@ -222,18 +222,21 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     auto scaled_height = (quad.tr.y - quad.br.y) * scale.y;
 
     // TODO: Do all this with vec2
-    vec3 translation = vec2_to_vec3(offset);
 
-    mat3 rot_mat = mat3_rotate(rotation);
-    mat3 scale_mat = mat3_scale(scale);
+    // vec3 translation = vec2_to_vec3(offset);
 
-    mat3 model = rot_mat * scale_mat;
-    mat3 inv_model = inverse(model);
+    vec2 translation = offset;
 
-    vec3 bl_w = model * vec2_to_vec3(quad.bl);
-    vec3 tl_w = model * vec2_to_vec3(quad.tl);
-    vec3 tr_w = model * vec2_to_vec3(quad.tr);
-    vec3 br_w = model * vec2_to_vec3(quad.br);
+    mat2 rot_mat = mat2_rotate(rotation);
+    mat2 scale_mat = mat2_scale(scale);
+
+    mat2 model = rot_mat * scale_mat;
+    mat2 inv_model = inverse(model);
+
+    vec2 bl_w = quad.bl * model;
+    vec2 tl_w = quad.tl * model;
+    vec2 tr_w = quad.tr * model;
+    vec2 br_w = quad.br * model;
 
     bl_w = bl_w + translation;
     tl_w = tl_w + translation;
@@ -251,10 +254,10 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     min_y = hm::max(min_y, clip_rect->min_y);
     max_y = hm::min(max_y, clip_rect->max_y);
 
-    vec3 edge1 = tl_w - bl_w;
-    vec3 edge2 = tr_w - tl_w;
-    vec3 edge3 = br_w - tr_w;
-    vec3 edge4 = bl_w - br_w;
+    vec2 edge1 = tl_w - bl_w;
+    vec2 edge2 = tr_w - tl_w;
+    vec2 edge3 = br_w - tr_w;
+    vec2 edge4 = bl_w - br_w;
 
     Win32Texture* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
@@ -277,20 +280,18 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
-            vec3 screen_point{ (f32)x + 0.0f, (f32)y + 0.0f, 0.0 };
-            if (screen_point.x < 0 || screen_point.x >= buffer->width) {
-                continue;
-            }
-            if (screen_point.y < 0 || screen_point.y >= buffer->height) {
-                continue;
+            vec2 screen_point{ (f32)x + 0.0f, (f32)y + 0.0f };
+
+            bool is_inside = true;
+            if (rotation != 0.0f) {
+                f32 dot1 = dot(screen_point - bl_w, edge1);
+                f32 dot2 = dot(screen_point - tl_w, edge2);
+                f32 dot3 = dot(screen_point - tr_w, edge3);
+                f32 dot4 = dot(screen_point - br_w, edge4);
+                is_inside = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
             }
 
-            f32 dot1 = dot(screen_point - bl_w, edge1);
-            f32 dot2 = dot(screen_point - tl_w, edge2);
-            f32 dot3 = dot(screen_point - tr_w, edge3);
-            f32 dot4 = dot(screen_point - br_w, edge4);
-
-            if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
+            if (is_inside) {
 
                 vec4 src_color_l1;
                 if (texture_id == 0) {
@@ -298,9 +299,10 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 }
                 else {
 
-                    vec3 point_m = inv_model * (screen_point - translation);
+                    vec2 point_m = (screen_point - translation) * inv_model;
                     // TODO: Here we assume that the quad is defined with origin in the middle of the quad. Should probably fix this.
-                    point_m = point_m + (vec3(model_width, model_height, 0) * 0.5);
+                    point_m.x += model_width * 0.5f;
+                    point_m.y += model_height * 0.5f;
 
                     // This is to support both
                     f32 u = (f32)(point_m.x * scale.x) / ((f32)(scaled_width - 1));

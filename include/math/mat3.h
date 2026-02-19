@@ -16,16 +16,12 @@ struct mat3 {
             vec3 position;
         };
         struct {
+            // clang-format off
             //            row 1     row 2     row 3     row 4
-            /* column 1 */ f32 xx;
-            f32 xy;
-            f32 xz;
-            /* column 2 */ f32 yx;
-            f32 yy;
-            f32 yz;
-            /* column 3 */ f32 zx;
-            f32 zy;
-            f32 zz;
+            /* column 1 */ f32 xx;  f32 xy;   f32 xz;
+            /* column 2 */ f32 yx;  f32 yy; f32 yz;
+            /* column 3 */ f32 zx;  f32 zy; f32 zz;
+            // clang-format on
         };
         struct {
             f32 c0r0;

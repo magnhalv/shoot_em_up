@@ -5,6 +5,9 @@
 #include <cmath>
 
 namespace hm {
+
+constexpr f32 Epsilon = 0.000001f;
+
 inline auto min(f32 a, f32 b) -> f32 {
     return a > b ? b : a;
 }

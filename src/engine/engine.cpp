@@ -512,14 +512,17 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 UI_PushStyleFlexDirection(UI_FlexDirection_Row);
                 UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(400.0f)) {
 
-                    UI_Text("Frame profiling");
-
                     i32 i = 0;
                     List<PrintEventNode>& debug_nodes = debug_state->nodes;
 
                     PrintEventNode* frame_node = &debug_nodes[1];
                     u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
+                    f32 full_frame_duration_ms = frame_node->value_v2.v[0];
+                    f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
                     PrintEventNode* thread_node = &debug_nodes[frame_node->first_kid_idx];
+
+                    UI_Text("Frame profiling");
+                    UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
 
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
@@ -543,7 +546,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     Assert(frame_cycle_count > node_cycle_count);
                                     f32 block_fraction = (f32)node_cycle_count / frame_cycle_count;
 
-                                    f32 ms = frame_node->value_f32 * block_fraction * 1000;
+                                    f32 ms = full_frame_duration_ms * block_fraction;
 
                                     string8 box_id =
                                         string8_format(g_transient, "%s_thread_idx_%d_profile_box", node->GUID, thread_idx);

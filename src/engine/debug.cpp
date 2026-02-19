@@ -46,7 +46,7 @@ DEBUG_FRAME_END(debug_frame_end) {
     frame_node->kind = PrintDebugEventType_Frame;
     frame_node->clock_start = ticks_at_start_of_frame;
     frame_node->clock_end = __rdtsc();
-    frame_node->value_f32 = frame_duration_s;
+    frame_node->value_v2 = vec2(frame_duration_ms, frame_duration_before_sleep_ms);
 
     i32 current_thread_node_indexes[TOTAL_THREAD_COUNT] = {};
     for (u32 i = 0; i < TOTAL_THREAD_COUNT; i++) {

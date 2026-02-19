@@ -57,7 +57,7 @@ auto inline string8_concat(string8 a, string8 b, MemoryArena* arena) -> string8 
 }
 
 auto inline string8_format(MemoryArena* arena, const char* format, ...) -> string8 {
-    const i32 buffer_size = 1024;
+    const i32 buffer_size = 512;
     char* buffer = allocate<char>(arena, buffer_size);
 
     va_list args;

@@ -1508,6 +1508,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
         f32 frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
 
+        f32 frame_duration_before_sleep_ms = frame_duration_s * 1000;
         BEGIN_BLOCK("sleep");
         //  Only sleep if there's more than 1.6ms left, otherwise we might sleep passed the frame target.
         const i64 min_remainder_for_sleep_us = 1600;
@@ -1552,7 +1553,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
         frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
         if (engine_dll.debug_frame_end) {
-            engine_dll.debug_frame_end(frame_start_rdtsc_clock, frame_duration_s, &engine_memory, &engine_input);
+            engine_dll.debug_frame_end(         //
+                frame_start_rdtsc_clock,        //
+                frame_duration_s * 1000,        //
+                frame_duration_before_sleep_ms, //
+                &engine_memory, &engine_input   //
+            );
         }
         global_debug_table->event_index = 0;
 

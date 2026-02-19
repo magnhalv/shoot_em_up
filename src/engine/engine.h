@@ -54,8 +54,9 @@ typedef ENGINE_LOAD(load_fn);
 #define ENGINE_GET_SOUND_SAMPLES(name) SoundBuffer name(EngineMemory* memory, i32 num_samples)
 typedef ENGINE_GET_SOUND_SAMPLES(get_sound_samples_fn);
 
-#define DEBUG_FRAME_END(name) \
-    void name(u64 ticks_at_start_of_frame, f32 frame_duration_s, EngineMemory* engine_memory, EngineInput* engine_input)
+#define DEBUG_FRAME_END(name)                                                                         \
+    void name(u64 ticks_at_start_of_frame, f32 frame_duration_ms, f32 frame_duration_before_sleep_ms, \
+        EngineMemory* engine_memory, EngineInput* engine_input)
 typedef DEBUG_FRAME_END(debug_frame_end_fn);
 
 /// Processed mouse input
