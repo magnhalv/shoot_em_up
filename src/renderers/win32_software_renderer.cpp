@@ -230,23 +230,23 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     mat2 rot_mat = mat2_rotate(rotation);
     mat2 scale_mat = mat2_scale(scale);
 
-    mat2 model = rot_mat * scale_mat;
-    mat2 inv_model = inverse(model);
+    mat2 M_m_to_c = rot_mat * scale_mat;
+    mat2 M_c_to_m = inverse(M_m_to_c);
 
-    vec2 bl_w = quad.bl * model;
-    vec2 tl_w = quad.tl * model;
-    vec2 tr_w = quad.tr * model;
-    vec2 br_w = quad.br * model;
+    vec2 bl_c = quad.bl * M_m_to_c;
+    vec2 tl_c = quad.tl * M_m_to_c;
+    vec2 tr_c = quad.tr * M_m_to_c;
+    vec2 br_c = quad.br * M_m_to_c;
 
-    bl_w = bl_w + translation;
-    tl_w = tl_w + translation;
-    tr_w = tr_w + translation;
-    br_w = br_w + translation;
+    bl_c = bl_c + translation;
+    tl_c = tl_c + translation;
+    tr_c = tr_c + translation;
+    br_c = br_c + translation;
 
-    i32 min_x = round_f32_to_i32(hm::min(bl_w.x, tl_w.x, tr_w.x, br_w.x));
-    i32 max_x = round_f32_to_i32(hm::max(bl_w.x, tl_w.x, tr_w.x, br_w.x));
-    i32 min_y = round_f32_to_i32(hm::min(bl_w.y, tl_w.y, tr_w.y, br_w.y));
-    i32 max_y = round_f32_to_i32(hm::max(bl_w.y, tl_w.y, tr_w.y, br_w.y));
+    i32 min_x = round_f32_to_i32(hm::min(bl_c.x, tl_c.x, tr_c.x, br_c.x));
+    i32 max_x = round_f32_to_i32(hm::max(bl_c.x, tl_c.x, tr_c.x, br_c.x));
+    i32 min_y = round_f32_to_i32(hm::min(bl_c.y, tl_c.y, tr_c.y, br_c.y));
+    i32 max_y = round_f32_to_i32(hm::max(bl_c.y, tl_c.y, tr_c.y, br_c.y));
 
     OffscreenBuffer* buffer = &state.global_offscreen_buffer;
     min_x = hm::max(min_x, clip_rect->min_x);
@@ -254,10 +254,10 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     min_y = hm::max(min_y, clip_rect->min_y);
     max_y = hm::min(max_y, clip_rect->max_y);
 
-    vec2 edge1 = tl_w - bl_w;
-    vec2 edge2 = tr_w - tl_w;
-    vec2 edge3 = br_w - tr_w;
-    vec2 edge4 = bl_w - br_w;
+    vec2 edge1 = tl_c - bl_c;
+    vec2 edge2 = tr_c - tl_c;
+    vec2 edge3 = br_c - tr_c;
+    vec2 edge4 = bl_c - br_c;
 
     Win32Texture* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
@@ -273,6 +273,9 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 du = u_max - u_min;
     i32 dv = v_max - v_min;
 
+    vec2 c_x_basis = M_c_to_m.x_basis;
+    vec2 c_y_basis = M_c_to_m.y_basis;
+
     vec4 default_color_l1 = srgb255_to_linear1(color);
     for (int y = min_y; y < max_y; y++) {
         for (int x = min_x; x < max_x; x++) {
@@ -280,14 +283,14 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
-            vec2 screen_point{ (f32)x + 0.0f, (f32)y + 0.0f };
+            vec2 camera_point{ (f32)x + 0.0f, (f32)y + 0.0f };
 
             bool is_inside = true;
             if (rotation != 0.0f) {
-                f32 dot1 = dot(screen_point - bl_w, edge1);
-                f32 dot2 = dot(screen_point - tl_w, edge2);
-                f32 dot3 = dot(screen_point - tr_w, edge3);
-                f32 dot4 = dot(screen_point - br_w, edge4);
+                f32 dot1 = dot(camera_point - bl_c, edge1);
+                f32 dot2 = dot(camera_point - tl_c, edge2);
+                f32 dot3 = dot(camera_point - tr_c, edge3);
+                f32 dot4 = dot(camera_point - br_c, edge4);
                 is_inside = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
             }
 
@@ -299,157 +302,10 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 }
                 else {
 
-                    vec2 point_m = (screen_point - translation) * inv_model;
+                    vec2 point_m = (camera_point - translation) * M_c_to_m;
                     // TODO: Here we assume that the quad is defined with origin in the middle of the quad. Should probably fix this.
                     point_m.x += model_width * 0.5f;
                     point_m.y += model_height * 0.5f;
-
-                    // This is to support both
-                    f32 u = (f32)(point_m.x * scale.x) / ((f32)(scaled_width - 1));
-                    f32 v = (f32)(point_m.y * scale.y) / ((f32)(scaled_height - 1));
-
-                    // This is texel00
-                    f32 sx = (u * du) + u_min;
-                    f32 sy = (v * dv) + v_min;
-
-                    i32 x0 = (i32)floor(sx);
-                    i32 y0 = (i32)floor(sy);
-                    i32 x1 = x0 + 1;
-                    i32 y1 = y0 + 1;
-
-                    x0 = clamp(x0, u_min, u_max);
-                    y0 = clamp(y0, v_min, v_max);
-                    x1 = clamp(x1, u_min, u_max);
-                    y1 = clamp(y1, v_min, v_max);
-
-                    f32 u_frac = clamp(sx - (f32)x0, 0.0f, 1.0f);
-                    f32 v_frac = clamp(sy - (f32)y0, 0.0f, 1.0f);
-
-                    Assert(texture->bytes_per_pixel == 4);
-                    u32* data = (u32*)state.textures[texture_id].data;
-                    // Bilinear filtering
-                    vec4 texel00_srgb255 = unpack4x8(*(data + (y0 * texture->width) + x0));
-                    vec4 texel10_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
-                    vec4 texel01_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0)); //
-                    vec4 texel11_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1)); //
-
-                    vec4 texel00_l1 = srgb255_to_linear1(texel00_srgb255);
-                    vec4 texel10_l1 = srgb255_to_linear1(texel10_srgb255);
-                    vec4 texel01_l1 = srgb255_to_linear1(texel01_srgb255);
-                    vec4 texel11_l1 = srgb255_to_linear1(texel11_srgb255);
-
-                    src_color_l1 = lerp(                       //
-                        lerp(texel00_l1, u_frac, texel10_l1),  //
-                        v_frac,                                //
-                        lerp(texel01_l1, u_frac, texel11_l1)); //
-                }
-
-                vec4 dest_l1 = srgb255_to_linear1(unpack4x8(*pixel));
-
-                // Cout = Cf * Af + Cb * (1 - Af)
-                vec4 blended = src_color_l1;
-                if (blended.a < 1.0f) {
-                    blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
-                }
-                // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
-
-                vec4 blended_srgb255 = linear1_to_srgb255(blended);
-
-                *pixel = pack4x8(blended_srgb255);
-            }
-        }
-    }
-}
-
-internal auto draw_bitmap_fast(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect) {
-
-    auto model_width = (quad.br.x - quad.bl.x);
-    auto model_height = (quad.tr.y - quad.br.y);
-
-    auto scaled_width = (quad.br.x - quad.bl.x) * scale.x;
-    auto scaled_height = (quad.tr.y - quad.br.y) * scale.y;
-
-    // TODO: Do all this with vec2
-    vec3 translation = vec2_to_vec3(offset);
-
-    mat3 rot_mat = mat3_rotate(rotation);
-    mat3 scale_mat = mat3_scale(scale);
-
-    mat3 model = rot_mat * scale_mat;
-    mat3 inv_model = inverse(model);
-
-    vec3 bl_w = model * vec2_to_vec3(quad.bl);
-    vec3 tl_w = model * vec2_to_vec3(quad.tl);
-    vec3 tr_w = model * vec2_to_vec3(quad.tr);
-    vec3 br_w = model * vec2_to_vec3(quad.br);
-
-    bl_w = bl_w + translation;
-    tl_w = tl_w + translation;
-    tr_w = tr_w + translation;
-    br_w = br_w + translation;
-
-    i32 min_x = round_f32_to_i32(hm::min(bl_w.x, tl_w.x, tr_w.x, br_w.x));
-    i32 max_x = round_f32_to_i32(hm::max(bl_w.x, tl_w.x, tr_w.x, br_w.x));
-    i32 min_y = round_f32_to_i32(hm::min(bl_w.y, tl_w.y, tr_w.y, br_w.y));
-    i32 max_y = round_f32_to_i32(hm::max(bl_w.y, tl_w.y, tr_w.y, br_w.y));
-
-    OffscreenBuffer* buffer = &state.global_offscreen_buffer;
-    min_x = hm::max(min_x, clip_rect->min_x);
-    max_x = hm::min(max_x, clip_rect->max_x);
-    min_y = hm::max(min_y, clip_rect->min_y);
-    max_y = hm::min(max_y, clip_rect->max_y);
-
-    vec3 edge1 = tl_w - bl_w;
-    vec3 edge2 = tr_w - tl_w;
-    vec3 edge3 = br_w - tr_w;
-    vec3 edge4 = bl_w - br_w;
-
-    Win32Texture* texture = &state.textures[texture_id];
-    i32 u_min = uv_min.x;
-    i32 u_max = uv_max.x;
-    i32 v_min = uv_min.y;
-    i32 v_max = uv_max.y;
-
-    if (u_max == 0 || v_max == 0) {
-        u_max = texture->width - 1;
-        v_max = texture->height - 1;
-    }
-
-    i32 du = u_max - u_min;
-    i32 dv = v_max - v_min;
-
-    vec4 default_color_l1 = srgb255_to_linear1(color);
-    for (int y = min_y; y < max_y; y++) {
-        for (int x = min_x; x < max_x; x++) {
-
-            u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
-            u32* pixel = (u32*)dest;
-
-            vec3 screen_point{ (f32)x + 0.0f, (f32)y + 0.0f, 0.0 };
-            if (screen_point.x < 0 || screen_point.x >= buffer->width) {
-                continue;
-            }
-            if (screen_point.y < 0 || screen_point.y >= buffer->height) {
-                continue;
-            }
-
-            f32 dot1 = dot(screen_point - bl_w, edge1);
-            f32 dot2 = dot(screen_point - tl_w, edge2);
-            f32 dot3 = dot(screen_point - tr_w, edge3);
-            f32 dot4 = dot(screen_point - br_w, edge4);
-
-            if (dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0) {
-
-                vec4 src_color_l1;
-                if (texture_id == 0) {
-                    src_color_l1 = default_color_l1;
-                }
-                else {
-
-                    vec3 point_m = inv_model * (screen_point - translation);
-                    // TODO: Here we assume that the quad is defined with origin in the middle of the quad. Should probably fix this.
-                    point_m = point_m + (vec3(model_width, model_height, 0) * 0.5);
 
                     // This is to support both
                     f32 u = (f32)(point_m.x * scale.x) / ((f32)(scaled_width - 1));

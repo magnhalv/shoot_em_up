@@ -26,6 +26,10 @@ struct mat2 {
             f32 m21;
             f32 m22;
         };
+        struct {
+            vec2 x_basis;
+            vec2 y_basis;
+        };
     };
     inline mat2() : xx(1), xy(0), yx(0), yy(1) {
     }
