@@ -292,21 +292,18 @@ auto color_channel_f32_to_u8(f32 channel) {
 static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
     ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect) {
 
-    auto model_width = (quad.br.x - quad.bl.x);
-    auto model_height = (quad.tr.y - quad.br.y);
+    f32 model_width = (quad.br.x - quad.bl.x);
+    f32 model_height = (quad.tr.y - quad.br.y);
 
-    auto scaled_width = (quad.br.x - quad.bl.x) * scale.x;
-    auto scaled_height = (quad.tr.y - quad.br.y) * scale.y;
-
-    // TODO: Do all this with vec2
-
-    // vec3 translation = vec2_to_vec3(offset);
+    f32 scaled_width = (quad.br.x - quad.bl.x) * scale.x;
+    f32 scaled_height = (quad.tr.y - quad.br.y) * scale.y;
 
     vec2 translation = offset;
 
     mat2 rot_mat = mat2_rotate(rotation);
     mat2 scale_mat = mat2_scale(scale);
 
+    // model to camera
     mat2 M_m_to_c = rot_mat * scale_mat;
     mat2 M_c_to_m = inverse(M_m_to_c);
 
