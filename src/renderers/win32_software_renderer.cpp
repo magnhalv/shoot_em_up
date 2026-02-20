@@ -98,6 +98,53 @@ auto square_root(f32 v) -> f32 {
     return sqrtf(v);
 }
 
+const u32 LUT_ENTRY_COUNT = 256;
+global_variable f32 srgb255_to_linear_lut[LUT_ENTRY_COUNT];
+global_variable u8 linear1_to_srgb255_lut[LUT_ENTRY_COUNT];
+
+internal auto generate_luts() -> void {
+    // Foundations of Game Engine Development: Rendering, page 19
+    for (u32 i = 0; i < LUT_ENTRY_COUNT; i++) {
+        f32 c = (f32)i;
+        c = c / 255.0f;
+
+        if (c <= 0.04045f) {
+            c = c / 12.92f;
+        }
+        else {
+            c = powf((c + 0.055f) / 1.055f, 2.4);
+        }
+        srgb255_to_linear_lut[i] = c;
+    }
+
+    for (u32 i = 0; i < LUT_ENTRY_COUNT; i++) {
+        f32 c = (f32)i;
+        c = c / 255.0f;
+
+        if (c <= 0.0031308f) {
+            c = c * 12.92f;
+        }
+        else {
+            c = 1.055f * powf(c, 1.0f / 2.4f) - 0.055f;
+        }
+        c = c * 255.0f + 0.5f;
+        c = clamp(c, 0.0f, 255.0f);
+        linear1_to_srgb255_lut[i] = (u8)c;
+    }
+}
+
+inline auto srgb255_to_linear1_lookup(f32 color) -> f32 {
+    Assert(color >= 0.0f && color <= 255.0f);
+    i32 index = (i32)color;
+    return srgb255_to_linear_lut[index];
+}
+
+inline auto linear1_to_srgb255_lookup(f32 linear1) -> f32 {
+    Assert(linear1 >= 0.0f && linear1 <= 1.0f);
+    i32 index = (i32)(linear1 * 255.0f);
+    return linear1_to_srgb255_lut[index];
+}
+
 inline auto unpack4x8(u32 packed) -> vec4 {
     vec4 result = {
         (f32)((packed >> 16) & 0xFF), //
@@ -105,6 +152,36 @@ inline auto unpack4x8(u32 packed) -> vec4 {
         (f32)((packed >> 0) & 0xFF),  //
         (f32)((packed >> 24) & 0xFF)  //
     };
+    return result;
+}
+
+inline auto unpack4x8_srgb255_to_linear1(u32 packed) -> vec4 {
+    u8 r = (packed >> 16) & 0xFF;
+    u8 g = (packed >> 8) & 0xFF;
+    u8 b = (packed >> 0) & 0xFF;
+    u8 a = (packed >> 24) & 0xFF;
+
+    vec4 result;
+
+    result.r = srgb255_to_linear_lut[r];
+    result.g = srgb255_to_linear_lut[g];
+    result.b = srgb255_to_linear_lut[b];
+    result.a = (f32)a / 255.0f;
+    return result;
+}
+
+inline auto pack4x8_linear1_to_srgb255(vec4 color) -> u32 {
+    // NOTE: Not clamping miight be dangerous here
+    u32 r_idx = (u32)(color.r * 255.0f + 0.5f);
+    u32 g_idx = (u32)(color.g * 255.0f + 0.5f);
+    u32 b_idx = (u32)(color.b * 255.0f + 0.5f);
+    u32 a = (u32)(color.a * 255.0f + 0.5f);
+    u32 result =                              //
+        a << 24 |                             //
+        linear1_to_srgb255_lut[r_idx] << 16 | //
+        linear1_to_srgb255_lut[g_idx] << 8 |  //
+        linear1_to_srgb255_lut[b_idx] << 0;
+
     return result;
 }
 
@@ -123,9 +200,9 @@ inline vec4 srgb255_to_linear1(vec4 color) {
 
     f32 inv_255 = 1.0f / 255.0f;
 
-    result.r = square(inv_255 * color.r);
-    result.g = square(inv_255 * color.g);
-    result.b = square(inv_255 * color.b);
+    result.r = srgb255_to_linear1_lookup(color.r);
+    result.g = srgb255_to_linear1_lookup(color.g);
+    result.b = srgb255_to_linear1_lookup(color.b);
     result.a = inv_255 * color.a;
 
     return result;
@@ -136,9 +213,9 @@ inline vec4 linear1_to_srgb255(vec4 color) {
 
     f32 one255 = 255.0f;
 
-    result.r = one255 * square_root(color.r);
-    result.g = one255 * square_root(color.g);
-    result.b = one255 * square_root(color.b);
+    result.r = linear1_to_srgb255_lookup(color.r);
+    result.g = linear1_to_srgb255_lookup(color.g);
+    result.b = linear1_to_srgb255_lookup(color.b);
     result.a = one255 * color.a;
 
     return (result);
@@ -270,20 +347,33 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
         v_max = texture->height - 1;
     }
 
-    i32 du = u_max - u_min;
-    i32 dv = v_max - v_min;
+    f32 tex_range_u = (f32)(u_max - u_min);
+    f32 tex_range_v = (f32)(v_max - v_min);
 
-    vec2 c_x_basis = M_c_to_m.x_basis;
-    vec2 c_y_basis = M_c_to_m.y_basis;
+    f32 scaled_du = (scale.x * (f32)tex_range_u) / (scaled_width - 1.0f);
+    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (scaled_height - 1.0f);
+
+    vec2 ds_dx = vec2(M_c_to_m.xx * scaled_du, M_c_to_m.xy * scaled_dv);
+    vec2 ds_dy = vec2(M_c_to_m.yx * scaled_du, M_c_to_m.yy * scaled_dv);
+
+    // model space, but scaled!
+    f32 start_x_m = (f32)min_x - translation.x;
+    f32 start_y_m = (f32)min_y - translation.y;
+
+    // Start coordinate for the "current" texel row in texel space
+    f32 texel_u_row = (start_x_m * M_c_to_m.xx + start_y_m * M_c_to_m.yx + model_width * 0.5f) * scaled_du + (f32)u_min;
+    f32 texel_v_row = (start_x_m * M_c_to_m.xy + start_y_m * M_c_to_m.yy + model_height * 0.5f) * scaled_dv + (f32)v_min;
 
     vec4 default_color_l1 = srgb255_to_linear1(color);
     for (int y = min_y; y < max_y; y++) {
+        f32 u = texel_u_row;
+        f32 v = texel_v_row;
         for (int x = min_x; x < max_x; x++) {
 
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
-            vec2 camera_point{ (f32)x + 0.0f, (f32)y + 0.0f };
+            vec2 camera_point{ (f32)x, (f32)y };
 
             bool is_inside = true;
             if (rotation != 0.0f) {
@@ -301,22 +391,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     src_color_l1 = default_color_l1;
                 }
                 else {
-
-                    vec2 point_m = (camera_point - translation) * M_c_to_m;
-                    // TODO: Here we assume that the quad is defined with origin in the middle of the quad. Should probably fix this.
-                    point_m.x += model_width * 0.5f;
-                    point_m.y += model_height * 0.5f;
-
-                    // This is to support both
-                    f32 u = (f32)(point_m.x * scale.x) / ((f32)(scaled_width - 1));
-                    f32 v = (f32)(point_m.y * scale.y) / ((f32)(scaled_height - 1));
-
-                    // This is texel00
-                    f32 sx = (u * du) + u_min;
-                    f32 sy = (v * dv) + v_min;
-
-                    i32 x0 = (i32)floor(sx);
-                    i32 y0 = (i32)floor(sy);
+                    i32 x0 = (i32)floor(u);
+                    i32 y0 = (i32)floor(v);
                     i32 x1 = x0 + 1;
                     i32 y1 = y0 + 1;
 
@@ -325,21 +401,19 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                     x1 = clamp(x1, u_min, u_max);
                     y1 = clamp(y1, v_min, v_max);
 
-                    f32 u_frac = clamp(sx - (f32)x0, 0.0f, 1.0f);
-                    f32 v_frac = clamp(sy - (f32)y0, 0.0f, 1.0f);
+                    f32 u_frac = clamp(u - (f32)x0, 0.0f, 1.0f);
+                    f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
 
                     Assert(texture->bytes_per_pixel == 4);
                     u32* data = (u32*)state.textures[texture_id].data;
                     // Bilinear filtering
-                    vec4 texel00_srgb255 = unpack4x8(*(data + (y0 * texture->width) + x0));
-                    vec4 texel10_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
-                    vec4 texel01_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0)); //
-                    vec4 texel11_srgb255 = unpack4x8(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1)); //
-
-                    vec4 texel00_l1 = srgb255_to_linear1(texel00_srgb255);
-                    vec4 texel10_l1 = srgb255_to_linear1(texel10_srgb255);
-                    vec4 texel01_l1 = srgb255_to_linear1(texel01_srgb255);
-                    vec4 texel11_l1 = srgb255_to_linear1(texel11_srgb255);
+                    vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));
+                    vec4 texel10_l1 =
+                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
+                    vec4 texel01_l1 =
+                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));
+                    vec4 texel11_l1 =
+                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));
 
                     src_color_l1 = lerp(                       //
                         lerp(texel00_l1, u_frac, texel10_l1),  //
@@ -347,7 +421,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                         lerp(texel01_l1, u_frac, texel11_l1)); //
                 }
 
-                vec4 dest_l1 = srgb255_to_linear1(unpack4x8(*pixel));
+                vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
 
                 // Cout = Cf * Af + Cb * (1 - Af)
                 vec4 blended = src_color_l1;
@@ -356,11 +430,13 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 }
                 // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
 
-                vec4 blended_srgb255 = linear1_to_srgb255(blended);
-
-                *pixel = pack4x8(blended_srgb255);
+                *pixel = pack4x8_linear1_to_srgb255(blended);
             }
+            u += ds_dx.x;
+            v += ds_dx.y;
         }
+        texel_u_row += ds_dy.x;
+        texel_v_row += ds_dy.y;
     }
 }
 
@@ -389,6 +465,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     null_texture->data = allocate<u32>(state.permanent);
     u32* data = (u32*)null_texture->data;
     *data = pack4x8(vec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+    generate_luts();
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {

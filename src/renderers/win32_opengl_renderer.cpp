@@ -48,22 +48,22 @@ typedef struct {
 
 static GlRendererState state = {};
 
-static auto clear(i32 client_width, i32 client_height, vec4 color) {
+static auto clear(max_y_c client_width, max_y_c client_height, vec4 color) {
     glViewport(0, 0, client_width, client_height);
     glClearColor(color.x, color.y, color.z, color.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Remove depth buffer?
 }
 
-static auto to_gl_x(f32 screen_x_cord, i32 screen_width) -> f32 {
+static auto to_gl_x(f32 screen_x_cord, max_y_c screen_width) -> f32 {
     return screen_x_cord / (screen_width / 2.0f) - 1.0f;
 }
 
-static auto to_gl_y(f32 screen_y_cord, i32 screen_height) -> f32 {
+static auto to_gl_y(f32 screen_y_cord, max_y_c screen_height) -> f32 {
     return screen_y_cord / (screen_height / 2.0f) - 1.0f;
 }
 
 static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x_axis, vec2 y_axis, vec4 color,
-    i32 screen_width, i32 screen_height) {
+    max_y_c screen_width, max_y_c screen_height) {
     vec2 bl = quad.bl - local_origin;
     vec2 tl = quad.tl - local_origin;
     vec2 tr = quad.tr - local_origin;
@@ -113,8 +113,8 @@ static auto draw_quad(Quadrilateral quad, vec2 local_origin, vec2 offset, vec2 x
     glBindVertexArray(0);
 }
 
-static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    i32 screen_width, i32 screen_height) {
+static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, max_y_c texture_id,
+    max_y_c screen_width, max_y_c screen_height) {
     vec3 bl = vec3(quad.bl, 0.0f);
     vec3 tl = vec3(quad.tl, 0.0f);
     vec3 tr = vec3(quad.tr, 0.0f);
@@ -241,9 +241,9 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
         glCreateBuffers(1, &state.quad_vbo);
 
         glNamedBufferStorage(state.quad_vbo, sizeof(quad_verticies), quad_verticies, GL_DYNAMIC_STORAGE_BIT);
-        i32 binding_index = 0;
-        i32 stride = 2 * sizeof(f32);
-        i32 offset = 0;
+        max_y_c binding_index = 0;
+        max_y_c stride = 2 * sizeof(f32);
+        max_y_c offset = 0;
         glVertexArrayVertexBuffer(state.quad_vao, binding_index, state.quad_vbo, offset, stride);
         auto attrib_index = 0;
 

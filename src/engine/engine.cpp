@@ -381,7 +381,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         {
             f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
             //        state->player.rotation += app_input->dt;
-            // state->player.scale = vec2(2.0f, 2.0f);
+            state->player.scale = vec2(2.0f, 2.0f);
+            state->player.rotation += app_input->dt;
             // state->player.P = vec2(24.0f, 29.0f);
             auto bitmap_id =
                 get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
@@ -493,7 +494,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         END_BLOCK();
     }
 
-    {
+    if (true) {
 
         DebugState* debug_state = (DebugState*)engine_memory->debug;
         if (state->ui_context && debug_state->is_initialized) {
