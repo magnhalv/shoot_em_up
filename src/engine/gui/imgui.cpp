@@ -174,12 +174,23 @@ auto calculate_grow_size(UI_Entity* entity) -> void {
             remaning_size -= children_size;
             if (remaning_size > 0.0f) {
                 UI_Entity* child = entity->first;
+
+                i32 child_count = 0;
                 while (child) {
-                    if (child->semantic_size[Axis2_X].kind == UI_SizeKind_Grow) {
-                        child->computed_size[Axis2_X] += remaning_size;
-                        break;
+                    if (child->semantic_size[Axis2_Y].kind == UI_SizeKind_Grow) {
+                        child_count++;
                     }
                     child = child->right;
+                }
+                if (child_count > 0) {
+                    child = entity->first;
+                    f32 size_to_grow = remaning_size / child_count;
+                    while (child) {
+                        if (child->semantic_size[Axis2_X].kind == UI_SizeKind_Grow) {
+                            child->computed_size[Axis2_X] += size_to_grow;
+                        }
+                        child = child->right;
+                    }
                 }
             }
         }

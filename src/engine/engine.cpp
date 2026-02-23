@@ -496,7 +496,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     if (true) {
 
-        DebugState* debug_state = (DebugState*)engine_memory->debug;
+        DebugState* debug_state = (DebugState*)engine_memory->debug.data;
         if (state->ui_context && debug_state->is_initialized) {
 
             {
@@ -512,19 +512,57 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 UI_PushStyleBackgroundColor(background_color);
                 UI_PushStyleFlexDirection(UI_FlexDirection_Row);
                 UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(400.0f)) {
+                    UI_Text("Frame profiling");
+                    {
+                        vec4 grey = vec4(127.0f, 127.0f, 127.0f, 255.0f);
+                        vec4 white = vec4(230.0f, 230.0f, 230.0f, 255.0f);
+                        const u32 frame_count = 120;
+                        UI_PushStyleFlexDirection(UI_FlexDirection_Column);
+                        UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
+                            for (u32 i = 0; i < frame_count; i++) {
+                                vec4 color = i % 2 == 0 ? grey : white;
+                                if (i == debug_state->current_inspecting_frame) {
+                                    color = vec4(10.0f, 127.0f, 127.0f, 255.0f);
+                                }
+                                else if ((debug_state->processed_frame_count + 1) % frame_count == i) {
+                                    color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+                                }
+                                else if ((debug_state->processed_frame_count) % frame_count == i) {
+                                    color = vec4(10.0f, 127.0f, 20.0f, 255.0f);
+                                }
+                                string8 id = string8_format(g_transient, "frame_block_%d", i);
+                                UI_PushStyleBackgroundColor(color);
+                                if (UI_Box(id, UI_Grow(1.0f), UI_Grow(1.0f)).click_released) {
+                                    if (debug_state->current_inspecting_frame == i) {
+                                        debug_state->current_inspecting_frame = u64_max;
+                                    }
+                                    else {
+                                        debug_state->current_inspecting_frame = i;
+                                    }
+                                }
+                                UI_PopStyleBackgroundColor();
+                            }
+                        }
+                        UI_PopStyleFlexDirection();
+                    }
 
-                    i32 i = 0;
-                    List<PrintEventNode>& debug_nodes = debug_state->nodes;
+                    i64 frame_to_inspect = debug_state->current_inspecting_frame == u64_max ?
+                        debug_state->processed_frame_count - 1 :
+                        debug_state->current_inspecting_frame;
+                    FrameIndex frame_index = debug_state->historic_frame_indices[frame_to_inspect % Historic_Frame_Count];
+                    Assert(frame_index.index < PrintEventNode_Count);
 
-                    PrintEventNode* frame_node = &debug_nodes[1];
+                    PrintEventNode* debug_nodes = debug_state->node_tree.nodes;
+                    PrintEventNode* frame_node = &debug_nodes[frame_index.index];
+                    Assert(frame_node->kind == PrintDebugEventType_Frame);
                     u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
                     f32 full_frame_duration_ms = frame_node->value_v2.v[0];
                     f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
                     PrintEventNode* thread_node = &debug_nodes[frame_node->first_kid_idx];
 
-                    UI_Text("Frame profiling");
                     UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
 
+                    i32 block_idx = 0;
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
                         PrintEventNode* node = &debug_nodes[thread_node->first_kid_idx];
@@ -541,7 +579,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                             UI_PushStyleFlexDirection(UI_FlexDirection_Column);
                             UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                 while (node->kind != PrintDebugEventType_Nil) {
-                                    UI_PushStyleBackgroundColor(global_color_palette[i % Global_Color_Palette_Count]);
+                                    UI_PushStyleBackgroundColor(global_color_palette[block_idx % Global_Color_Palette_Count]);
 
                                     u64 node_cycle_count = node->clock_end - node->clock_start;
                                     Assert(frame_cycle_count > node_cycle_count);
@@ -571,7 +609,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         UI_PopStyleZIndex();
                                         UI_PopStyleBackgroundColor();
                                     }
-                                    i++;
+                                    block_idx++;
                                     node = &debug_nodes[node->next_sib_idx];
 
                                     UI_PopStyleBackgroundColor();

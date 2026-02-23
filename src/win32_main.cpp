@@ -1284,7 +1284,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     engine_memory.permanent = memory_block;
     engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
-    engine_memory.debug = debug_memory.data;
+    engine_memory.debug = debug_memory;
 
     // END SETUP MEMORY
 
@@ -1348,7 +1348,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     platform.frame_target_ms = ms_per_frame;
 
     i64 last_tick = win32_get_tick();
-    bool is_first_frame = true;
 
     auto loop_started_tick = win32_get_tick();
     auto main_to_loop_duration = (f32)(loop_started_tick - main_entry_tick) / performance_counter_frequency;
@@ -1534,7 +1533,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
         BEGIN_BLOCK("spin_wait");
         ticks_used_this_frame = win32_get_tick() - last_tick;
-        if (ticks_used_this_frame > ticks_per_frame && !is_first_frame) {
+        if (ticks_used_this_frame > ticks_per_frame) {
             if (did_sleep) {
                 printf("Failed hitting frame target WITH SLEEP:\n");
             }
@@ -1567,7 +1566,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         current_input = &inputs[curr_input_idx];
         previous_input = &inputs[prev_input_idx];
         current_input->frame_clear(*previous_input);
-        is_first_frame = false;
+        engine_input.frame_count++;
     }
 
     return 0;

@@ -20,12 +20,13 @@ struct EngineMemory {
     void* permanent = nullptr;
     void* transient = nullptr;
 
-    void* debug = nullptr;
+    MemoryBlock debug;
 };
 
 struct EngineInput {
     i32 client_width;
     i32 client_height;
+    u64 frame_count;
     u64 ticks;
     u64 dt_tick;
     f64 t;

@@ -5,6 +5,7 @@
 
 #include <core/list.hpp>
 #include <core/memory_arena.h>
+#include <engine/array.h>
 
 #include <math/vec2.h>
 
@@ -32,10 +33,35 @@ struct PrintEventNode {
     u32 next_sib_idx;
 };
 
-struct DebugState {
-    MemoryArena per_frame_arena;
+constexpr i32 Historic_Frame_Count = 120;
+constexpr u32 PrintEventNode_Count = Historic_Frame_Count * 1000;
+struct PrintEventNodeTree {
+    PrintEventNode nodes[Historic_Frame_Count * 1000];
+    u32 m_next_idx;
 
-    List<PrintEventNode> nodes;
+    auto inline next_node_idx() -> u32 {
+        u32 result = m_next_idx;
+        m_next_idx = (m_next_idx + 1) % (PrintEventNode_Count);
+        // Skip index 0, as that is the NIL node
+        if (m_next_idx == 0) {
+            m_next_idx++;
+        }
+        return result;
+    }
+};
+
+struct FrameIndex {
+    u64 index;
+    u32 count;
+};
+
+struct DebugState {
+    // MemoryArena permanent;
+    u64 processed_frame_count;
+    u64 current_inspecting_frame;
+    PrintEventNodeTree node_tree;
+    FrameIndex historic_frame_indices[Historic_Frame_Count];
+
     bool is_initialized;
 };
 
