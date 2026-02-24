@@ -7,6 +7,7 @@
 #include "test_mat3.cpp"
 #include "test_sort.cpp"
 #include "test_string8.cpp"
+#include "test_simd.cpp"
 
 #include <core/lib.cpp>
 #include <math/mat2.cpp>

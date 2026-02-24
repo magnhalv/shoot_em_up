@@ -32,7 +32,6 @@ struct RenderEntityBasis {
 
 enum RenderGroupEntryType {
     RenderCommands_RenderEntryClear,
-    RenderCommands_RenderEntryQuadrilateral,
     RenderCommands_RenderEntryBitmap
 };
 

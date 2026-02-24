@@ -3,6 +3,7 @@
 #include <math/mat2.h>
 #include <math/mat3.h>
 #include <math/math.h>
+#include <math/simd.hpp>
 #include <math/util.hpp>
 
 #include <core/logger.h>
@@ -88,6 +89,9 @@ static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
     buffer->memory_size = buffer->bytes_per_pixel * (buffer->width * buffer->height);
     buffer->memory = VirtualAlloc(0, buffer->memory_size, MEM_COMMIT, PAGE_READWRITE);
     buffer->pitch = buffer->width * buffer->bytes_per_pixel;
+
+    // Should always be 64KB aligned from virtual alloc
+    Assert(is_aligned(buffer->memory, 65536));
 }
 
 auto square(f32 v) -> f32 {
@@ -241,33 +245,6 @@ static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i* 
     );
 }
 
-static auto draw_quad(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 screen_width, i32 screen_height) {
-    /*vec2 bl = quad.bl - local_origin;*/
-    /*vec2 tl = quad.tl - local_origin;*/
-    /*vec2 tr = quad.tr - local_origin;*/
-    /*vec2 br = quad.br - local_origin;*/
-    /**/
-    /*bl = bl.x * x_axis + bl.y * y_axis;*/
-    /*tl = tl.x * x_axis + tl.y * y_axis;*/
-    /*tr = tr.x * x_axis + tr.y * y_axis;*/
-    /*br = br.x * x_axis + br.y * y_axis;*/
-    /**/
-    /*bl = bl + local_origin;*/
-    /*tl = tl + local_origin;*/
-    /*tr = tr + local_origin;*/
-    /*br = br + local_origin;*/
-    /**/
-    /*bl = bl + offset;*/
-    /*tl = tl + offset;*/
-    /*tr = tr + offset;*/
-    /*br = br + offset;*/
-    /**/
-    /*draw_rectangle(                     //*/
-    /*    &state.global_offscreen_buffer, //*/
-    /*    bl, tr,                         //*/
-    /*    1.0, 0, 0                       //*/
-    /*);*/
-}
 
 static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
     x = clamp(x, 0, texture->width - 1);
@@ -375,6 +352,213 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             bool is_inside = true;
             if (rotation != 0.0f) {
                 f32 dot1 = dot(camera_point - bl_c, edge1);
+                f32 dot2 = dot(camera_point - tl_c, edge2);
+                f32 dot3 = dot(camera_point - tr_c, edge3);
+                f32 dot4 = dot(camera_point - br_c, edge4);
+                is_inside = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
+            }
+
+            if (is_inside) {
+
+                vec4 src_color_l1;
+                if (texture_id == 0) {
+                    src_color_l1 = default_color_l1;
+                }
+                else {
+                    i32 x0 = (i32)floor(u);
+                    i32 y0 = (i32)floor(v);
+                    i32 x1 = x0 + 1;
+                    i32 y1 = y0 + 1;
+
+                    x0 = clamp(x0, u_min, u_max);
+                    y0 = clamp(y0, v_min, v_max);
+                    x1 = clamp(x1, u_min, u_max);
+                    y1 = clamp(y1, v_min, v_max);
+
+                    f32 u_frac = clamp(u - (f32)x0, 0.0f, 1.0f);
+                    f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
+
+                    Assert(texture->bytes_per_pixel == 4);
+                    u32* data = (u32*)state.textures[texture_id].data;
+                    // Bilinear filtering
+                    vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));
+                    vec4 texel10_l1 =
+                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
+                    vec4 texel01_l1 =
+                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));
+                    vec4 texel11_l1 =
+                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));
+
+                    src_color_l1 = lerp(                       //
+                        lerp(texel00_l1, u_frac, texel10_l1),  //
+                        v_frac,                                //
+                        lerp(texel01_l1, u_frac, texel11_l1)); //
+                }
+
+                vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
+
+                // Cout = Cf * Af + Cb * (1 - Af)
+                vec4 blended = src_color_l1;
+                if (blended.a < 1.0f) {
+                    blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
+                }
+                // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
+
+                *pixel = pack4x8_linear1_to_srgb255(blended);
+            }
+            u += ds_dx.x;
+            v += ds_dx.y;
+        }
+        texel_u_row += ds_dy.x;
+        texel_v_row += ds_dy.y;
+    }
+}
+
+
+static auto draw_bitmap_avx1(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
+    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect) {
+
+    f32 model_width = (quad.br.x - quad.bl.x);
+    f32 model_height = (quad.tr.y - quad.br.y);
+
+    f32 scaled_width = (quad.br.x - quad.bl.x) * scale.x;
+    f32 scaled_height = (quad.tr.y - quad.br.y) * scale.y;
+
+    vec2 translation = offset;
+
+    mat2 rot_mat = mat2_rotate(rotation);
+    mat2 scale_mat = mat2_scale(scale);
+
+    // model to camera
+    mat2 M_m_to_c = rot_mat * scale_mat;
+    mat2 M_c_to_m = inverse(M_m_to_c);
+
+    vec2 bl_c = quad.bl * M_m_to_c;
+    vec2 tl_c = quad.tl * M_m_to_c;
+    vec2 tr_c = quad.tr * M_m_to_c;
+    vec2 br_c = quad.br * M_m_to_c;
+
+    bl_c = bl_c + translation;
+    tl_c = tl_c + translation;
+    tr_c = tr_c + translation;
+    br_c = br_c + translation;
+
+    __m256 bl_c_vpos4 = _mm256_setr_ps(
+      bl_c.x, bl_c.y,
+      bl_c.x, bl_c.y,
+      bl_c.x, bl_c.y,
+      bl_c.x, bl_c.y
+    );
+
+    __m256 tl_c_vpos4 = _mm256_setr_ps(
+      tl_c.x, tl_c.y,
+      tl_c.x, tl_c.y,
+      tl_c.x, tl_c.y,
+      tl_c.x, tl_c.y
+    );
+
+    __m256 tr_c_vpos4 = _mm256_setr_ps(
+      tr_c.x, tr_c.y,
+      tr_c.x, tr_c.y,
+      tr_c.x, tr_c.y,
+      tr_c.x, tr_c.y
+    );
+
+    __m256 br_c_vpos4 = _mm256_setr_ps(
+      br_c.x, br_c.y,
+      br_c.x, br_c.y,
+      br_c.x, br_c.y,
+      br_c.x, br_c.y
+    );
+
+    i32 min_x = round_f32_to_i32(hm::min(bl_c.x, tl_c.x, tr_c.x, br_c.x));
+    i32 max_x = round_f32_to_i32(hm::max(bl_c.x, tl_c.x, tr_c.x, br_c.x));
+    i32 min_y = round_f32_to_i32(hm::min(bl_c.y, tl_c.y, tr_c.y, br_c.y));
+    i32 max_y = round_f32_to_i32(hm::max(bl_c.y, tl_c.y, tr_c.y, br_c.y));
+
+    OffscreenBuffer* buffer = &state.global_offscreen_buffer;
+    min_x = hm::max(min_x, clip_rect->min_x);
+    max_x = hm::min(max_x, clip_rect->max_x);
+    min_y = hm::max(min_y, clip_rect->min_y);
+    max_y = hm::min(max_y, clip_rect->max_y);
+
+    vec2 edge1 = tl_c - bl_c;
+    vec2 edge2 = tr_c - tl_c;
+    vec2 edge3 = br_c - tr_c;
+    vec2 edge4 = bl_c - br_c;
+
+    Win32Texture* texture = &state.textures[texture_id];
+    i32 u_min = uv_min.x;
+    i32 u_max = uv_max.x;
+    i32 v_min = uv_min.y;
+    i32 v_max = uv_max.y;
+
+    if (u_max == 0 || v_max == 0) {
+        u_max = texture->width - 1;
+        v_max = texture->height - 1;
+    }
+
+    f32 tex_range_u = (f32)(u_max - u_min);
+    f32 tex_range_v = (f32)(v_max - v_min);
+
+    f32 scaled_du = (scale.x * (f32)tex_range_u) / (scaled_width - 1.0f);
+    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (scaled_height - 1.0f);
+
+    vec2 ds_dx = vec2(M_c_to_m.xx * scaled_du, M_c_to_m.xy * scaled_dv);
+    vec2 ds_dy = vec2(M_c_to_m.yx * scaled_du, M_c_to_m.yy * scaled_dv);
+
+    // model space, but scaled!
+    f32 start_x_m = (f32)min_x - translation.x;
+    f32 start_y_m = (f32)min_y - translation.y;
+
+    // Start coordinate for the "current" texel row in texel space
+    f32 texel_u_row = (start_x_m * M_c_to_m.xx + start_y_m * M_c_to_m.yx + model_width * 0.5f) * scaled_du + (f32)u_min;
+    f32 texel_v_row = (start_x_m * M_c_to_m.xy + start_y_m * M_c_to_m.yy + model_height * 0.5f) * scaled_dv + (f32)v_min;
+
+    vec4 default_color_l1 = srgb255_to_linear1(color);
+    
+    
+    for (int y = min_y; y < max_y; y++) {
+        f32 u = texel_u_row;
+        f32 v = texel_v_row;
+        for (int x = min_x; x < max_x; x++) {
+
+            u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
+            u32* pixel = (u32*)dest;
+
+            vec2 camera_point{ (f32)x, (f32)y };
+
+            __m256 camera_point_vpos4 = _mm256_setr_ps(
+                (f32)x, (f32)y,
+                (f32)x+1, (f32)y,
+                (f32)x+2, (f32)y,
+                (f32)x+3, (f32)y
+            );
+
+            __m256 cp_x_v8 = _mm256_set1_ps((f32)x);
+            __m256 incr_v8 = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
+            cp_x_v8 = _mm256_add_ps(cp_x_v8, incr_v8);
+            __m256 cp_y_v8 = _mm256_set1_ps((f32)y);
+
+            bool is_inside = true;
+            if (rotation != 0.0f) {
+                f32 dot1;
+                {
+                  __m256 x_v8 = _mm256_set1_ps(bl_c.x);
+                  __m256 y_v8 = _mm256_set1_ps(bl_c.y);
+
+                  x_v8 = _mm256_sub_ps(cp_x_v8, x_v8);
+                  y_v8 = _mm256_sub_ps(cp_y_v8, y_v8);
+
+                  __m256 edge1_x_v8 = _mm256_set1_ps(edge1.x);
+                  __m256 edge1_y_v8 = _mm256_set1_ps(edge1.y);
+
+                  __m256 dot1_v8 = dot(x_v8, y_v8, edge1_x_v8, edge1_y_v8);
+                  f32 result[8];
+                  _mm256_storeu_ps(result, dot1_v8);
+                  dot1 = result[7];
+                }
+                //f32 dot1 = dot(camera_point - bl_c, edge1);
                 f32 dot2 = dot(camera_point - tl_c, edge2);
                 f32 dot3 = dot(camera_point - tr_c, edge3);
                 f32 dot4 = dot(camera_point - br_c, edge4);
@@ -557,17 +741,9 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
             clear(commands->screen_width, commands->screen_height, entry->color, &clip_rect);
             base_address += sizeof(*entry);
         } break;
-        case RenderCommands_RenderEntryQuadrilateral: {
-            /*auto* entry = (RenderEntryQuadrilateral*)data;*/
-            /*draw_quad(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, commands->screen_width,*/
-            /*    commands->screen_height, &clip_rect);*/
-            /**/
-            /*base_address += sizeof(*entry);*/
-            InvalidCodePath;
-        } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
+            draw_bitmap_avx1(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
                 entry->uv_min, entry->uv_max, commands->screen_width, commands->screen_height, &clip_rect);
 
             base_address += sizeof(*entry);

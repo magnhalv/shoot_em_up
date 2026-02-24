@@ -2,6 +2,7 @@
 
 #include <core/logger.h>
 #include <core/memory_arena.h>
+#include <core/memory.h>
 
 #include "util.h"
 
@@ -54,9 +55,6 @@ TEST_CASE_FIXTURE(SingleArenaFixture, "check_alignment") {
     {
         u8* array = PushArray(&arena, 1, u8, { .alignment = 1, .flags = ArenaPushFlag_ClearToZero });
         u8* array2 = PushArray(&arena, 1, u8, { .alignment = 16, .flags = ArenaPushFlag_ClearToZero });
-        bool is_aligned = ((uintptr_t)array2 & 16) == 0;
-        REQUIRE(is_aligned);
-        printf("%p\n", (void*)array);
-        printf("%p\n", (void*)array2);
+        REQUIRE(is_aligned(array2, 16));
     }
 }

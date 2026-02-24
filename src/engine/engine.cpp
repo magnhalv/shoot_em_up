@@ -511,7 +511,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 vec4 red = vec4(120.0f, 20.0f, 20.0f, 255.0f);
                 UI_PushStyleBackgroundColor(background_color);
                 UI_PushStyleFlexDirection(UI_FlexDirection_Row);
-                UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(400.0f)) {
+                UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(500.0f)) {
                     UI_Text("Frame profiling");
                     {
                         vec4 grey = vec4(127.0f, 127.0f, 127.0f, 255.0f);
@@ -641,7 +641,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             UI_Generate_Render_Commands(&ui_render_group);
 
             BEGIN_BLOCK("gui_render");
-            renderer->render(Platform->work_queue, &ui_render_group);
+//            renderer->render(Platform->work_queue, &ui_render_group);
             END_BLOCK();
         }
     }

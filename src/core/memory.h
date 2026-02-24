@@ -11,6 +11,11 @@ inline void ZeroSize(memory_index Size, void* Ptr) {
     }
 }
 
+// Alignment in bytes
+auto inline is_aligned(void* memory, u32 alignment) -> bool {
+  return (((uintptr_t)memory) & (alignment - 1)) == 0;
+}
+
 void clear_memory(void* memory, u64 size);
 void copy_memory(void* src, void* dest, u64 size);
 

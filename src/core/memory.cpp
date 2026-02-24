@@ -20,6 +20,7 @@ auto copy_memory_slow(void* src, void* dest, u64 size) -> void {
 }
 
 auto copy_memory(void* src, void* dest, u64 size) -> void {
+    // AVX
     u8* s = (u8*)src;
     u8* d = (u8*)dest;
     const i32 byte_width = 32;

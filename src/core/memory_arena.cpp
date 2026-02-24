@@ -13,7 +13,7 @@
 
 MemoryArena* g_transient = nullptr;
 
-auto is_power_of_two(u32 value) -> bool {
+internal auto is_power_of_two(u32 value) -> bool {
     return value && ((value & (value - 1)) == 0);
 }
 
