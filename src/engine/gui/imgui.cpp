@@ -177,7 +177,7 @@ auto calculate_grow_size(UI_Entity* entity) -> void {
 
                 i32 child_count = 0;
                 while (child) {
-                    if (child->semantic_size[Axis2_Y].kind == UI_SizeKind_Grow) {
+                    if (child->semantic_size[Axis2_X].kind == UI_SizeKind_Grow) {
                         child_count++;
                     }
                     child = child->right;
@@ -367,7 +367,7 @@ auto calculate_size(UI_Entity* entity) -> void {
                 while (child) {
                     size += child->computed_size[Axis2_Y];
                     if (child->right) {
-                        size += child->margin[UI_Direction_Right];
+                        size += child->margin[UI_Direction_Down];
                     }
                     child = child->right;
                 }
@@ -560,10 +560,10 @@ auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {
     entity->margin[UI_Direction_Down] = 0;
     entity->margin[UI_Direction_Left] = 0;
 
-    entity->padding[UI_Direction_Up] = 10;
-    entity->padding[UI_Direction_Right] = 10;
-    entity->padding[UI_Direction_Down] = 10;
-    entity->padding[UI_Direction_Left] = 10;
+    entity->padding[UI_Direction_Up] = 0;
+    entity->padding[UI_Direction_Right] = 0;
+    entity->padding[UI_Direction_Down] = 0;
+    entity->padding[UI_Direction_Left] = 0;
 
     entity->background_color = global_context->style->background_color;
 

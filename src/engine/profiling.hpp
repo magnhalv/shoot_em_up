@@ -33,34 +33,50 @@ struct PrintEventNode {
     u32 next_sib_idx;
 };
 
-constexpr i32 Historic_Frame_Count = 120;
+constexpr u32 Nil_Index = 0;
+constexpr u32 Historic_Frame_Count = 120;
 constexpr u32 PrintEventNode_Count = Historic_Frame_Count * 1000;
-struct PrintEventNodeTree {
+struct PrintEventNodeForest {
     PrintEventNode nodes[Historic_Frame_Count * 1000];
-    u32 m_next_idx;
+    u32 current_idx;
+    u32 curr_tree_node_count;
+};
 
-    auto inline next_node_idx() -> u32 {
-        u32 result = m_next_idx;
-        m_next_idx = (m_next_idx + 1) % (PrintEventNode_Count);
-        // Skip index 0, as that is the NIL node
-        if (m_next_idx == 0) {
-            m_next_idx++;
-        }
-        return result;
+auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) -> u32 {
+    forest->current_idx = (forest->current_idx + 1) % (PrintEventNode_Count);
+    // Skip index 0, as that is the NIL node
+    if (forest->current_idx == Nil_Index) {
+        forest->current_idx++;
     }
-};
 
-struct FrameIndex {
-    u64 index;
-    u32 count;
-};
+    PrintEventNode* new_node = &forest->nodes[forest->current_idx];
+    *new_node = {};
+    new_node->parent_idx = parent_idx;
+    // I.e. a new tree
+    if (parent_idx == Nil_Index) {
+        forest->curr_tree_node_count = 1;
+    }
+    else {
+        PrintEventNode* parent_node = &forest->nodes[parent_idx];
+        if (parent_node->first_kid_idx == Nil_Index) {
+            parent_node->first_kid_idx = forest->current_idx;
+        }
+        else {
+            PrintEventNode* left_sib = &forest->nodes[parent_node->last_kid_idx];
+            left_sib->next_sib_idx = forest->current_idx;
+        }
+        parent_node->last_kid_idx = forest->current_idx;
+    }
+    forest->curr_tree_node_count++;
+    return forest->current_idx;
+}
 
 struct DebugState {
     // MemoryArena permanent;
     u64 processed_frame_count;
     u64 current_inspecting_frame;
-    PrintEventNodeTree node_tree;
-    FrameIndex historic_frame_indices[Historic_Frame_Count];
+    PrintEventNodeForest node_forest;
+    u32 historic_frame_indices[Historic_Frame_Count];
 
     bool is_initialized;
 };

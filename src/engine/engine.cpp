@@ -516,44 +516,71 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     {
                         vec4 grey = vec4(127.0f, 127.0f, 127.0f, 255.0f);
                         vec4 white = vec4(230.0f, 230.0f, 230.0f, 255.0f);
-                        const u32 frame_count = 120;
                         UI_PushStyleFlexDirection(UI_FlexDirection_Column);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
-                            for (u32 i = 0; i < frame_count; i++) {
-                                vec4 color = i % 2 == 0 ? grey : white;
-                                if (i == debug_state->current_inspecting_frame) {
+                            for (u32 frame_idx = 0; frame_idx < Historic_Frame_Count; frame_idx++) {
+                                vec4 color = frame_idx % 2 == 0 ? grey : white;
+
+                                f32 fraction = 0.0f;
+                                u32 frame_node_index = debug_state->historic_frame_indices[frame_idx];
+                                if (frame_node_index != Nil_Index) {
+                                    PrintEventNode* frame_node = &debug_state->node_forest.nodes[frame_node_index];
+                                    f32 full_frame_duration_ms = frame_node->value_v2.v[0];
+                                    f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
+                                    // TODO: This is not correct, should divide by TARGET frame duration
+                                    fraction = frame_duration_before_sleep_ms / full_frame_duration_ms;
+                                }
+                                fraction = 0.8f;
+
+                                if (frame_idx == debug_state->current_inspecting_frame) {
                                     color = vec4(10.0f, 127.0f, 127.0f, 255.0f);
                                 }
-                                else if ((debug_state->processed_frame_count + 1) % frame_count == i) {
+                                else if ((debug_state->processed_frame_count + 1) % Historic_Frame_Count == frame_idx) {
                                     color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
                                 }
-                                else if ((debug_state->processed_frame_count) % frame_count == i) {
+                                else if ((debug_state->processed_frame_count) % Historic_Frame_Count == frame_idx) {
                                     color = vec4(10.0f, 127.0f, 20.0f, 255.0f);
                                 }
-                                string8 id = string8_format(g_transient, "frame_block_%d", i);
+                                string8 id = string8_format(g_transient, "frame_block_%d", frame_idx);
                                 UI_PushStyleBackgroundColor(color);
-                                if (UI_Box(id, UI_Grow(1.0f), UI_Grow(1.0f)).click_released) {
-                                    if (debug_state->current_inspecting_frame == i) {
-                                        debug_state->current_inspecting_frame = u64_max;
-                                    }
-                                    else {
-                                        debug_state->current_inspecting_frame = i;
+                                /*if (UI_Box(id, UI_Grow(1.0f), UI_Grow(1.0f)).click_released) {*/
+                                /*    if (debug_state->current_inspecting_frame =frame_idx i) {*/
+                                /*        debug_state->current_inspecting_frame = u64_max;*/
+                                /*    }*/
+                                /*    else {*/
+                                /*        debug_state->current_inspecting_frame frame_idx i;*/
+                                /*    }*/
+                                /*}*/
+
+                                UI_PushStyleFlexDirection(UI_FlexDirection_Row);
+                                UI_WindowFull(id, {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
+                                    string8 id1 = string8_format(g_transient, "frame_block_1_%d", frame_idx);
+                                    string8 id2 = string8_format(g_transient, "frame_block_2_%d", frame_idx);
+                                    UI_Box(id1, UI_Grow(1.0f), UI_PercentOfParent(1.0f - fraction));
+                                    if (fraction > 0.0f) {
+                                        vec4 green2 = vec4(10.0f, 127.0f, 20.0f, 255.0f);
+                                        vec4 red2 = vec4(120.0f, 20.0f, 20.0f, 255.0f);
+                                        vec4 fraction_color = lerp(green2, fraction, red2);
+                                        UI_PushStyleBackgroundColor(fraction_color);
+                                        UI_Box(id2, UI_Grow(1.0f), UI_PercentOfParent(fraction));
+                                        UI_PopStyleBackgroundColor();
                                     }
                                 }
+                                UI_PopStyleFlexDirection();
                                 UI_PopStyleBackgroundColor();
                             }
                         }
                         UI_PopStyleFlexDirection();
                     }
 
-                    i64 frame_to_inspect = debug_state->current_inspecting_frame == u64_max ?
+                    u64 frame_to_inspect = debug_state->current_inspecting_frame == u64_max ?
                         debug_state->processed_frame_count - 1 :
                         debug_state->current_inspecting_frame;
-                    FrameIndex frame_index = debug_state->historic_frame_indices[frame_to_inspect % Historic_Frame_Count];
-                    Assert(frame_index.index < PrintEventNode_Count);
+                    u32 frame_index = debug_state->historic_frame_indices[frame_to_inspect % Historic_Frame_Count];
+                    Assert(frame_index < PrintEventNode_Count);
 
-                    PrintEventNode* debug_nodes = debug_state->node_tree.nodes;
-                    PrintEventNode* frame_node = &debug_nodes[frame_index.index];
+                    PrintEventNode* debug_nodes = debug_state->node_forest.nodes;
+                    PrintEventNode* frame_node = &debug_nodes[frame_index];
                     Assert(frame_node->kind == PrintDebugEventType_Frame);
                     u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
                     f32 full_frame_duration_ms = frame_node->value_v2.v[0];
