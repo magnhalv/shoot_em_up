@@ -487,13 +487,13 @@ static auto draw_bitmap_avx1(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
     vec4 default_color_l1 = srgb255_to_linear1(color);
 
     for (int y = min_y; y < max_y; y++) {
-        // f32 u = texel_u_row;
-        // f32 v = texel_v_row;
+        /*f32 u = texel_u_row;*/
+        /*f32 v = texel_v_row;*/
 
         __m256 u_v8 = _mm256_set1_ps(texel_u_row);
         __m256 v_v8 = _mm256_set1_ps(texel_v_row);
         {
-            __m256 lane = _mm256_set_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
+            __m256 lane = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
             __m256 du_dx_v8 = _mm256_set1_ps(ds_dx.x);
             __m256 dv_dx_v8 = _mm256_set1_ps(ds_dx.y);
             u_v8 = _mm256_fmadd_ps(lane, du_dx_v8, u_v8);
@@ -583,8 +583,8 @@ static auto draw_bitmap_avx1(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                     is_inside_v8 = _mm256_and_ps(is_inside_v8, is_inside_dot4_v8);
 
                     f32 is_inside_arr[8];
-                    _mm256_store_ps(is_inside_arr, is_inside_v8);
-                    is_inside = is_inside_arr[0] == 0.0f;
+                    _mm256_storeu_ps(is_inside_arr, is_inside_v8);
+                    is_inside = is_inside_arr[0] > 0.0f;
                 }
             }
 
@@ -613,38 +613,33 @@ static auto draw_bitmap_avx1(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                     __m256i x1_v8 = _mm256_add_epi32(x0_v8, one_v8);
                     __m256i y1_v8 = _mm256_add_epi32(y0_v8, one_v8);
 
-                    i32 x0 = (i32)floor(u);
-                    i32 y0 = (i32)floor(v);
-                    i32 x1 = x0 + 1;
-                    i32 y1 = y0 + 1;
-
+                    /*i32 x0 = (i32)floor(u);*/
+                    /*i32 y0 = (i32)floor(v);*/
+                    /*i32 x1 = x0 + 1;*/
+                    /*i32 y1 = y0 + 1;*/
+                    i32 x0, y0, x1, y1;
                     {
-                        clamp_i32_v8(u_min, x0_v8, u_max);
-                        clamp_i32_v8(u_min, x1_v8, u_max);
-                        clamp_i32_v8(v_min, y0_v8, v_max);
-                        clamp_i32_v8(v_min, y1_v8, v_max);
+                        x0_v8 = clamp_i32_v8(u_min, x0_v8, u_max);
+                        x1_v8 = clamp_i32_v8(u_min, x1_v8, u_max);
+                        y0_v8 = clamp_i32_v8(v_min, y0_v8, v_max);
+                        y1_v8 = clamp_i32_v8(v_min, y1_v8, v_max);
 
                         i32 x0_arr8[8];
-                        _mm256_store_epi32(x0_arr8, x0_v8);
+                        _mm256_storeu_si256((__m256i*)x0_arr8, x0_v8);
                         x0 = x0_arr8[0];
 
                         i32 x1_arr8[8];
-                        _mm256_store_epi32(x1_arr8, x1_v8);
+                        _mm256_storeu_si256((__m256i*)x1_arr8, x1_v8);
                         x1 = x1_arr8[0];
 
                         i32 y0_arr8[8];
-                        _mm256_store_epi32(y0_arr8, y0_v8);
+                        _mm256_storeu_si256((__m256i*)y0_arr8, y0_v8);
                         y0 = y0_arr8[0];
 
                         i32 y1_arr8[8];
-                        _mm256_store_epi32(y1_arr8, y1_v8);
+                        _mm256_storeu_si256((__m256i*)y1_arr8, y1_v8);
                         y1 = y1_arr8[0];
                     }
-
-                    // x0 = clamp(x0, u_min, u_max);
-                    // y0 = clamp(y0, v_min, v_max);
-                    // x1 = clamp(x1, u_min, u_max);
-                    // y1 = clamp(y1, v_min, v_max);
 
                     f32 u_frac = clamp(u - (f32)x0, 0.0f, 1.0f);
                     f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
@@ -683,8 +678,8 @@ static auto draw_bitmap_avx1(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
 
                 *pixel = pack4x8_linear1_to_srgb255(blended);
             }
-            // u += ds_dx.x;
-            // v += ds_dx.y;
+            /*u += ds_dx.x;*/
+            /*v += ds_dx.y;*/
             {
                 __m256 du_dx_v8 = _mm256_set1_ps(ds_dx.x);
                 __m256 dv_dx_v8 = _mm256_set1_ps(ds_dx.y);

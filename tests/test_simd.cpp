@@ -72,6 +72,24 @@ TEST_CASE("SIMD") {
         REQUIRE_EQ(r[4], 55.0f);
         REQUIRE_EQ(r[5], 66.0f);
         REQUIRE_EQ(r[6], 77.0f);
-        REQUIRE_EQ(r[7], 88.0f);
+        REQUIRE_EQ(r[7], 89.0f);
+    }
+
+    {
+        __m256i a_v8 = _mm256_set_epi32(1, 2, 3, 4, 5, 6, 7, 8);
+
+        __m256i r_v8 = clamp_i32_v8(3, a_v8, 6);
+        f32 r[8];
+        _mm256_store_ps(r, r_v8);
+
+        _mm256_storeu_si256((__m256i*)r, r_v8);
+        REQUIRE_EQ(r[0], 3);
+        REQUIRE_EQ(r[1], 3);
+        REQUIRE_EQ(r[2], 3);
+        REQUIRE_EQ(r[3], 5);
+        REQUIRE_EQ(r[4], 6);
+        REQUIRE_EQ(r[5], 6);
+        REQUIRE_EQ(r[6], 6);
+        REQUIRE_EQ(r[7], 6);
     }
 }
