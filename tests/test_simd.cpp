@@ -80,8 +80,6 @@ TEST_CASE("SIMD") {
 
         __m256i r_v8 = clamp_i32_v8(3, a_v8, 6);
         f32 r[8];
-        _mm256_store_ps(r, r_v8);
-
         _mm256_storeu_si256((__m256i*)r, r_v8);
         REQUIRE_EQ(r[0], 3);
         REQUIRE_EQ(r[1], 3);

@@ -1,3 +1,4 @@
+#include <immintrin.h>
 #include <platform/platform.h>
 
 #include <math/mat2.h>
@@ -412,7 +413,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     }
 }
 
-static auto draw_bitmap_avx1(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
+static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
     ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect) {
 
     f32 model_width = (quad.br.x - quad.bl.x);
@@ -648,18 +649,58 @@ static auto draw_bitmap_avx1(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                         __m256 y0_f32_v8 = _mm256_cvtepi32_ps(y0_v8);
                         __m256 u_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(u_v8, x0_f32_v8), 1.0f);
                         __m256 v_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(v_v8, y0_f32_v8), 1.0f);
+
+                        f32 u_frac_arr[8];
+                        _mm256_store_ps(u_frac_arr, u_frac_v8);
+                        u_frac = u_frac_arr[0];
+                        f32 v_frac_arr[8];
+                        _mm256_store_ps(v_frac_arr, v_frac_v8);
+                        v_frac = v_frac_arr[0];
                     }
 
                     Assert(texture->bytes_per_pixel == 4);
                     u32* data = (u32*)state.textures[texture_id].data;
                     // Bilinear filtering
-                    vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));
-                    vec4 texel10_l1 =
-                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
-                    vec4 texel01_l1 =
-                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));
-                    vec4 texel11_l1 =
-                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));
+
+                    /*vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));*/
+                    /*vec4 texel10_l1 =*/
+                    /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));*/
+                    /*vec4 texel01_l1 =*/
+                    /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));*/
+                    /*vec4 texel11_l1 =*/
+                    /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));*/
+
+                    __m256i width_v8 = _mm256_set1_epi32(texture->width);
+
+                    __m256i texel_idx_00_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y0_v8, width_v8));
+                    __m256i texel_idx_10_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y0_v8, width_v8));
+                    __m256i texel_idx_01_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y1_v8, width_v8));
+                    __m256i texel_idx_11_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y1_v8, width_v8));
+
+                    __m256i texel00_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_00_v8, sizeof(u32));
+                    __m256i texel01_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_01_v8, sizeof(u32));
+                    __m256i texel10_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_10_v8, sizeof(u32));
+                    __m256i texel11_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_11_v8, sizeof(u32));
+
+                    u32 texel00_rgb255_arr[8];
+                    u32 texel01_rgb255_arr[8];
+                    u32 texel10_rgb255_arr[8];
+                    u32 texel11_rgb255_arr[8];
+
+                    _mm256_storeu_si256((__m256i*)texel00_rgb255_arr, texel00_li_v8);
+                    _mm256_storeu_si256((__m256i*)texel10_rgb255_arr, texel10_li_v8);
+                    _mm256_storeu_si256((__m256i*)texel01_rgb255_arr, texel01_li_v8);
+                    _mm256_storeu_si256((__m256i*)texel11_rgb255_arr, texel11_li_v8);
+
+                    vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(texel00_rgb255_arr[0]);
+                    vec4 texel10_l1 = unpack4x8_srgb255_to_linear1(texel10_rgb255_arr[0]);
+                    vec4 texel01_l1 = unpack4x8_srgb255_to_linear1(texel01_rgb255_arr[0]);
+                    vec4 texel11_l1 = unpack4x8_srgb255_to_linear1(texel11_rgb255_arr[0]);
+
+                    __m256 texel00_r_v8;
+                    __m256 texel00_g_v8;
+                    __m256 texel00_b_v8;
+                    __m256 texel00_a_v8;
 
                     src_color_l1 = lerp(                       //
                         lerp(texel00_l1, u_frac, texel10_l1),  //
@@ -814,7 +855,7 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap_avx1(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
+            draw_bitmap_avx2(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
                 entry->uv_min, entry->uv_max, commands->screen_width, commands->screen_height, &clip_rect);
 
             base_address += sizeof(*entry);
