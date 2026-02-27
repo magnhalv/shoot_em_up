@@ -677,30 +677,53 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                     __m256i texel_idx_01_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y1_v8, width_v8));
                     __m256i texel_idx_11_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y1_v8, width_v8));
 
-                    __m256i texel00_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_00_v8, sizeof(u32));
-                    __m256i texel01_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_01_v8, sizeof(u32));
-                    __m256i texel10_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_10_v8, sizeof(u32));
-                    __m256i texel11_li_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_11_v8, sizeof(u32));
+                    __m256i texel00_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_00_v8, sizeof(u32));
+                    __m256i texel01_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_01_v8, sizeof(u32));
+                    __m256i texel10_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_10_v8, sizeof(u32));
+                    __m256i texel11_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_11_v8, sizeof(u32));
 
                     u32 texel00_rgb255_arr[8];
                     u32 texel01_rgb255_arr[8];
                     u32 texel10_rgb255_arr[8];
                     u32 texel11_rgb255_arr[8];
 
-                    _mm256_storeu_si256((__m256i*)texel00_rgb255_arr, texel00_li_v8);
-                    _mm256_storeu_si256((__m256i*)texel10_rgb255_arr, texel10_li_v8);
-                    _mm256_storeu_si256((__m256i*)texel01_rgb255_arr, texel01_li_v8);
-                    _mm256_storeu_si256((__m256i*)texel11_rgb255_arr, texel11_li_v8);
+                    _mm256_storeu_si256((__m256i*)texel00_rgb255_arr, texel00_srgba255_v8);
+                    _mm256_storeu_si256((__m256i*)texel10_rgb255_arr, texel10_srgba255_v8);
+                    _mm256_storeu_si256((__m256i*)texel01_rgb255_arr, texel01_srgba255_v8);
+                    _mm256_storeu_si256((__m256i*)texel11_rgb255_arr, texel11_srgba255_v8);
 
                     vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(texel00_rgb255_arr[0]);
                     vec4 texel10_l1 = unpack4x8_srgb255_to_linear1(texel10_rgb255_arr[0]);
                     vec4 texel01_l1 = unpack4x8_srgb255_to_linear1(texel01_rgb255_arr[0]);
                     vec4 texel11_l1 = unpack4x8_srgb255_to_linear1(texel11_rgb255_arr[0]);
 
-                    __m256 texel00_r_v8;
-                    __m256 texel00_g_v8;
-                    __m256 texel00_b_v8;
-                    __m256 texel00_a_v8;
+                    color_v8 texel00_v8;
+                    {
+                        const __m256i maskFF = _mm256_set1_epi32(0x000000FF);
+                        __m256i r_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 16), maskFF);
+                        __m256i g_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 8), maskFF);
+                        __m256i b_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 0), maskFF);
+                        __m256i a_rgba255_v8 = _mm256_and_si256(_mm256_srli_epi32(texel00_srgba255_v8, 24), maskFF);
+
+                        texel00_v8.r = _mm256_i32gather_ps(srgb255_to_linear_lut, r_idx_v8, sizeof(f32));
+                        texel00_v8.g = _mm256_i32gather_ps(srgb255_to_linear_lut, g_idx_v8, sizeof(f32));
+                        texel00_v8.b = _mm256_i32gather_ps(srgb255_to_linear_lut, b_idx_v8, sizeof(f32));
+
+                        const __m256 inv255 = _mm256_set1_ps(1.0f / 255.0f);
+                        texel00_v8.a = _mm256_mul_ps(_mm256_cvtepi32_ps(a_rgba255_v8), inv255);
+
+                        f32 r_arr[8];
+                        f32 g_arr[8];
+                        f32 b_arr[8];
+                        f32 a_arr[8];
+
+                        _mm256_storeu_ps(r_arr, texel00_v8.r);
+                        _mm256_storeu_ps(g_arr, texel00_v8.g);
+                        _mm256_storeu_ps(b_arr, texel00_v8.b);
+                        _mm256_storeu_ps(a_arr, texel00_v8.a);
+
+                        texel00_l1 = vec4(r_arr[0], g_arr[0], b_arr[0], a_arr[0]);
+                    }
 
                     src_color_l1 = lerp(                       //
                         lerp(texel00_l1, u_frac, texel10_l1),  //
