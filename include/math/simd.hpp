@@ -84,6 +84,22 @@ inline auto pack4x8_linear1_to_srgb255(color_v8 color, u32* linear1_to_srgb255_l
     return result;
 }
 
+auto inline blend_color_v8(color_v8 dest, color_v8 src) -> color_v8 {
+    // Cout = (A * A.a) + (B * (1 - A.a))
+    color_v8 blended;
+    blended.r = _mm256_mul_ps(src.r, src.a);
+    blended.g = _mm256_mul_ps(src.g, src.a);
+    blended.b = _mm256_mul_ps(src.b, src.a);
+    blended.a = _mm256_mul_ps(src.a, src.a);
+    __m256 one_minus_a = _mm256_sub_ps(_mm256_set1_ps(1.0f), src.a);
+
+    blended.r = _mm256_add_ps(blended.r, _mm256_mul_ps(dest.r, one_minus_a));
+    blended.g = _mm256_add_ps(blended.g, _mm256_mul_ps(dest.g, one_minus_a));
+    blended.b = _mm256_add_ps(blended.b, _mm256_mul_ps(dest.b, one_minus_a));
+    blended.a = _mm256_add_ps(blended.a, _mm256_mul_ps(dest.a, one_minus_a));
+
+    return blended;
+}
 auto inline get_color(__m256i packed_color_v8, f32* srgb255_to_linear_lut) -> color_v8 {
     const __m256i maskFF = _mm256_set1_epi32(0x000000FF);
     __m256i r_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(packed_color_v8, 16), maskFF);

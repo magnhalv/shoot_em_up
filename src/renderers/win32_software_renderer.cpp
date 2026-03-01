@@ -643,21 +643,13 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                 );
             }
 
-            // Cout = Cf * Af + Cb * (1 - Af)
-            // vec4 blended = src_color_l1;
-            // if (blended.a < 1.0f) {
-            //     vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
-            //     blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
-            // }
-            // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
-            //*pixel = pack4x8_linear1_to_srgb255(blended);
+            __m256i destination_v8 = _mm256_load_si256((const __m256i*)pixel);
+            color_v8 destination_color_v8 = get_color(destination_v8, srgb255_to_linear_lut);
+            color_v8 blended_v8 = blend_color_v8(destination_color_v8, src_color_l1_v8);
 
-            __m256i pixel_v8 = pack4x8_linear1_to_srgb255(src_color_l1_v8, linear1_to_srgb255_lut);
+            __m256i pixel_v8 = pack4x8_linear1_to_srgb255(blended_v8, linear1_to_srgb255_lut);
             _mm256_storeu_si256((__m256i*)pixel, pixel_v8);
-            //*pixel = pack4x8_linear1_to_srgb255(src_color_l1);
 
-            /*u += ds_dx.x;*/
-            /*v += ds_dx.y;*/
             {
                 __m256 du_dx_v8 = _mm256_set1_ps(Lane_Width * ds_dx.x);
                 __m256 dv_dx_v8 = _mm256_set1_ps(Lane_Width * ds_dx.y);
