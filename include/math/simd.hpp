@@ -53,29 +53,50 @@ struct color_v8 {
     __m256 b;
     __m256 a;
 };
-auto inline get_color(__m256i packed_colors, f32* srgb255_to_linear_lut) -> color_v8 {
-    const __m256i maskFF = _mm256_set1_epi32(0x000000FF);
-    __m256i r_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 16), maskFF);
-    __m256i g_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 8), maskFF);
-    __m256i b_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 0), maskFF);
-    __m256i a_rgba255_v8 = _mm256_and_si256(_mm256_srli_epi32(texel00_srgba255_v8, 24), maskFF);
 
-    texel00_v8.r = _mm256_i32gather_ps(srgb255_to_linear_lut, r_idx_v8, sizeof(f32));
-    texel00_v8.g = _mm256_i32gather_ps(srgb255_to_linear_lut, g_idx_v8, sizeof(f32));
-    texel00_v8.b = _mm256_i32gather_ps(srgb255_to_linear_lut, b_idx_v8, sizeof(f32));
+auto inline lerp(color_v8 A, __m256 t_v8, color_v8 B) -> color_v8 {
+    color_v8 result;
+    result.r = lerp(A.r, t_v8, B.r);
+    result.g = lerp(A.g, t_v8, B.g);
+    result.b = lerp(A.b, t_v8, B.b);
+    result.a = lerp(A.a, t_v8, B.a);
+    return result;
+}
+
+inline auto pack4x8_linear1_to_srgb255(color_v8 color, u32* linear1_to_srgb255_lut) -> __m256i {
+    // NOTE: Not safe if r, g, b, a is NOT [0.0, 1.0f]
+    __m256 N255 = _mm256_set1_ps(255.0f);
+    __m256i r_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.r, N255));
+    __m256i g_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.g, N255));
+    __m256i b_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.b, N255));
+    __m256i a_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.a, N255));
+
+    __m256i r = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, r_idx_v8, sizeof(u32));
+    __m256i g = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, g_idx_v8, sizeof(u32));
+    __m256i b = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, b_idx_v8, sizeof(u32));
+    __m256i a = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, a_idx_v8, sizeof(u32));
+
+    __m256i result = _mm256_or_si256(                                        //
+        _mm256_or_si256(_mm256_slli_epi32(a, 24), _mm256_slli_epi32(r, 16)), //
+        _mm256_or_si256(_mm256_slli_epi32(g, 8), b)                          //
+    );
+
+    return result;
+}
+
+auto inline get_color(__m256i packed_color_v8, f32* srgb255_to_linear_lut) -> color_v8 {
+    const __m256i maskFF = _mm256_set1_epi32(0x000000FF);
+    __m256i r_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(packed_color_v8, 16), maskFF);
+    __m256i g_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(packed_color_v8, 8), maskFF);
+    __m256i b_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(packed_color_v8, 0), maskFF);
+    __m256i a_rgba255_v8 = _mm256_and_si256(_mm256_srli_epi32(packed_color_v8, 24), maskFF);
+
+    color_v8 result;
+    result.r = _mm256_i32gather_ps(srgb255_to_linear_lut, r_idx_v8, sizeof(f32));
+    result.g = _mm256_i32gather_ps(srgb255_to_linear_lut, g_idx_v8, sizeof(f32));
+    result.b = _mm256_i32gather_ps(srgb255_to_linear_lut, b_idx_v8, sizeof(f32));
 
     const __m256 inv255 = _mm256_set1_ps(1.0f / 255.0f);
-    texel00_v8.a = _mm256_mul_ps(_mm256_cvtepi32_ps(a_rgba255_v8), inv255);
-
-    f32 r_arr[8];
-    f32 g_arr[8];
-    f32 b_arr[8];
-    f32 a_arr[8];
-
-    _mm256_storeu_ps(r_arr, texel00_v8.r);
-    _mm256_storeu_ps(g_arr, texel00_v8.g);
-    _mm256_storeu_ps(b_arr, texel00_v8.b);
-    _mm256_storeu_ps(a_arr, texel00_v8.a);
-
-    texel00_l1 = vec4(r_arr[0], g_arr[0], b_arr[0], a_arr[0]);
+    result.a = _mm256_mul_ps(_mm256_cvtepi32_ps(a_rgba255_v8), inv255);
+    return result;
 }

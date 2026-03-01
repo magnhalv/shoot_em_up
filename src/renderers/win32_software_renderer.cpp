@@ -105,7 +105,7 @@ auto square_root(f32 v) -> f32 {
 
 const u32 LUT_ENTRY_COUNT = 256;
 global_variable f32 srgb255_to_linear_lut[LUT_ENTRY_COUNT];
-global_variable u8 linear1_to_srgb255_lut[LUT_ENTRY_COUNT];
+global_variable u32 linear1_to_srgb255_lut[LUT_ENTRY_COUNT];
 
 internal auto generate_luts() -> void {
     // Foundations of Game Engine Development: Rendering, page 19
@@ -134,7 +134,7 @@ internal auto generate_luts() -> void {
         }
         c = c * 255.0f + 0.5f;
         c = clamp(c, 0.0f, 255.0f);
-        linear1_to_srgb255_lut[i] = (u8)c;
+        linear1_to_srgb255_lut[i] = (u32)c;
     }
 }
 
@@ -144,7 +144,7 @@ inline auto srgb255_to_linear1_lookup(f32 color) -> f32 {
     return srgb255_to_linear_lut[index];
 }
 
-inline auto linear1_to_srgb255_lookup(f32 linear1) -> f32 {
+inline auto linear1_to_srgb255_lookup(f32 linear1) -> u32 {
     Assert(linear1 >= 0.0f && linear1 <= 1.0f);
     i32 index = (i32)(linear1 * 255.0f);
     return linear1_to_srgb255_lut[index];
@@ -211,19 +211,6 @@ inline vec4 srgb255_to_linear1(vec4 color) {
     result.a = inv_255 * color.a;
 
     return result;
-}
-
-inline vec4 linear1_to_srgb255(vec4 color) {
-    vec4 result = {};
-
-    f32 one255 = 255.0f;
-
-    result.r = linear1_to_srgb255_lookup(color.r);
-    result.g = linear1_to_srgb255_lookup(color.g);
-    result.b = linear1_to_srgb255_lookup(color.b);
-    result.a = one255 * color.a;
-
-    return (result);
 }
 
 static void draw_rectangle(OffscreenBuffer* buffer, Rectangle2i rect, f32 r, f32 g, f32 b) {
@@ -592,6 +579,7 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
             if (is_inside) {
 
                 vec4 src_color_l1;
+                color_v8 src_color_l1_v8 = {};
                 if (texture_id == 0) {
                     src_color_l1 = default_color_l1;
                 }
@@ -644,11 +632,12 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
 
                     f32 u_frac = clamp(u - (f32)x0, 0.0f, 1.0f);
                     f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
+
+                    __m256 x0_f32_v8 = _mm256_cvtepi32_ps(x0_v8);
+                    __m256 y0_f32_v8 = _mm256_cvtepi32_ps(y0_v8);
+                    __m256 u_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(u_v8, x0_f32_v8), 1.0f);
+                    __m256 v_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(v_v8, y0_f32_v8), 1.0f);
                     {
-                        __m256 x0_f32_v8 = _mm256_cvtepi32_ps(x0_v8);
-                        __m256 y0_f32_v8 = _mm256_cvtepi32_ps(y0_v8);
-                        __m256 u_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(u_v8, x0_f32_v8), 1.0f);
-                        __m256 v_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(v_v8, y0_f32_v8), 1.0f);
 
                         f32 u_frac_arr[8];
                         _mm256_store_ps(u_frac_arr, u_frac_v8);
@@ -697,21 +686,8 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                     vec4 texel01_l1 = unpack4x8_srgb255_to_linear1(texel01_rgb255_arr[0]);
                     vec4 texel11_l1 = unpack4x8_srgb255_to_linear1(texel11_rgb255_arr[0]);
 
-                    color_v8 texel00_v8;
+                    color_v8 texel00_v8 = get_color(texel00_srgba255_v8, srgb255_to_linear_lut);
                     {
-                        const __m256i maskFF = _mm256_set1_epi32(0x000000FF);
-                        __m256i r_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 16), maskFF);
-                        __m256i g_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 8), maskFF);
-                        __m256i b_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(texel00_srgba255_v8, 0), maskFF);
-                        __m256i a_rgba255_v8 = _mm256_and_si256(_mm256_srli_epi32(texel00_srgba255_v8, 24), maskFF);
-
-                        texel00_v8.r = _mm256_i32gather_ps(srgb255_to_linear_lut, r_idx_v8, sizeof(f32));
-                        texel00_v8.g = _mm256_i32gather_ps(srgb255_to_linear_lut, g_idx_v8, sizeof(f32));
-                        texel00_v8.b = _mm256_i32gather_ps(srgb255_to_linear_lut, b_idx_v8, sizeof(f32));
-
-                        const __m256 inv255 = _mm256_set1_ps(1.0f / 255.0f);
-                        texel00_v8.a = _mm256_mul_ps(_mm256_cvtepi32_ps(a_rgba255_v8), inv255);
-
                         f32 r_arr[8];
                         f32 g_arr[8];
                         f32 b_arr[8];
@@ -725,22 +701,36 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                         texel00_l1 = vec4(r_arr[0], g_arr[0], b_arr[0], a_arr[0]);
                     }
 
+                    color_v8 texel10_v8 = get_color(texel10_srgba255_v8, srgb255_to_linear_lut);
+                    color_v8 texel01_v8 = get_color(texel01_srgba255_v8, srgb255_to_linear_lut);
+                    color_v8 texel11_v8 = get_color(texel11_srgba255_v8, srgb255_to_linear_lut);
+
+                    src_color_l1_v8 = lerp(                      //
+                        lerp(texel00_v8, u_frac_v8, texel10_v8), //
+                        v_frac_v8,                               //
+                        lerp(texel01_v8, u_frac_v8, texel11_v8)  //
+                    );
+
                     src_color_l1 = lerp(                       //
                         lerp(texel00_l1, u_frac, texel10_l1),  //
                         v_frac,                                //
                         lerp(texel01_l1, u_frac, texel11_l1)); //
                 }
 
-                vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
-
                 // Cout = Cf * Af + Cb * (1 - Af)
-                vec4 blended = src_color_l1;
-                if (blended.a < 1.0f) {
-                    blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
-                }
+                // vec4 blended = src_color_l1;
+                // if (blended.a < 1.0f) {
+                //     vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
+                //     blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
+                // }
                 // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
+                //*pixel = pack4x8_linear1_to_srgb255(blended);
 
-                *pixel = pack4x8_linear1_to_srgb255(blended);
+                __m256i pixel_v8 = pack4x8_linear1_to_srgb255(src_color_l1_v8, linear1_to_srgb255_lut);
+                u32 pixel_arr[8];
+                _mm256_storeu_si256((__m256i*)pixel_arr, pixel_v8);
+                //*pixel = pack4x8_linear1_to_srgb255(src_color_l1);
+                *pixel = pixel_arr[0];
             }
             /*u += ds_dx.x;*/
             /*v += ds_dx.y;*/
