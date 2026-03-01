@@ -668,7 +668,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             UI_Generate_Render_Commands(&ui_render_group);
 
             BEGIN_BLOCK("gui_render");
-//            renderer->render(Platform->work_queue, &ui_render_group);
+            renderer->render(Platform->work_queue, &ui_render_group);
             END_BLOCK();
         }
     }

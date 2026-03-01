@@ -213,6 +213,24 @@ inline vec4 srgb255_to_linear1(vec4 color) {
     return result;
 }
 
+inline auto srgb255_to_linear1_2(vec4 color) -> color_v8 {
+    color_v8 result = {};
+
+    f32 inv_255 = 1.0f / 255.0f;
+
+    f32 r = srgb255_to_linear1_lookup(color.r);
+    f32 g = srgb255_to_linear1_lookup(color.g);
+    f32 b = srgb255_to_linear1_lookup(color.b);
+    f32 a = inv_255 * color.a;
+
+    result.r = _mm256_set1_ps(r);
+    result.g = _mm256_set1_ps(g);
+    result.b = _mm256_set1_ps(b);
+    result.a = _mm256_set1_ps(a);
+
+    return result;
+}
+
 static void draw_rectangle(OffscreenBuffer* buffer, Rectangle2i rect, f32 r, f32 g, f32 b) {
     u32 color = (round_f32_to_i32(r * 255.0f) << 16) | (round_f32_to_i32(g * 255.0f) << 8) | (round_f32_to_i32(b * 255.0f));
 
@@ -472,8 +490,7 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
     f32 texel_u_row = (start_x_m * M_c_to_m.xx + start_y_m * M_c_to_m.yx + model_width * 0.5f) * scaled_du + (f32)u_min;
     f32 texel_v_row = (start_x_m * M_c_to_m.xy + start_y_m * M_c_to_m.yy + model_height * 0.5f) * scaled_dv + (f32)v_min;
 
-    vec4 default_color_l1 = srgb255_to_linear1(color);
-
+    color_v8 default_color_l1_v8 = srgb255_to_linear1_2(color);
     for (int y = min_y; y < max_y; y++) {
         /*f32 u = texel_u_row;*/
         /*f32 v = texel_v_row;*/
@@ -487,19 +504,17 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
             u_v8 = _mm256_fmadd_ps(lane, du_dx_v8, u_v8);
             v_v8 = _mm256_fmadd_ps(lane, dv_dx_v8, v_v8);
         }
-        for (int x = min_x; x < max_x; x++) {
-
+        const u32 Lane_Width = 8;
+        for (int x = min_x; x < max_x; x += Lane_Width) {
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
-
-            vec2 camera_point{ (f32)x, (f32)y };
 
             __m256 cp_x_v8 = _mm256_set1_ps((f32)x);
             __m256 incr_v8 = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
             cp_x_v8 = _mm256_add_ps(cp_x_v8, incr_v8);
             __m256 cp_y_v8 = _mm256_set1_ps((f32)y);
 
-            bool is_inside = true;
+            __m256i is_inside_v8 = _mm256_set1_epi32(0xFFFFFFFF);
             if (rotation != 0.0f) {
                 __m256 dot1_v8;
                 // f32 dot1 = dot(camera_point - bl_c, edge1);
@@ -558,185 +573,94 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                     dot4_v8 = dot(x_v8, y_v8, edge4_x_v8, edge4_y_v8);
                 }
                 // is_inside = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
-                const __m256 zero_v8 = _mm256_setzero_ps();
-                __m256 is_inside_v8;
                 {
+                    const __m256 zero_v8 = _mm256_setzero_ps();
                     __m256 is_inside_dot1_v8 = _mm256_cmp_ps(dot1_v8, zero_v8, _CMP_GT_OQ);
                     __m256 is_inside_dot2_v8 = _mm256_cmp_ps(dot2_v8, zero_v8, _CMP_GT_OQ);
                     __m256 is_inside_dot3_v8 = _mm256_cmp_ps(dot3_v8, zero_v8, _CMP_GT_OQ);
                     __m256 is_inside_dot4_v8 = _mm256_cmp_ps(dot4_v8, zero_v8, _CMP_GT_OQ);
 
-                    is_inside_v8 = _mm256_and_ps(is_inside_dot1_v8, is_inside_dot2_v8);
-                    is_inside_v8 = _mm256_and_ps(is_inside_v8, is_inside_dot3_v8);
-                    is_inside_v8 = _mm256_and_ps(is_inside_v8, is_inside_dot4_v8);
-
-                    f32 is_inside_arr[8];
-                    _mm256_storeu_ps(is_inside_arr, is_inside_v8);
-                    is_inside = is_inside_arr[0] > 0.0f;
+                    __m256 is_inside_v8f = _mm256_and_ps(is_inside_dot1_v8, is_inside_dot2_v8);
+                    is_inside_v8f = _mm256_and_ps(is_inside_v8f, is_inside_dot3_v8);
+                    is_inside_v8f = _mm256_and_ps(is_inside_v8f, is_inside_dot4_v8);
+                    is_inside_v8 = _mm256_castps_si256(is_inside_v8f);
                 }
             }
 
-            if (is_inside) {
-
-                vec4 src_color_l1;
-                color_v8 src_color_l1_v8 = {};
-                if (texture_id == 0) {
-                    src_color_l1 = default_color_l1;
-                }
-                else {
-                    f32 u, v;
-                    {
-                        f32 u_arr8[8];
-                        f32 v_arr8[8];
-
-                        _mm256_store_ps(u_arr8, u_v8);
-                        _mm256_store_ps(v_arr8, v_v8);
-
-                        u = u_arr8[0];
-                        v = v_arr8[0];
-                    }
-
-                    __m256i one_v8 = _mm256_set1_epi32(1);
-                    __m256i x0_v8 = _mm256_cvttps_epi32(u_v8);
-                    __m256i y0_v8 = _mm256_cvttps_epi32(v_v8);
-                    __m256i x1_v8 = _mm256_add_epi32(x0_v8, one_v8);
-                    __m256i y1_v8 = _mm256_add_epi32(y0_v8, one_v8);
-
-                    /*i32 x0 = (i32)floor(u);*/
-                    /*i32 y0 = (i32)floor(v);*/
-                    /*i32 x1 = x0 + 1;*/
-                    /*i32 y1 = y0 + 1;*/
-                    i32 x0, y0, x1, y1;
-                    {
-                        x0_v8 = clamp_i32_v8(u_min, x0_v8, u_max);
-                        x1_v8 = clamp_i32_v8(u_min, x1_v8, u_max);
-                        y0_v8 = clamp_i32_v8(v_min, y0_v8, v_max);
-                        y1_v8 = clamp_i32_v8(v_min, y1_v8, v_max);
-
-                        i32 x0_arr8[8];
-                        _mm256_storeu_si256((__m256i*)x0_arr8, x0_v8);
-                        x0 = x0_arr8[0];
-
-                        i32 x1_arr8[8];
-                        _mm256_storeu_si256((__m256i*)x1_arr8, x1_v8);
-                        x1 = x1_arr8[0];
-
-                        i32 y0_arr8[8];
-                        _mm256_storeu_si256((__m256i*)y0_arr8, y0_v8);
-                        y0 = y0_arr8[0];
-
-                        i32 y1_arr8[8];
-                        _mm256_storeu_si256((__m256i*)y1_arr8, y1_v8);
-                        y1 = y1_arr8[0];
-                    }
-
-                    f32 u_frac = clamp(u - (f32)x0, 0.0f, 1.0f);
-                    f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
-
-                    __m256 x0_f32_v8 = _mm256_cvtepi32_ps(x0_v8);
-                    __m256 y0_f32_v8 = _mm256_cvtepi32_ps(y0_v8);
-                    __m256 u_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(u_v8, x0_f32_v8), 1.0f);
-                    __m256 v_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(v_v8, y0_f32_v8), 1.0f);
-                    {
-
-                        f32 u_frac_arr[8];
-                        _mm256_store_ps(u_frac_arr, u_frac_v8);
-                        u_frac = u_frac_arr[0];
-                        f32 v_frac_arr[8];
-                        _mm256_store_ps(v_frac_arr, v_frac_v8);
-                        v_frac = v_frac_arr[0];
-                    }
-
-                    Assert(texture->bytes_per_pixel == 4);
-                    u32* data = (u32*)state.textures[texture_id].data;
-                    // Bilinear filtering
-
-                    /*vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));*/
-                    /*vec4 texel10_l1 =*/
-                    /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));*/
-                    /*vec4 texel01_l1 =*/
-                    /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));*/
-                    /*vec4 texel11_l1 =*/
-                    /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));*/
-
-                    __m256i width_v8 = _mm256_set1_epi32(texture->width);
-
-                    __m256i texel_idx_00_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y0_v8, width_v8));
-                    __m256i texel_idx_10_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y0_v8, width_v8));
-                    __m256i texel_idx_01_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y1_v8, width_v8));
-                    __m256i texel_idx_11_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y1_v8, width_v8));
-
-                    __m256i texel00_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_00_v8, sizeof(u32));
-                    __m256i texel01_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_01_v8, sizeof(u32));
-                    __m256i texel10_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_10_v8, sizeof(u32));
-                    __m256i texel11_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_11_v8, sizeof(u32));
-
-                    u32 texel00_rgb255_arr[8];
-                    u32 texel01_rgb255_arr[8];
-                    u32 texel10_rgb255_arr[8];
-                    u32 texel11_rgb255_arr[8];
-
-                    _mm256_storeu_si256((__m256i*)texel00_rgb255_arr, texel00_srgba255_v8);
-                    _mm256_storeu_si256((__m256i*)texel10_rgb255_arr, texel10_srgba255_v8);
-                    _mm256_storeu_si256((__m256i*)texel01_rgb255_arr, texel01_srgba255_v8);
-                    _mm256_storeu_si256((__m256i*)texel11_rgb255_arr, texel11_srgba255_v8);
-
-                    vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(texel00_rgb255_arr[0]);
-                    vec4 texel10_l1 = unpack4x8_srgb255_to_linear1(texel10_rgb255_arr[0]);
-                    vec4 texel01_l1 = unpack4x8_srgb255_to_linear1(texel01_rgb255_arr[0]);
-                    vec4 texel11_l1 = unpack4x8_srgb255_to_linear1(texel11_rgb255_arr[0]);
-
-                    color_v8 texel00_v8 = get_color(texel00_srgba255_v8, srgb255_to_linear_lut);
-                    {
-                        f32 r_arr[8];
-                        f32 g_arr[8];
-                        f32 b_arr[8];
-                        f32 a_arr[8];
-
-                        _mm256_storeu_ps(r_arr, texel00_v8.r);
-                        _mm256_storeu_ps(g_arr, texel00_v8.g);
-                        _mm256_storeu_ps(b_arr, texel00_v8.b);
-                        _mm256_storeu_ps(a_arr, texel00_v8.a);
-
-                        texel00_l1 = vec4(r_arr[0], g_arr[0], b_arr[0], a_arr[0]);
-                    }
-
-                    color_v8 texel10_v8 = get_color(texel10_srgba255_v8, srgb255_to_linear_lut);
-                    color_v8 texel01_v8 = get_color(texel01_srgba255_v8, srgb255_to_linear_lut);
-                    color_v8 texel11_v8 = get_color(texel11_srgba255_v8, srgb255_to_linear_lut);
-
-                    src_color_l1_v8 = lerp(                      //
-                        lerp(texel00_v8, u_frac_v8, texel10_v8), //
-                        v_frac_v8,                               //
-                        lerp(texel01_v8, u_frac_v8, texel11_v8)  //
-                    );
-
-                    src_color_l1 = lerp(                       //
-                        lerp(texel00_l1, u_frac, texel10_l1),  //
-                        v_frac,                                //
-                        lerp(texel01_l1, u_frac, texel11_l1)); //
-                }
-
-                // Cout = Cf * Af + Cb * (1 - Af)
-                // vec4 blended = src_color_l1;
-                // if (blended.a < 1.0f) {
-                //     vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
-                //     blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
-                // }
-                // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
-                //*pixel = pack4x8_linear1_to_srgb255(blended);
-
-                __m256i pixel_v8 = pack4x8_linear1_to_srgb255(src_color_l1_v8, linear1_to_srgb255_lut);
-                u32 pixel_arr[8];
-                _mm256_storeu_si256((__m256i*)pixel_arr, pixel_v8);
-                //*pixel = pack4x8_linear1_to_srgb255(src_color_l1);
-                *pixel = pixel_arr[0];
+            color_v8 src_color_l1_v8 = {};
+            if (texture_id == 0) {
+                src_color_l1_v8 = default_color_l1_v8;
             }
+            else {
+                __m256i one_v8 = _mm256_set1_epi32(1);
+                __m256i x0_v8 = _mm256_cvttps_epi32(u_v8);
+                __m256i y0_v8 = _mm256_cvttps_epi32(v_v8);
+                __m256i x1_v8 = _mm256_add_epi32(x0_v8, one_v8);
+                __m256i y1_v8 = _mm256_add_epi32(y0_v8, one_v8);
+                x0_v8 = clamp_i32_v8(u_min, x0_v8, u_max);
+                x1_v8 = clamp_i32_v8(u_min, x1_v8, u_max);
+                y0_v8 = clamp_i32_v8(v_min, y0_v8, v_max);
+                y1_v8 = clamp_i32_v8(v_min, y1_v8, v_max);
+
+                __m256 x0_f32_v8 = _mm256_cvtepi32_ps(x0_v8);
+                __m256 y0_f32_v8 = _mm256_cvtepi32_ps(y0_v8);
+                __m256 u_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(u_v8, x0_f32_v8), 1.0f);
+                __m256 v_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(v_v8, y0_f32_v8), 1.0f);
+
+                Assert(texture->bytes_per_pixel == 4);
+                u32* data = (u32*)state.textures[texture_id].data;
+                // Bilinear filtering
+
+                /*vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));*/
+                /*vec4 texel10_l1 =*/
+                /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));*/
+                /*vec4 texel01_l1 =*/
+                /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));*/
+                /*vec4 texel11_l1 =*/
+                /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));*/
+
+                __m256i width_v8 = _mm256_set1_epi32(texture->width);
+
+                __m256i texel_idx_00_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y0_v8, width_v8));
+                __m256i texel_idx_10_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y0_v8, width_v8));
+                __m256i texel_idx_01_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y1_v8, width_v8));
+                __m256i texel_idx_11_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y1_v8, width_v8));
+
+                __m256i texel00_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_00_v8, sizeof(u32));
+                __m256i texel01_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_01_v8, sizeof(u32));
+                __m256i texel10_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_10_v8, sizeof(u32));
+                __m256i texel11_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_11_v8, sizeof(u32));
+
+                color_v8 texel00_v8 = get_color(texel00_srgba255_v8, srgb255_to_linear_lut);
+                color_v8 texel10_v8 = get_color(texel10_srgba255_v8, srgb255_to_linear_lut);
+                color_v8 texel01_v8 = get_color(texel01_srgba255_v8, srgb255_to_linear_lut);
+                color_v8 texel11_v8 = get_color(texel11_srgba255_v8, srgb255_to_linear_lut);
+
+                src_color_l1_v8 = lerp(                      //
+                    lerp(texel00_v8, u_frac_v8, texel10_v8), //
+                    v_frac_v8,                               //
+                    lerp(texel01_v8, u_frac_v8, texel11_v8)  //
+                );
+            }
+
+            // Cout = Cf * Af + Cb * (1 - Af)
+            // vec4 blended = src_color_l1;
+            // if (blended.a < 1.0f) {
+            //     vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
+            //     blended = src_color_l1 * src_color_l1.a + (dest_l1 * (1.0f - src_color_l1.a));
+            // }
+            // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
+            //*pixel = pack4x8_linear1_to_srgb255(blended);
+
+            __m256i pixel_v8 = pack4x8_linear1_to_srgb255(src_color_l1_v8, linear1_to_srgb255_lut);
+            _mm256_storeu_si256((__m256i*)pixel, pixel_v8);
+            //*pixel = pack4x8_linear1_to_srgb255(src_color_l1);
+
             /*u += ds_dx.x;*/
             /*v += ds_dx.y;*/
             {
-                __m256 du_dx_v8 = _mm256_set1_ps(ds_dx.x);
-                __m256 dv_dx_v8 = _mm256_set1_ps(ds_dx.y);
+                __m256 du_dx_v8 = _mm256_set1_ps(Lane_Width * ds_dx.x);
+                __m256 dv_dx_v8 = _mm256_set1_ps(Lane_Width * ds_dx.y);
                 u_v8 = _mm256_add_ps(u_v8, du_dx_v8);
                 v_v8 = _mm256_add_ps(v_v8, dv_dx_v8);
             }
