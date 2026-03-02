@@ -517,7 +517,6 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
             __m256i is_inside_v8 = _mm256_set1_epi32(0xFFFFFFFF);
             if (rotation != 0.0f) {
                 __m256 dot1_v8;
-                // f32 dot1 = dot(camera_point - bl_c, edge1);
                 {
                     __m256 x_v8 = _mm256_set1_ps(bl_c.x);
                     __m256 y_v8 = _mm256_set1_ps(bl_c.y);
@@ -530,7 +529,6 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
 
                     dot1_v8 = dot(x_v8, y_v8, edge1_x_v8, edge1_y_v8);
                 }
-                // f32 dot2 = dot(camera_point - tl_c, edge2);
                 __m256 dot2_v8;
                 {
                     __m256 x_v8 = _mm256_set1_ps(tl_c.x);
@@ -544,7 +542,6 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
 
                     dot2_v8 = dot(x_v8, y_v8, edge2_x_v8, edge2_y_v8);
                 }
-                // f32 dot3 = dot(camera_point - tr_c, edge3);
                 __m256 dot3_v8;
                 {
                     __m256 x_v8 = _mm256_set1_ps(tr_c.x);
@@ -558,7 +555,6 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
 
                     dot3_v8 = dot(x_v8, y_v8, edge3_x_v8, edge3_y_v8);
                 }
-                // f32 dot4 = dot(camera_point - br_c, edge4);
                 __m256 dot4_v8;
                 {
                     __m256 x_v8 = _mm256_set1_ps(br_c.x);
@@ -645,6 +641,7 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
 
             __m256i destination_v8 = _mm256_load_si256((const __m256i*)pixel);
             color_v8 destination_color_v8 = get_color(destination_v8, srgb255_to_linear_lut);
+            destination_color_v8.a = _mm256_and_ps(destination_color_v8.a, _mm256_castps_si256(is_inside_v8));
             color_v8 blended_v8 = blend_color_v8(destination_color_v8, src_color_l1_v8);
 
             __m256i pixel_v8 = pack4x8_linear1_to_srgb255(blended_v8, linear1_to_srgb255_lut);
