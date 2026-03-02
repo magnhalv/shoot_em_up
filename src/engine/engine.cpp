@@ -590,6 +590,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
 
                     i32 block_idx = 0;
+                    i32 num_hover_windows = 0;
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
                         PrintEventNode* node = &debug_nodes[thread_node->first_kid_idx];
@@ -614,14 +615,15 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                                     f32 ms = full_frame_duration_ms * block_fraction;
 
-                                    string8 box_id =
-                                        string8_format(g_transient, "%s_thread_idx_%d_profile_box", node->GUID, thread_idx);
+                                    string8 box_id = string8_format(g_transient, "%s_thread_idx_%d_profile_box_%d",
+                                        node->GUID, thread_idx, block_idx);
                                     UI_Entity_Status box =
                                         UI_Box(box_id.data, UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f));
                                     if (box.first_hovered) {
                                         printf("GUID: %s, thread idx: %d\n", node->GUID, thread_idx);
                                     }
                                     if (box.hovered) {
+                                        num_hover_windows++;
                                         vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);
                                         UI_PushStyleBackgroundColor(hover_background_color);
                                         UI_PushStyleZIndex(9000);
@@ -649,6 +651,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                         thread_node = &debug_nodes[thread_node->next_sib_idx];
                     }
+                    printf("Num hover windows: %d\n", num_hover_windows);
                 }
                 UI_PopStyleFlexDirection();
                 UI_PopStyleBackgroundColor();

@@ -509,13 +509,13 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
-            __m256 cp_x_v8 = _mm256_set1_ps((f32)x);
-            __m256 incr_v8 = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
-            cp_x_v8 = _mm256_add_ps(cp_x_v8, incr_v8);
-            __m256 cp_y_v8 = _mm256_set1_ps((f32)y);
-
             __m256i is_inside_v8 = _mm256_set1_epi32(0xFFFFFFFF);
             if (rotation != 0.0f) {
+                __m256 cp_x_v8 = _mm256_set1_ps((f32)x);
+                __m256 incr_v8 = _mm256_setr_ps(0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f);
+                cp_x_v8 = _mm256_add_ps(cp_x_v8, incr_v8);
+                __m256 cp_y_v8 = _mm256_set1_ps((f32)y);
+
                 __m256 dot1_v8;
                 {
                     __m256 x_v8 = _mm256_set1_ps(bl_c.x);
@@ -589,8 +589,8 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
             }
             else {
                 __m256i one_v8 = _mm256_set1_epi32(1);
-                __m256i x0_v8 = _mm256_cvttps_epi32(u_v8);
-                __m256i y0_v8 = _mm256_cvttps_epi32(v_v8);
+                __m256i x0_v8 = _mm256_cvttps_epi32(_mm256_floor_ps(u_v8));
+                __m256i y0_v8 = _mm256_cvttps_epi32(_mm256_floor_ps(v_v8));
                 __m256i x1_v8 = _mm256_add_epi32(x0_v8, one_v8);
                 __m256i y1_v8 = _mm256_add_epi32(y0_v8, one_v8);
                 x0_v8 = clamp_i32_v8(u_min, x0_v8, u_max);
@@ -639,13 +639,25 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                 );
             }
 
-            __m256i destination_v8 = _mm256_load_si256((const __m256i*)pixel);
+            __m256i destination_v8 = _mm256_loadu_si256((const __m256i*)pixel);
             color_v8 destination_color_v8 = get_color(destination_v8, srgb255_to_linear_lut);
-            destination_color_v8.a = _mm256_and_ps(destination_color_v8.a, _mm256_castps_si256(is_inside_v8));
             color_v8 blended_v8 = blend_color_v8(destination_color_v8, src_color_l1_v8);
 
-            __m256i pixel_v8 = pack4x8_linear1_to_srgb255(blended_v8, linear1_to_srgb255_lut);
-            _mm256_storeu_si256((__m256i*)pixel, pixel_v8);
+            __m256i pixel_v8 = pack4x8_linear1_to_srgb255(blended_v8);
+            __m256i result_v8 = _mm256_blendv_epi8(destination_v8, pixel_v8, is_inside_v8);
+
+            i32 lanes_remaining = hm::min(max_x - x, (i32)Lane_Width);
+            if (lanes_remaining < (i32)Lane_Width) {
+                // build a partial mask and use _mm256_maskstore_epi32
+                i32 partial_mask[8] = {};
+                for (i32 i = 0; i < lanes_remaining; i++)
+                    partial_mask[i] = 0xFFFFFFFF;
+                __m256i store_mask = _mm256_loadu_si256((__m256i*)partial_mask);
+                _mm256_maskstore_epi32((i32*)pixel, store_mask, pixel_v8);
+            }
+            else {
+                _mm256_storeu_si256((__m256i*)pixel, result_v8);
+            }
 
             {
                 __m256 du_dx_v8 = _mm256_set1_ps(Lane_Width * ds_dx.x);
@@ -817,7 +829,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
     i32 tile_width = commands->screen_width / tile_count_x;
     i32 tile_height = commands->screen_height / tile_count_y;
 
-    const i32 sse_width = 4;
+    const i32 sse_width = 8;
     tile_width = ((tile_width + (sse_width - 1)) / sse_width) * sse_width;
 
     RenderTileJob render_tile_jobs[tile_count_x * tile_count_y];

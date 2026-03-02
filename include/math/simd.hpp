@@ -63,24 +63,27 @@ auto inline lerp(color_v8 A, __m256 t_v8, color_v8 B) -> color_v8 {
     return result;
 }
 
-inline auto pack4x8_linear1_to_srgb255(color_v8 color, u32* linear1_to_srgb255_lut) -> __m256i {
-    // NOTE: Not safe if r, g, b, a is NOT [0.0, 1.0f]
-    __m256 N255 = _mm256_set1_ps(255.0f);
-    __m256i r_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.r, N255));
-    __m256i g_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.g, N255));
-    __m256i b_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.b, N255));
-    __m256i a_idx_v8 = _mm256_cvtps_epi32(_mm256_mul_ps(color.a, N255));
+inline auto pack4x8_linear1_to_srgb255(color_v8 color) -> __m256i {
+    const __m256 zero = _mm256_setzero_ps();
+    const __m256 one = _mm256_set1_ps(1.0f);
+    const __m256 n255 = _mm256_set1_ps(255.0f);
 
-    __m256i r = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, r_idx_v8, sizeof(u32));
-    __m256i g = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, g_idx_v8, sizeof(u32));
-    __m256i b = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, b_idx_v8, sizeof(u32));
-    __m256i a = _mm256_i32gather_epi32((const i32*)linear1_to_srgb255_lut, a_idx_v8, sizeof(u32));
+    // Clamp to [0,1] before sqrt to avoid NaN from negative values
+    __m256 r = _mm256_min_ps(_mm256_max_ps(color.r, zero), one);
+    __m256 g = _mm256_min_ps(_mm256_max_ps(color.g, zero), one);
+    __m256 b = _mm256_min_ps(_mm256_max_ps(color.b, zero), one);
+    __m256 a = _mm256_min_ps(_mm256_max_ps(color.a, zero), one);
 
-    __m256i result = _mm256_or_si256(                                        //
-        _mm256_or_si256(_mm256_slli_epi32(a, 24), _mm256_slli_epi32(r, 16)), //
-        _mm256_or_si256(_mm256_slli_epi32(g, 8), b)                          //
+    // sqrt approximates linear->sRGB gamma (1/2.0 vs exact 1/2.2, good enough)
+    __m256i ri = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_sqrt_ps(r), n255));
+    __m256i gi = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_sqrt_ps(g), n255));
+    __m256i bi = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_sqrt_ps(b), n255));
+    __m256i ai = _mm256_cvtps_epi32(_mm256_mul_ps(a, n255)); // alpha is linear
+
+    __m256i result = _mm256_or_si256(                                          //
+        _mm256_or_si256(_mm256_slli_epi32(ai, 24), _mm256_slli_epi32(ri, 16)), //
+        _mm256_or_si256(_mm256_slli_epi32(gi, 8), bi)                          //
     );
-
     return result;
 }
 
@@ -101,18 +104,18 @@ auto inline blend_color_v8(color_v8 dest, color_v8 src) -> color_v8 {
     return blended;
 }
 auto inline get_color(__m256i packed_color_v8, f32* srgb255_to_linear_lut) -> color_v8 {
-    const __m256i maskFF = _mm256_set1_epi32(0x000000FF);
-    __m256i r_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(packed_color_v8, 16), maskFF);
-    __m256i g_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(packed_color_v8, 8), maskFF);
-    __m256i b_idx_v8 = _mm256_and_epi32(_mm256_srli_epi32(packed_color_v8, 0), maskFF);
-    __m256i a_rgba255_v8 = _mm256_and_si256(_mm256_srli_epi32(packed_color_v8, 24), maskFF);
+    const __m256i maskFF = _mm256_set1_epi32(0xFF);
+    const __m256 inv255 = _mm256_set1_ps(1.0f / 255.0f);
+
+    __m256 r = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(_mm256_srli_epi32(packed_color_v8, 16), maskFF)), inv255);
+    __m256 g = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(_mm256_srli_epi32(packed_color_v8, 8), maskFF)), inv255);
+    __m256 b = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_and_si256(packed_color_v8, maskFF)), inv255);
+    __m256 a = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_srli_epi32(packed_color_v8, 24)), inv255);
 
     color_v8 result;
-    result.r = _mm256_i32gather_ps(srgb255_to_linear_lut, r_idx_v8, sizeof(f32));
-    result.g = _mm256_i32gather_ps(srgb255_to_linear_lut, g_idx_v8, sizeof(f32));
-    result.b = _mm256_i32gather_ps(srgb255_to_linear_lut, b_idx_v8, sizeof(f32));
-
-    const __m256 inv255 = _mm256_set1_ps(1.0f / 255.0f);
-    result.a = _mm256_mul_ps(_mm256_cvtepi32_ps(a_rgba255_v8), inv255);
+    result.r = _mm256_mul_ps(r, r); // gamma 2.0 approximation
+    result.g = _mm256_mul_ps(g, g);
+    result.b = _mm256_mul_ps(b, b);
+    result.a = a; // alpha is linear
     return result;
 }
