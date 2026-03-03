@@ -509,14 +509,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 vec4 background_color = vec4(29.0f, 32.0f, 75.0f, 180.0f);
                 vec4 title_background_color = vec4(20.0f, 120.0f, 20.0f, 255.0f);
                 vec4 red = vec4(120.0f, 20.0f, 20.0f, 255.0f);
-                UI_PushStyleBackgroundColor(background_color);
-                UI_PushStyleFlexDirection(UI_FlexDirection_Row);
+                UI_ScopedBackgroundColor(background_color);
+                UI_ScopedFlexDirection(UI_FlexDirection_Row);
+                UI_ScopedPadding({ 10.0f });
                 UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(500.0f)) {
                     UI_Text("Frame profiling");
                     {
                         vec4 grey = vec4(127.0f, 127.0f, 127.0f, 255.0f);
                         vec4 white = vec4(230.0f, 230.0f, 230.0f, 255.0f);
-                        UI_PushStyleFlexDirection(UI_FlexDirection_Column);
+                        UI_ScopedPadding({ 0.0f });
+                        UI_ScopedFlexDirection(UI_FlexDirection_Column);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                             for (u32 frame_idx = 0; frame_idx < Historic_Frame_Count; frame_idx++) {
                                 vec4 color = frame_idx % 2 == 0 ? grey : white;
@@ -542,7 +544,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     color = vec4(10.0f, 127.0f, 20.0f, 255.0f);
                                 }
                                 string8 id = string8_format(g_transient, "frame_block_%d", frame_idx);
-                                UI_PushStyleBackgroundColor(color);
+                                UI_ScopedBackgroundColor(color);
                                 /*if (UI_Box(id, UI_Grow(1.0f), UI_Grow(1.0f)).click_released) {*/
                                 /*    if (debug_state->current_inspecting_frame =frame_idx i) {*/
                                 /*        debug_state->current_inspecting_frame = u64_max;*/
@@ -552,7 +554,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 /*    }*/
                                 /*}*/
 
-                                UI_PushStyleFlexDirection(UI_FlexDirection_Row);
+                                UI_ScopedFlexDirection(UI_FlexDirection_Row);
                                 UI_WindowFull(id, {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                     string8 id1 = string8_format(g_transient, "frame_block_1_%d", frame_idx);
                                     string8 id2 = string8_format(g_transient, "frame_block_2_%d", frame_idx);
@@ -561,16 +563,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         vec4 green2 = vec4(10.0f, 127.0f, 20.0f, 255.0f);
                                         vec4 red2 = vec4(120.0f, 20.0f, 20.0f, 255.0f);
                                         vec4 fraction_color = lerp(green2, fraction, red2);
-                                        UI_PushStyleBackgroundColor(fraction_color);
+                                        UI_ScopedBackgroundColor(fraction_color);
                                         UI_Box(id2, UI_Grow(1.0f), UI_PercentOfParent(fraction));
-                                        UI_PopStyleBackgroundColor();
                                     }
                                 }
-                                UI_PopStyleFlexDirection();
-                                UI_PopStyleBackgroundColor();
                             }
                         }
-                        UI_PopStyleFlexDirection();
                     }
 
                     u64 frame_to_inspect = debug_state->current_inspecting_frame == u64_max ?
@@ -590,11 +588,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
 
                     i32 block_idx = 0;
-                    i32 num_hover_windows = 0;
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
                         PrintEventNode* node = &debug_nodes[thread_node->first_kid_idx];
-                        UI_PushStyleBackgroundColor(red);
+                        UI_ScopedBackgroundColor(red);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                             if (thread_idx == 0) {
                                 UI_Text(string8_format(g_transient, "Main thread (%d):", thread_node->value_u32));
@@ -603,11 +600,11 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 UI_Text(string8_format(g_transient, "Thread %d (%d):", thread_idx, thread_node->value_u32));
                             }
 
-                            UI_PushStyleBackgroundColor(title_background_color);
-                            UI_PushStyleFlexDirection(UI_FlexDirection_Column);
+                            UI_ScopedBackgroundColor(title_background_color);
+                            UI_ScopedFlexDirection(UI_FlexDirection_Column);
                             UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                 while (node->kind != PrintDebugEventType_Nil) {
-                                    UI_PushStyleBackgroundColor(global_color_palette[block_idx % Global_Color_Palette_Count]);
+                                    UI_ScopedBackgroundColor(global_color_palette[block_idx % Global_Color_Palette_Count]);
 
                                     u64 node_cycle_count = node->clock_end - node->clock_start;
                                     Assert(frame_cycle_count > node_cycle_count);
@@ -623,39 +620,27 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         printf("GUID: %s, thread idx: %d\n", node->GUID, thread_idx);
                                     }
                                     if (box.hovered) {
-                                        num_hover_windows++;
                                         vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);
-                                        UI_PushStyleBackgroundColor(hover_background_color);
-                                        UI_PushStyleZIndex(9000);
-                                        UI_PushStyleFlexDirection(UI_FlexDirection_Row);
+                                        UI_ScopedPadding({ 5.0f });
+                                        UI_ScopedBackgroundColor(hover_background_color);
+                                        UI_ScopedZIndex(9000);
+                                        UI_ScopedFlexDirection(UI_FlexDirection_Row);
+
                                         UI_Window("Hover window", UI_Fixed((f32)mouse->client_x + 5.0f),
                                             UI_Fixed((f32)mouse->client_y + 15.0f)) {
                                             UI_Text(node->GUID);
                                             UI_Text(string8_format(g_transient, "Fraction: %.2f", block_fraction));
                                             UI_Text(string8_format(g_transient, "%.2f ms", ms));
                                         }
-                                        UI_PopStyleFlexDirection();
-                                        UI_PopStyleZIndex();
-                                        UI_PopStyleBackgroundColor();
                                     }
                                     block_idx++;
                                     node = &debug_nodes[node->next_sib_idx];
-
-                                    UI_PopStyleBackgroundColor();
                                 }
                             }
-                            UI_PopStyleFlexDirection();
-                            UI_PopStyleBackgroundColor();
                         }
-                        UI_PopStyleBackgroundColor();
-
                         thread_node = &debug_nodes[thread_node->next_sib_idx];
                     }
-                    printf("Num hover windows: %d\n", num_hover_windows);
                 }
-                UI_PopStyleFlexDirection();
-                UI_PopStyleBackgroundColor();
-
                 UI_End();
             }
 

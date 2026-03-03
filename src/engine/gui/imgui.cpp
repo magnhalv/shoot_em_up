@@ -555,16 +555,8 @@ auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {
         entity->parent->last = entity;
     }
 
-    entity->margin[UI_Direction_Up] = 0;
-    entity->margin[UI_Direction_Right] = 0;
-    entity->margin[UI_Direction_Down] = 0;
-    entity->margin[UI_Direction_Left] = 0;
-
-    entity->padding[UI_Direction_Up] = 0;
-    entity->padding[UI_Direction_Right] = 0;
-    entity->padding[UI_Direction_Down] = 0;
-    entity->padding[UI_Direction_Left] = 0;
-
+    entity->margin = global_context->style->margin;
+    entity->padding = global_context->style->padding;
     entity->background_color = global_context->style->background_color;
 
     entity->semantic_position[Axis2_X] = x;
@@ -606,10 +598,6 @@ auto UI_PushWindow(string8 text, UI_Position x, UI_Position y, UI_Size width, UI
     UI_Entity_Status status;
     make_element(window, &status, x, y, width, height);
     global_context->state()->parents.push(window);
-}
-
-auto get_y(f32 y, i32 client_height, UI_Direction direction) -> f32 {
-    return direction == UI_Direction_Up ? y : (f32)client_height - y;
 }
 
 auto UI_PopWindow() -> void {
@@ -759,4 +747,22 @@ auto UI_PushStyleFlexDirection(UI_FlexDirection direction) -> void {
 auto UI_PopStyleFlexDirection() -> void {
     global_context->style->flex_direction = *global_context->style_overrides.flex_direction.last();
     global_context->style_overrides.flex_direction.pop();
+}
+
+auto UI_PushStyleMargin(UI_EdgeInsets margin) -> void {
+    global_context->style_overrides.margin.push(global_context->style->margin);
+    global_context->style->margin = margin;
+}
+auto UI_PopStyleMargin() -> void {
+    global_context->style->margin = *global_context->style_overrides.margin.last();
+    global_context->style_overrides.margin.pop();
+}
+
+auto UI_PushStylePadding(UI_EdgeInsets padding) -> void {
+    global_context->style_overrides.padding.push(global_context->style->padding);
+    global_context->style->padding = padding;
+}
+auto UI_PopStylePadding() -> void {
+    global_context->style->padding = *global_context->style_overrides.padding.last();
+    global_context->style_overrides.padding.pop();
 }

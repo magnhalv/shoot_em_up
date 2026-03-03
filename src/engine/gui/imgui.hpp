@@ -15,7 +15,60 @@
 
 #include <renderers/renderer.h>
 
-enum UI_Direction { UI_Direction_Up = 0, UI_Direction_Right, UI_Direction_Down, UI_Direction_Left, UI_Direction_Count };
+enum UI_Direction : u8 {
+    UI_Direction_Up = 0,
+    UI_Direction_Right,
+    UI_Direction_Down,
+    UI_Direction_Left,
+    UI_Direction_Count
+};
+
+struct UI_EdgeInsets {
+    union {
+        f32 values[4];
+        struct {
+            f32 up;
+            f32 right;
+            f32 down;
+            f32 left;
+        };
+    };
+
+    UI_EdgeInsets() {
+        values[0] = 0;
+        values[1] = 0;
+        values[2] = 0;
+        values[3] = 0;
+    }
+
+    UI_EdgeInsets(f32 value) {
+        values[0] = value;
+        values[1] = value;
+        values[2] = value;
+        values[3] = value;
+    }
+
+    UI_EdgeInsets(f32 vertical, f32 horizional) {
+        up = vertical;
+        down = vertical;
+        left = horizional;
+        right = horizional;
+    }
+
+    UI_EdgeInsets(f32 _up, f32 _right, f32 _down, f32 _left) {
+        up = _up;
+        right = _right;
+        down = _down;
+        left = _left;
+    }
+
+    f32& operator[](UI_Direction index) {
+        return values[index];
+    }
+    const f32& operator[](UI_Direction index) const {
+        return values[index];
+    }
+};
 
 struct UI_Layout {
     UI_Direction layout_direction;
@@ -132,8 +185,8 @@ struct UI_Entity {
     UI_Size semantic_size[Axis2_Count];
     f32 computed_size[Axis2_Count];
 
-    f32 margin[UI_Direction_Count];
-    f32 padding[UI_Direction_Count];
+    UI_EdgeInsets margin;
+    UI_EdgeInsets padding;
 
     UI_FlexDirection flex_direction;
     UI_Position semantic_position[Axis2_Count];
@@ -171,6 +224,8 @@ struct UI_StyleOverrides {
     StackList<UI_Direction, UI_Max_Style_Depth> layout_direction;
     StackList<i32, UI_Max_Style_Depth> z_index;
     StackList<UI_FlexDirection, UI_Max_Style_Depth> flex_direction;
+    StackList<UI_EdgeInsets, UI_Max_Style_Depth> margin;
+    StackList<UI_EdgeInsets, UI_Max_Style_Depth> padding;
 };
 
 struct UI_Style {
@@ -179,6 +234,8 @@ struct UI_Style {
     UI_Size height;
     i32 z_index;
     UI_FlexDirection flex_direction;
+    UI_EdgeInsets margin;
+    UI_EdgeInsets padding;
 };
 
 inline UI_Style default_style = {  //
@@ -194,7 +251,9 @@ inline UI_Style default_style = {  //
         .strictness = 0.0,
     },
     .z_index = -1,
-    .flex_direction = UI_FlexDirection_Row
+    .flex_direction = UI_FlexDirection_Row,
+    .margin = {},
+    .padding = {},
 };
 
 struct UI_Context {
@@ -247,17 +306,45 @@ auto UI_Text(string8 text) -> UI_Entity_Status;
 // Styling
 auto UI_PushStyleSize(UI_Size* x, UI_Size* y) -> void;
 auto UI_PopStyleSize() -> void;
+
 auto UI_PushStyleZIndex(i32 z_index) -> void;
 auto UI_PopStyleZIndex() -> void;
+
 auto UI_PushStyleBackgroundColor(vec4 color) -> void;
 auto UI_PopStyleBackgroundColor() -> void;
+
 auto UI_PushStyleFlexDirection(UI_FlexDirection direction) -> void;
 auto UI_PopStyleFlexDirection() -> void;
+
+auto UI_PushStyleMargin(UI_EdgeInsets margin) -> void;
+auto UI_PopStyleMargin() -> void;
+
+auto UI_PushStylePadding(UI_EdgeInsets padding) -> void;
+auto UI_PopStylePadding() -> void;
 
 auto UI_Generate_Render_Commands(RenderCommands* render_group) -> void;
 
 #define UI_SetSize(size_x, size_y) DeferLoop(UI_PushStyleSize(size_x, size_y), UI_PopStyleSize())
 #define UI_Window(text, x, y) DeferLoop(UI_PushWindow(text, x, y), UI_PopWindow())
 #define UI_WindowFull(text, x, y, width, height) DeferLoop(UI_PushWindow(text, x, y, width, height), UI_PopWindow())
+
+#define UI_ScopedSize(x, y) \
+    UI_PushStyleSize(x, y); \
+    Defer({ UI_PopStyleSize(); });
+#define UI_ScopedZIndex(z_index) \
+    UI_PushStyleZIndex(z_index); \
+    Defer({ UI_PopStyleZIndex(); });
+#define UI_ScopedBackgroundColor(background_color) \
+    UI_PushStyleBackgroundColor(background_color); \
+    Defer({ UI_PopStyleBackgroundColor(); });
+#define UI_ScopedFlexDirection(flex_direction) \
+    UI_PushStyleFlexDirection(flex_direction); \
+    Defer({ UI_PopStyleFlexDirection(); });
+#define UI_ScopedMargin(margin) \
+    UI_PushStyleMargin(margin); \
+    Defer({ UI_PopStyleMargin(); });
+#define UI_ScopedPadding(padding) \
+    UI_PushStylePadding(padding); \
+    Defer({ UI_PopStylePadding(); });
 
 #endif
