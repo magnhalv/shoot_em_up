@@ -10,8 +10,6 @@ template <typename F> struct scope_exit : F {
     ~scope_exit() {
         static_cast<F&>(*this)();
     }
-    // scope_exit(scope_exit const&) = delete;
-    scope_exit& operator=(scope_exit const&) = delete;
 };
 
 #define Defer(...)                                         \

@@ -516,7 +516,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     UI_Text("Frame profiling");
                     {
                         vec4 grey = vec4(127.0f, 127.0f, 127.0f, 255.0f);
-                        vec4 white = vec4(230.0f, 230.0f, 230.0f, 255.0f);
+                        vec4 white = vec4(200.0f, 200.0f, 200.0f, 255.0f);
                         UI_ScopedPadding({ 0.0f });
                         UI_ScopedFlexDirection(UI_FlexDirection_Column);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
@@ -532,7 +532,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     // TODO: This is not correct, should divide by TARGET frame duration
                                     fraction = frame_duration_before_sleep_ms / full_frame_duration_ms;
                                 }
-                                fraction = 0.8f;
+                                // fraction = 0.8f;
 
                                 if (frame_idx == debug_state->current_inspecting_frame) {
                                     color = vec4(10.0f, 127.0f, 127.0f, 255.0f);
@@ -558,13 +558,22 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 UI_WindowFull(id, {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                     string8 id1 = string8_format(g_transient, "frame_block_1_%d", frame_idx);
                                     string8 id2 = string8_format(g_transient, "frame_block_2_%d", frame_idx);
-                                    UI_Box(id1, UI_Grow(1.0f), UI_PercentOfParent(1.0f - fraction));
+                                    bool click_released =
+                                        UI_Box(id1, UI_Grow(1.0f), UI_PercentOfParent(1.0f - fraction)).click_released;
                                     if (fraction > 0.0f) {
-                                        vec4 green2 = vec4(10.0f, 127.0f, 20.0f, 255.0f);
-                                        vec4 red2 = vec4(120.0f, 20.0f, 20.0f, 255.0f);
-                                        vec4 fraction_color = lerp(green2, fraction, red2);
+                                        vec4 blue2 = vec4(10.0f, 50.0f, 200.0f, 255.0f);
+                                        vec4 fraction_color = lerp(blue2, 0.5f, color);
                                         UI_ScopedBackgroundColor(fraction_color);
-                                        UI_Box(id2, UI_Grow(1.0f), UI_PercentOfParent(fraction));
+                                        click_released = click_released ||
+                                            UI_Box(id2, UI_Grow(1.0f), UI_PercentOfParent(fraction)).click_released;
+                                    }
+                                    if (click_released) {
+                                        if (debug_state->current_inspecting_frame == frame_idx) {
+                                            debug_state->current_inspecting_frame = u64_max;
+                                        }
+                                        else {
+                                            debug_state->current_inspecting_frame = frame_idx;
+                                        }
                                     }
                                 }
                             }
