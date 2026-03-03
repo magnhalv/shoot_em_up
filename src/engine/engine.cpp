@@ -600,6 +600,13 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
                         PrintEventNode* node = &debug_nodes[thread_node->first_kid_idx];
+
+                        u32* breadcrumb_node_idx = debug_state->breadcrumbs[thread_idx].node_indices.last();
+                        if (breadcrumb_node_idx != nullptr) {
+                            PrintEventNode* parent_node = &debug_nodes[*breadcrumb_node_idx];
+                            node = &debug_nodes[parent_node->first_kid_idx];
+                        }
+
                         UI_ScopedBackgroundColor(red);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                             if (thread_idx == 0) {

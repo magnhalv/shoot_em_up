@@ -5,6 +5,7 @@
 
 #include <core/list.hpp>
 #include <core/memory_arena.h>
+#include <core/stack_list.hpp>
 #include <engine/array.h>
 
 #include <math/vec2.h>
@@ -71,12 +72,18 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
     return forest->current_idx;
 }
 
+struct BreadCrumb {
+    StackList<u32, 10> node_indices;
+};
+
 struct DebugState {
     // MemoryArena permanent;
     u64 processed_frame_count;
     u64 current_inspecting_frame;
     PrintEventNodeForest node_forest;
     u32 historic_frame_indices[Historic_Frame_Count];
+
+    BreadCrumb breadcrumbs[TOTAL_THREAD_COUNT];
 
     bool is_initialized;
 };
