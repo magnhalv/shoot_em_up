@@ -132,12 +132,20 @@ enum UI_PositionKind {
     UI_PositionKind_Flex = 0,
     UI_PositionKind_Fixed,
     UI_PositionKind_Relative,
+    UI_PositionKind_RelativePercentOfParent,
 };
 
 struct UI_Position {
     UI_PositionKind kind;
     f32 value;
 };
+
+constexpr auto UI_RelativePercentOfParent(f32 value) -> UI_Position {
+    return UI_Position{
+        .kind = UI_PositionKind_RelativePercentOfParent, //
+        .value = value                                   //
+    };
+}
 
 constexpr auto UI_Fixed(f32 value) -> UI_Position {
     return UI_Position{
@@ -300,7 +308,7 @@ auto UI_SetFont(i32 texture_id, LoadedFont* font) -> void;
 auto UI_PushWindow(string8 text, UI_Position x = {}, UI_Position y = {}, UI_Size width = {}, UI_Size height = {}) -> void;
 auto UI_PopWindow() -> void;
 auto UI_Button(string8 text) -> UI_Entity_Status;
-auto UI_Box(string8 id, UI_Size width = {}, UI_Size height = {}) -> UI_Entity_Status;
+auto UI_Box(string8 id, UI_Size width = {}, UI_Size height = {}, UI_Position x = {}, UI_Position y = {}) -> UI_Entity_Status;
 auto UI_Text(string8 text) -> UI_Entity_Status;
 
 // Styling

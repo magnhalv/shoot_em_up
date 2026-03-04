@@ -402,6 +402,11 @@ auto calculate_position_axis(UI_Entity* entity) {
             Assert(entity->parent);
             entity->position[Axis2_X] = entity->parent->position[Axis2_X] + value;
         } break;
+        case UI_PositionKind_RelativePercentOfParent: {
+            UI_Entity* p = entity->parent;
+            f32 parent_size = p->computed_size[Axis2_X] - p->padding.left - p->padding.right;
+            entity->position[Axis2_X] = p->position[Axis2_X] + p->padding.left + (value * parent_size);
+        } break;
         }
     }
     {
@@ -422,6 +427,11 @@ auto calculate_position_axis(UI_Entity* entity) {
         case UI_PositionKind_Relative: {
             Assert(entity->parent);
             entity->position[Axis2_Y] = entity->parent->position[Axis2_Y] + value;
+        } break;
+        case UI_PositionKind_RelativePercentOfParent: {
+            UI_Entity* p = entity->parent;
+            f32 parent_size = p->computed_size[Axis2_Y] - p->padding[UI_Direction_Up] - p->padding[UI_Direction_Down];
+            entity->position[Axis2_Y] = p->position[Axis2_Y] - p->padding[UI_Direction_Up] - (value * parent_size);
         } break;
         }
     }
@@ -688,14 +698,14 @@ auto UI_Text(string8 text) -> UI_Entity_Status {
     return result;
 }
 
-auto UI_Box(string8 id, UI_Size width, UI_Size height) -> UI_Entity_Status {
+auto UI_Box(string8 id, UI_Size width, UI_Size height, UI_Position x, UI_Position y) -> UI_Entity_Status {
     UI_Entity* box = allocate<UI_Entity>(global_context->frame_arena(), 1);
     UI_Entity_Status result = {};
 
     box->id = hash64(id);
     box->flags = (UI_WidgetFlags)(UI_WidgetFlag_DrawBackground);
 
-    make_element(box, &result, {}, {}, width, height);
+    make_element(box, &result, x, y, width, height);
 
     box->margin[UI_Direction_Up] = 0.0f;
     box->margin[UI_Direction_Right] = 0.0f;

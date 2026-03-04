@@ -109,23 +109,29 @@ constexpr i32 Debug_Max_Event_Count = 1 << 16;
 struct DebugTable {
     // We store which table to use in the upmost 32 bits, to make the switch proper atomic, even though we "waste" 31 bits.
     volatile u64 event_index;
+    volatile bool collect_events;
     u32 current_debug_table;
     DebugEvent events[2][Debug_Max_Event_Count];
 };
 
 extern DebugTable* global_debug_table;
 
+static DebugEvent Nil_Event = {};
+
 inline auto record_debug_event(DebugTable* debug_table, const char* GUID, DebugEventType type) -> DebugEvent* {
-    u64 index = atomic_add_u64(&global_debug_table->event_index, 1);
-    u32 event_index = index & 0xFFFFFFFF;
-    u32 array_index = index >> 32;
-    Assert(index < Debug_Max_Event_Count);
-    DebugEvent* event = &global_debug_table->events[array_index][event_index];
-    event->GUID = GUID;
-    event->event_type = type;
-    event->clock = __rdtsc();
-    event->thread_id = get_thread_id();
-    return event;
+    if (debug_table->collect_events) {
+        u64 index = atomic_add_u64(&global_debug_table->event_index, 1);
+        u32 event_index = index & 0xFFFFFFFF;
+        u32 array_index = index >> 32;
+        Assert(index < Debug_Max_Event_Count);
+        DebugEvent* event = &global_debug_table->events[array_index][event_index];
+        event->GUID = GUID;
+        event->event_type = type;
+        event->clock = __rdtsc();
+        event->thread_id = get_thread_id();
+        return event;
+    }
+    return &Nil_Event;
 }
 
 #define UniqueFileCounterString__(A, B, C, D) A "|" #B "|" #C "|" D

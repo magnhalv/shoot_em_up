@@ -381,7 +381,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         {
             f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
             //        state->player.rotation += app_input->dt;
-            state->player.scale = vec2(2.0f, 2.0f);
+            state->player.scale = vec2(1.0f, 1.0f);
             state->player.rotation += app_input->dt;
             // state->player.P = vec2(24.0f, 29.0f);
             auto bitmap_id =
@@ -641,6 +641,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 }
                             }
 
+                            UI_ScopedPadding({ 0.0f });
                             UI_ScopedBackgroundColor(title_background_color);
                             UI_ScopedFlexDirection(UI_FlexDirection_Column);
                             ProfileNode* node = &debug_nodes[node_idx];
@@ -648,7 +649,13 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 while (node->kind != PrintDebugEventType_Nil) {
                                     UI_ScopedBackgroundColor(global_color_palette[block_idx % Global_Color_Palette_Count]);
 
+                                    u64 node_clock_end = node->clock_end;
+                                    if (node_clock_end == 0) {
+                                        node_clock_end = frame_node->clock_end;
+                                    }
+
                                     u64 node_cycle_count = node->clock_end - node->clock_start;
+                                    f32 node_start_faction = (f32)(node->clock_start - frame_node->clock_start) / frame_cycle_count;
                                     Assert(frame_cycle_count > node_cycle_count);
                                     f32 block_fraction = (f32)node_cycle_count / frame_cycle_count;
 
@@ -656,8 +663,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                                     string8 box_id = string8_format(g_transient, "%s_thread_idx_%d_profile_box_%d",
                                         node->GUID, thread_idx, block_idx);
-                                    UI_Entity_Status box =
-                                        UI_Box(box_id.data, UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f));
+                                    UI_Entity_Status box = UI_Box(box_id.data,                        //
+                                        UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f), //
+                                        UI_RelativePercentOfParent(node_start_faction)                //
+                                    );
                                     if (box.click_released) {
                                         printf("GUID: %s, thread idx: %d\n", node->GUID, thread_idx);
                                         debug_state->breadcrumbs[thread_idx].node_guids.push(node->GUID);
@@ -700,7 +709,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             UI_Generate_Render_Commands(&ui_render_group);
 
             BEGIN_BLOCK("gui_render");
-            renderer->render(Platform->work_queue, &ui_render_group);
+            // renderer->render(Platform->work_queue, &ui_render_group);
             END_BLOCK();
         }
     }

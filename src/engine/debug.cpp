@@ -70,6 +70,7 @@ DEBUG_FRAME_END(debug_frame_end) {
             ProfileNode* new_node = &state->node_forest.nodes[new_node_idx];
             new_node->GUID = event->GUID;
             new_node->clock_start = event->clock;
+            new_node->clock_end = 0;
             new_node->kind = PrintDebugEventType_TimeBlock;
 
             *current_node_idx = new_node_idx;

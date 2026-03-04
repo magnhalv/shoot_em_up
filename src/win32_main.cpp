@@ -35,6 +35,9 @@ global_variable bool global_is_running = true;
 global_variable bool global_is_reloading_renderer = false;
 global_variable bool Global_Debug_Show_Cursor = true;
 
+global_variable i64 ticks_per_second;
+global_variable f64 ticks_per_us;
+
 ///////////////// FILE HANDLING /////////////////////////////
 
 struct Win32_PlatformFileHandle {
@@ -1088,7 +1091,30 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
     return result;
 }
 
-static void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_callback* callback, void* data) {
+internal auto win32_sleep_until(i64 target_tick, HANDLE timer) -> bool {
+    //  Only sleep if there's more than 1.6ms left, otherwise we might sleep passed the frame target.
+    const i64 Min_Sleep_Duration_us = 1600;
+    bool did_sleep = false;
+    f64 us_to_sleep = (f64)(target_tick - win32_get_tick()) / ticks_per_us;
+    // Sleep in intervals, to avoid sleeping too long
+    while (us_to_sleep >= Min_Sleep_Duration_us) {
+        LARGE_INTEGER due_time;
+        // TODO: Check if shorter sleeps are possible??
+        i64 Max_Sleep_Duration = 1000;
+        // This is in 100s of ns, hence * 10. Negative value means a relative date!
+        due_time.QuadPart = -(Max_Sleep_Duration > 0 ? (Max_Sleep_Duration * 10) : 1); // Make sure we have values <= -1
+
+        SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, FALSE);
+        WaitForSingleObject(timer, INFINITE);
+
+        us_to_sleep = (f64)(target_tick - win32_get_tick()) / ticks_per_us;
+        did_sleep = true;
+    }
+
+    return did_sleep;
+}
+
+internal void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_callback* callback, void* data) {
     // NOTE: This function assumes only a single thread writes to it.
     u32 new_next_entry_to_write = (queue->NextEntryToWrite + 1) % ArrayCount(queue->entries);
     // Means the work queue is full
@@ -1122,9 +1148,9 @@ bool win32_do_next_work_entry(PlatformWorkQueue* queue) {
             entry.Callback(queue, entry.Data);
             InterlockedIncrement((LONG volatile*)&queue->completion_count);
         }
-        else {
-            we_should_sleep = true;
-        }
+    }
+    else {
+        we_should_sleep = true;
     }
 
     return we_should_sleep;
@@ -1147,6 +1173,7 @@ DWORD WINAPI worker_proc(LPVOID lpParameter) {
     // TODO: Get ThreadID
     while (true) {
         if (win32_do_next_work_entry(queue)) {
+            // TIMED_BLOCK("Sleep");
             WaitForSingleObjectEx(queue->SemaphoreHandle, INFINITE, FALSE);
         }
     }
@@ -1241,7 +1268,9 @@ DebugTable* global_debug_table = &debug_table_;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
     win32_check_ticks_frequency();
-    const i64 performance_counter_frequency = win32_get_performance_counter_frequency();
+    ticks_per_second = win32_get_performance_counter_frequency();
+    ticks_per_us = ticks_per_second / 1e6;
+
     auto main_entry_tick = win32_get_tick();
 
     win32_delete_directory_tree(EngineDllCopyPath);
@@ -1289,7 +1318,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     // END SETUP MEMORY
 
     EngineInput engine_input = {};
-    engine_input.performance_counter_frequency = performance_counter_frequency;
+    engine_input.performance_counter_frequency = ticks_per_second;
     EngineDll engine_dll = {};
 
     UserInput inputs[2] = {};
@@ -1342,7 +1371,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     engine_dll.load(&platform, &engine_memory);
 
     const f32 target_fps = 60;
-    const f32 ticks_per_frame = performance_counter_frequency / target_fps;
+    const f32 ticks_per_frame = ticks_per_second / target_fps;
     const f32 seconds_per_frame = 1.0 / target_fps;
     const f32 ms_per_frame = seconds_per_frame * 1000.0f;
     platform.frame_target_ms = ms_per_frame;
@@ -1350,7 +1379,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     i64 last_tick = win32_get_tick();
 
     auto loop_started_tick = win32_get_tick();
-    auto main_to_loop_duration = (f32)(loop_started_tick - main_entry_tick) / performance_counter_frequency;
+    auto main_to_loop_duration = (f32)(loop_started_tick - main_entry_tick) / ticks_per_second;
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
 
@@ -1365,6 +1394,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
         platform.total_frame_duration_clock_cycles = __rdtsc() - frame_start_rdtsc_clock;
         frame_start_rdtsc_clock = __rdtsc();
+        global_debug_table->collect_events = true;
 
         engine_input.performance_counter_frequency = win32_get_performance_counter_frequency();
 
@@ -1375,7 +1405,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_input.dt_tick /= 10;
         }
         engine_input.ticks += engine_input.dt_tick;
-        engine_input.dt = static_cast<f32>(engine_input.dt_tick) / performance_counter_frequency;
+        engine_input.dt = static_cast<f32>(engine_input.dt_tick) / ticks_per_second;
         engine_input.t += engine_input.dt;
         last_tick = this_tick;
 
@@ -1505,29 +1535,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         }
 
         i64 ticks_used_this_frame = win32_get_tick() - last_tick;
-        f32 frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
+        i64 target_tick = last_tick + (i64)ticks_per_frame;
+        f32 seconds_used_this_frame = ((f32)(ticks_used_this_frame) / ticks_per_second);
 
-        f32 frame_duration_before_sleep_ms = frame_duration_s * 1000;
+        f32 frame_duration_before_sleep_ms = seconds_used_this_frame * 1000;
         BEGIN_BLOCK("sleep");
-        //  Only sleep if there's more than 1.6ms left, otherwise we might sleep passed the frame target.
-        const i64 min_remainder_for_sleep_us = 1600;
         bool did_sleep = false;
-        i64 remainder_us = (i64)((seconds_per_frame - frame_duration_s) * 1e6);
         if (timer) {
-            // Sleep in intervals, to avoid sleeping too long
-            while (remainder_us >= min_remainder_for_sleep_us) {
-                did_sleep = true;
-                LARGE_INTEGER due_time;
-                // TODO: Check if shorter sleeps are possible??
-                i64 max_sleep_us = 1000;
-                // This is in 100s of ns, hence * 10. Negative value means a relative date!
-                due_time.QuadPart = -(max_sleep_us > 0 ? (max_sleep_us * 10) : 1); // Make sure we have values <= -1
-                SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, FALSE);
-                WaitForSingleObject(timer, INFINITE);
-
-                f32 f_dur_s = ((f32)(win32_get_tick() - last_tick) / performance_counter_frequency);
-                remainder_us = (i64)((seconds_per_frame - f_dur_s) * 1e6);
-            }
+            did_sleep = win32_sleep_until(target_tick, timer);
         }
         END_BLOCK();
 
@@ -1550,11 +1565,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         }
         END_BLOCK();
 
-        frame_duration_s = ((f32)(ticks_used_this_frame) / performance_counter_frequency);
+        seconds_used_this_frame = ((f32)(ticks_used_this_frame) / ticks_per_second);
         if (engine_dll.debug_frame_end) {
-            engine_dll.debug_frame_end(         //
-                frame_start_rdtsc_clock,        //
-                frame_duration_s * 1000,        //
+            engine_dll.debug_frame_end(  //
+                frame_start_rdtsc_clock, //
+                __rdtsc(),
+                seconds_used_this_frame * 1000, //
                 frame_duration_before_sleep_ms, //
                 &engine_memory, &engine_input   //
             );

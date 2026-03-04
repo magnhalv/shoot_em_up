@@ -14,6 +14,9 @@ struct PlatformWorkQueue {
 
     u32 volatile NextEntryToWrite;
     u32 volatile NextEntryToRead;
+
+    // Worker threads can safely sleep until this tick.
+    i64 target_sleep_tick;
     HANDLE SemaphoreHandle;
 
     platform_work_queue_entry entries[256];
