@@ -382,8 +382,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
             //        state->player.rotation += app_input->dt;
             state->player.scale = vec2(1.0f, 1.0f);
-            state->player.rotation += app_input->dt;
-            // state->player.P = vec2(24.0f, 29.0f);
+            // state->player.rotation += app_input->dt;
+            //  state->player.P = vec2(24.0f, 29.0f);
             auto bitmap_id =
                 get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
             auto bitmap = get_bitmap(state->assets, bitmap_id);

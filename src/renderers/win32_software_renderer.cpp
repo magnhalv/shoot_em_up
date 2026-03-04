@@ -593,15 +593,14 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                 __m256i y0_v8 = _mm256_cvttps_epi32(_mm256_floor_ps(v_v8));
                 __m256i x1_v8 = _mm256_add_epi32(x0_v8, one_v8);
                 __m256i y1_v8 = _mm256_add_epi32(y0_v8, one_v8);
+
+                __m256 u_frac_v8 = _mm256_sub_ps(u_v8, _mm256_floor_ps(u_v8));
+                __m256 v_frac_v8 = _mm256_sub_ps(v_v8, _mm256_floor_ps(v_v8));
+
                 x0_v8 = clamp_i32_v8(u_min, x0_v8, u_max);
                 x1_v8 = clamp_i32_v8(u_min, x1_v8, u_max);
                 y0_v8 = clamp_i32_v8(v_min, y0_v8, v_max);
                 y1_v8 = clamp_i32_v8(v_min, y1_v8, v_max);
-
-                __m256 x0_f32_v8 = _mm256_cvtepi32_ps(x0_v8);
-                __m256 y0_f32_v8 = _mm256_cvtepi32_ps(y0_v8);
-                __m256 u_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(u_v8, x0_f32_v8), 1.0f);
-                __m256 v_frac_v8 = clamp_f32_v8(0.0f, _mm256_sub_ps(v_v8, y0_f32_v8), 1.0f);
 
                 Assert(texture->bytes_per_pixel == 4);
                 u32* data = (u32*)state.textures[texture_id].data;
