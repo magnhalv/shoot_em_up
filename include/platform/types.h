@@ -19,6 +19,8 @@ using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 
+using Size = i32;
+
 // signed integers
 #define i8_min INT8_MIN
 #define i8_max INT8_MAX

@@ -43,7 +43,7 @@ DEBUG_FRAME_END(debug_frame_end) {
     u64 clock_start = __rdtsc();
 
     u32 frame_node_idx = add_kid(&state->node_forest);
-    PrintEventNode* frame_node = &state->node_forest.nodes[frame_node_idx];
+    ProfileNode* frame_node = &state->node_forest.nodes[frame_node_idx];
     frame_node->kind = PrintDebugEventType_Frame;
     frame_node->clock_start = ticks_at_start_of_frame;
     frame_node->clock_end = __rdtsc();
@@ -52,7 +52,7 @@ DEBUG_FRAME_END(debug_frame_end) {
     u32 current_thread_node_indexes[TOTAL_THREAD_COUNT] = {};
     for (u32 i = 0; i < TOTAL_THREAD_COUNT; i++) {
         current_thread_node_indexes[i] = add_kid(&state->node_forest, frame_node_idx);
-        PrintEventNode* thread_node = &state->node_forest.nodes[current_thread_node_indexes[i]];
+        ProfileNode* thread_node = &state->node_forest.nodes[current_thread_node_indexes[i]];
         thread_node->value_u32 = thread_idx_to_id(i);
         thread_node->kind = PrintDebugEventType_Thread;
     }
@@ -67,7 +67,7 @@ DEBUG_FRAME_END(debug_frame_end) {
 
         case DebugEventType_BeginBlock: {
             u32 new_node_idx = add_kid(&state->node_forest, *current_node_idx);
-            PrintEventNode* new_node = &state->node_forest.nodes[new_node_idx];
+            ProfileNode* new_node = &state->node_forest.nodes[new_node_idx];
             new_node->GUID = event->GUID;
             new_node->clock_start = event->clock;
             new_node->kind = PrintDebugEventType_TimeBlock;
@@ -75,7 +75,7 @@ DEBUG_FRAME_END(debug_frame_end) {
             *current_node_idx = new_node_idx;
         } break;
         case DebugEventType_EndBlock: {
-            PrintEventNode* current_node = &state->node_forest.nodes[*current_node_idx];
+            ProfileNode* current_node = &state->node_forest.nodes[*current_node_idx];
             current_node->clock_end = event->clock;
             *current_node_idx = current_node->parent_idx;
         } break;
@@ -89,7 +89,7 @@ DEBUG_FRAME_END(debug_frame_end) {
 
     u64 clock_end = __rdtsc();
     u32 debug_index = add_kid(&state->node_forest, frame_node_idx);
-    PrintEventNode* debug_processing = &state->node_forest.nodes[debug_index];
+    ProfileNode* debug_processing = &state->node_forest.nodes[debug_index];
     debug_processing->GUID = DEBUG_NAME("process_debug_events");
     debug_processing->clock_start = clock_start;
     debug_processing->clock_end = clock_end;

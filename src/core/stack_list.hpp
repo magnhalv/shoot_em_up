@@ -5,6 +5,7 @@
 #include <platform/types.h>
 
 #include <core/memory_arena.h>
+#include <core/span.hpp>
 
 template <typename T, u32 Capacity> struct StackList {
     T& operator[](i32 index) {
@@ -58,20 +59,24 @@ template <typename T, u32 Capacity> struct StackList {
         m_count -= num;
     }
 
-    struct StackListIterator {
+    auto as_span() -> Span<T> {
+        return Span{ m_data, m_count };
+    }
+
+    struct iterator {
         private:
         T* ptr;
 
         public:
-        explicit StackListIterator(T* ptr) : ptr(ptr) {
+        explicit iterator(T* ptr) : ptr(ptr) {
         }
 
-        StackListIterator& operator++() {
+        iterator& operator++() {
             ++ptr;
             return *this;
         }
 
-        bool operator!=(const StackListIterator& other) const {
+        bool operator!=(const iterator& other) const {
             return ptr != other.ptr;
         }
 
@@ -80,12 +85,40 @@ template <typename T, u32 Capacity> struct StackList {
         }
     };
 
-    [[nodiscard]] StackListIterator begin() const {
-        return StackListIterator(m_data);
+    struct const_iterator {
+        private:
+        const T* ptr;
+
+        public:
+        explicit const_iterator(const T* ptr) : ptr(ptr) {
+        }
+
+        const_iterator& operator++() {
+            ++ptr;
+            return *this;
+        }
+
+        bool operator!=(const const_iterator& other) const {
+            return ptr != other.ptr;
+        }
+
+        const T& operator*() const {
+            return *ptr;
+        }
+    };
+
+    [[nodiscard]] iterator begin() {
+        return iterator(m_data);
+    }
+    [[nodiscard]] iterator end() {
+        return iterator(m_data + m_count);
     }
 
-    [[nodiscard]] StackListIterator end() const {
-        return StackListIterator(m_data + m_count);
+    [[nodiscard]] const_iterator begin() const {
+        return const_iterator(m_data);
+    }
+    [[nodiscard]] const_iterator end() const {
+        return const_iterator(m_data + m_count);
     }
 
     [[nodiscard]] inline auto is_full() -> bool {

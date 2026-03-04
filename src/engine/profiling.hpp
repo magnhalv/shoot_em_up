@@ -17,7 +17,7 @@ enum PrintDebugEventType {
     PrintDebugEventType_Thread,
 };
 
-struct PrintEventNode {
+struct ProfileNode {
     PrintDebugEventType kind;
     u64 clock_start;
     u64 clock_end;
@@ -38,7 +38,7 @@ constexpr u32 Nil_Index = 0;
 constexpr u32 Historic_Frame_Count = 120;
 constexpr u32 PrintEventNode_Count = Historic_Frame_Count * 1000;
 struct PrintEventNodeForest {
-    PrintEventNode nodes[Historic_Frame_Count * 1000];
+    ProfileNode nodes[Historic_Frame_Count * 1000];
     u32 current_idx;
     u32 curr_tree_node_count;
 };
@@ -50,7 +50,7 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
         forest->current_idx++;
     }
 
-    PrintEventNode* new_node = &forest->nodes[forest->current_idx];
+    ProfileNode* new_node = &forest->nodes[forest->current_idx];
     *new_node = {};
     new_node->parent_idx = parent_idx;
     // I.e. a new tree
@@ -58,12 +58,12 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
         forest->curr_tree_node_count = 1;
     }
     else {
-        PrintEventNode* parent_node = &forest->nodes[parent_idx];
+        ProfileNode* parent_node = &forest->nodes[parent_idx];
         if (parent_node->first_kid_idx == Nil_Index) {
             parent_node->first_kid_idx = forest->current_idx;
         }
         else {
-            PrintEventNode* left_sib = &forest->nodes[parent_node->last_kid_idx];
+            ProfileNode* left_sib = &forest->nodes[parent_node->last_kid_idx];
             left_sib->next_sib_idx = forest->current_idx;
         }
         parent_node->last_kid_idx = forest->current_idx;
@@ -73,7 +73,7 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
 }
 
 struct BreadCrumb {
-    StackList<u32, 10> node_indices;
+    StackList<const char*, 10> node_guids;
 };
 
 struct DebugState {
@@ -138,10 +138,8 @@ inline auto record_debug_event(DebugTable* debug_table, const char* GUID, DebugE
 
 #define RECORD_DEBUG_EVENT_(GUID, EventType) record_debug_event(global_debug_table, GUID, EventType);
 
-#define BEGIN_BLOCK_(GUID) \
-    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
-#define END_BLOCK_(GUID) \
-    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
+#define BEGIN_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
+#define END_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
 
 #define BEGIN_BLOCK(Name) BEGIN_BLOCK_(DEBUG_NAME(Name))
 #define END_BLOCK() END_BLOCK_("END_BLOCK_")

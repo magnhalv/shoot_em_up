@@ -526,7 +526,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 f32 fraction = 0.0f;
                                 u32 frame_node_index = debug_state->historic_frame_indices[frame_idx];
                                 if (frame_node_index != Nil_Index) {
-                                    PrintEventNode* frame_node = &debug_state->node_forest.nodes[frame_node_index];
+                                    ProfileNode* frame_node = &debug_state->node_forest.nodes[frame_node_index];
                                     f32 full_frame_duration_ms = frame_node->value_v2.v[0];
                                     f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
                                     // TODO: This is not correct, should divide by TARGET frame duration
@@ -537,10 +537,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 if (frame_idx == debug_state->current_inspecting_frame) {
                                     color = vec4(10.0f, 127.0f, 127.0f, 255.0f);
                                 }
-                                else if ((debug_state->processed_frame_count + 1) % Historic_Frame_Count == frame_idx) {
+                                else if ((debug_state->processed_frame_count) % Historic_Frame_Count == frame_idx) {
                                     color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
                                 }
-                                else if ((debug_state->processed_frame_count) % Historic_Frame_Count == frame_idx) {
+                                else if ((debug_state->processed_frame_count - 1) % Historic_Frame_Count == frame_idx) {
                                     color = vec4(10.0f, 127.0f, 20.0f, 255.0f);
                                 }
                                 string8 id = string8_format(g_transient, "frame_block_%d", frame_idx);
@@ -586,39 +586,65 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                     u32 frame_index = debug_state->historic_frame_indices[frame_to_inspect % Historic_Frame_Count];
                     Assert(frame_index < PrintEventNode_Count);
 
-                    PrintEventNode* debug_nodes = debug_state->node_forest.nodes;
-                    PrintEventNode* frame_node = &debug_nodes[frame_index];
+                    ProfileNode* debug_nodes = debug_state->node_forest.nodes;
+                    ProfileNode* frame_node = &debug_nodes[frame_index];
                     Assert(frame_node->kind == PrintDebugEventType_Frame);
                     u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
                     f32 full_frame_duration_ms = frame_node->value_v2.v[0];
                     f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
-                    PrintEventNode* thread_node = &debug_nodes[frame_node->first_kid_idx];
+                    ProfileNode* thread_node = &debug_nodes[frame_node->first_kid_idx];
 
                     UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
 
                     i32 block_idx = 0;
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
-                        PrintEventNode* node = &debug_nodes[thread_node->first_kid_idx];
+                        u32 node_idx = thread_node->first_kid_idx;
 
-                        u32* breadcrumb_node_idx = debug_state->breadcrumbs[thread_idx].node_indices.last();
-                        if (breadcrumb_node_idx != nullptr) {
-                            PrintEventNode* parent_node = &debug_nodes[*breadcrumb_node_idx];
-                            node = &debug_nodes[parent_node->first_kid_idx];
+                        if (!debug_state->breadcrumbs[thread_idx].node_guids.is_empty()) {
+                            StackList<const char*, 10>& breadcrumbs = debug_state->breadcrumbs[thread_idx].node_guids;
+                            u32 curr_node_idx = node_idx;
+                            for (i32 i = 0; i < breadcrumbs.count(); i++) {
+                                while (curr_node_idx != Nil_Index) {
+                                    ProfileNode* curr_node = &debug_nodes[curr_node_idx];
+                                    const char* breadcrumb_GUID = breadcrumbs[i];
+                                    if (curr_node->GUID == breadcrumb_GUID) {
+                                        node_idx = curr_node->first_kid_idx;
+                                        break;
+                                    }
+                                    else {
+                                        curr_node_idx = curr_node->next_sib_idx;
+                                    }
+                                }
+                            }
                         }
 
                         UI_ScopedBackgroundColor(red);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
-                            if (thread_idx == 0) {
-                                UI_Text(string8_format(g_transient, "Main thread (%d):", thread_node->value_u32));
-                            }
-                            else {
-                                UI_Text(string8_format(g_transient, "Thread %d (%d):", thread_idx, thread_node->value_u32));
+                            {
+                                UI_ScopedFlexDirection(UI_FlexDirection_Column);
+                                UI_ScopedPadding({ 0.0f });
+                                UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
+                                    if (thread_idx == 0) {
+                                        UI_Text(string8_format(g_transient, "Main thread (%d)", thread_node->value_u32));
+                                        StackList<const char*, 10>& breadcrumbs = debug_state->breadcrumbs[thread_idx].node_guids;
+                                        for (const char* guid : breadcrumbs) {
+                                            i32 delim_idx = cstr_find_last('|', guid);
+                                            if (delim_idx != -1) {
+                                                UI_Text(string8_format(g_transient, ">%s", guid + delim_idx + 1));
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        UI_Text(string8_format(g_transient, "Thread %d (%d)", thread_idx, thread_node->value_u32));
+                                    }
+                                }
                             }
 
                             UI_ScopedBackgroundColor(title_background_color);
                             UI_ScopedFlexDirection(UI_FlexDirection_Column);
-                            UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
+                            ProfileNode* node = &debug_nodes[node_idx];
+                            UI_WindowFull("Block3", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                 while (node->kind != PrintDebugEventType_Nil) {
                                     UI_ScopedBackgroundColor(global_color_palette[block_idx % Global_Color_Palette_Count]);
 
@@ -632,8 +658,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         node->GUID, thread_idx, block_idx);
                                     UI_Entity_Status box =
                                         UI_Box(box_id.data, UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f));
-                                    if (box.first_hovered) {
+                                    if (box.click_released) {
                                         printf("GUID: %s, thread idx: %d\n", node->GUID, thread_idx);
+                                        debug_state->breadcrumbs[thread_idx].node_guids.push(node->GUID);
                                     }
                                     if (box.hovered) {
                                         vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);
@@ -650,7 +677,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         }
                                     }
                                     block_idx++;
-                                    node = &debug_nodes[node->next_sib_idx];
+                                    node_idx = node->next_sib_idx;
+                                    node = &debug_nodes[node_idx];
                                 }
                             }
                         }

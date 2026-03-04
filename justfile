@@ -33,7 +33,8 @@ build-assets:
 
 [parallel]
 build-all: engine main software_renderer build-assets
-    cat *.log
+    ./scripts/check_errors.bat
+
 
 [working-directory: 'data']
 run: 

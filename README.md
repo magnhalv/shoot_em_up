@@ -13,23 +13,12 @@ cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
 
 ## TODO 
 
-### Optimizing software renderer
-
-- SIMD (SSE/AVX).
-- Use a lookup table for sRGB <-> linear conversion
-
-  srgb255_to_linear1 and linear1_to_srgb255 call square and sqrtf per channel (lines 121-145). A 256-entry LUT for
-  sRGB-to-linear and a 256-entry LUT for linear-to-sRGB would replace sqrtf with a table lookup. Even with SIMD, sqrtf is
-  expensive.
-
 ### IMGUI
 
-- Optimize software renderer.
-- Decide how how to handle and pack colors. Should probably be 1.0, not 255.0
-- Text rendering 
-- Buttons 
 - Sliders
 - Window
+    - Make draggable
+    - Make closable
 
 ### Features
 
