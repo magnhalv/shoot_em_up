@@ -49,13 +49,16 @@ DEBUG_FRAME_END(debug_frame_end) {
     frame_node->clock_end = __rdtsc();
     frame_node->value_v2 = vec2(frame_duration_ms, frame_duration_before_sleep_ms);
 
-    u32 current_thread_node_indexes[TOTAL_THREAD_COUNT] = {};
+    u32 original_thread_node_indexes[TOTAL_THREAD_COUNT] = {};
     for (u32 i = 0; i < TOTAL_THREAD_COUNT; i++) {
-        current_thread_node_indexes[i] = add_kid(&state->node_forest, frame_node_idx);
-        ProfileNode* thread_node = &state->node_forest.nodes[current_thread_node_indexes[i]];
+        original_thread_node_indexes[i] = add_kid(&state->node_forest, frame_node_idx);
+        ProfileNode* thread_node = &state->node_forest.nodes[original_thread_node_indexes[i]];
         thread_node->value_u32 = thread_idx_to_id(i);
         thread_node->kind = PrintDebugEventType_Thread;
     }
+
+    u32 current_thread_node_indexes[TOTAL_THREAD_COUNT] = {};
+    copy_memory(original_thread_node_indexes, current_thread_node_indexes, sizeof(u32) * TOTAL_THREAD_COUNT);
     frame_node->first_kid_idx = current_thread_node_indexes[0];
 
     for (u32 event_idx = 0; event_idx < event_count; event_idx++) {
@@ -101,10 +104,15 @@ DEBUG_FRAME_END(debug_frame_end) {
 
     u64 curr_frame_idx = state->processed_frame_count++;
     state->historic_frame_indices[curr_frame_idx % Historic_Frame_Count] = frame_node_idx;
-
     {
         u32 next_frame_entry_node_idx = state->historic_frame_indices[(curr_frame_idx + 1) % Historic_Frame_Count];
         u32 distance = (next_frame_entry_node_idx + PrintEventNode_Count - frame_node_idx) % PrintEventNode_Count;
         Assert(state->node_forest.curr_tree_node_count < distance);
     }
+
+    // For each thread, find out if a branch
+    u32 traverse_idx = frame_node_idx;
+    /*while (traverse_idx != Nil_Index) {*/
+    /*    ProfileNode* traverse_node = &state->node_forest.nodes[traverse_idx];*/
+    /*}*/
 }
