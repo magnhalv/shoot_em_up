@@ -1,5 +1,4 @@
-#ifndef MAT4_H
-#define MAT4_H
+#pragma once
 
 #include <stdio.h>
 
@@ -115,4 +114,3 @@ mat4 lookAt(const vec3& position, const vec3& target, const vec3& up);
 auto identity() -> mat4;
 
 void print(const mat4& m);
-#endif

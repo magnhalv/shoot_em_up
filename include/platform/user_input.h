@@ -1,5 +1,4 @@
-#ifndef HOT_RELOAD_OPENGL_USER_INPUT_H
-#define HOT_RELOAD_OPENGL_USER_INPUT_H
+#pragma once
 
 #include <platform/types.h>
 
@@ -107,5 +106,3 @@ struct UserInput {
         }
     }
 };
-
-#endif // HOT_RELOAD_OPENGL_USER_INPUT_H

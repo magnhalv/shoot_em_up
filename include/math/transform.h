@@ -1,5 +1,4 @@
-#ifndef TRANSFORM_H
-#define TRANSFORM_H
+#pragma once
 
 #include <platform/types.h>
 
@@ -28,5 +27,3 @@ vec3 transform_point(const Transform& a, const vec3& b);
 vec3 transform_vector(const Transform& a, const vec3& b);
 
 void rotate_around_axis(Transform& t, f32 angle, const vec3& unit_vector);
-
-#endif

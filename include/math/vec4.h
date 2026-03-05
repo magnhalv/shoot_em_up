@@ -1,5 +1,4 @@
-#ifndef H_VEC4
-#define H_VEC4
+#pragma once
 
 #include <platform/types.h>
 
@@ -56,5 +55,3 @@ inline auto lerp(const vec4& A, f32 t, const vec4& B) -> vec4 {
     vec4 result = A * (1.0f - t) + B * t;
     return result;
 }
-
-#endif

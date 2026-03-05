@@ -1,5 +1,4 @@
-#ifndef ENGINE_IMGUI_HUGIN_H_
-#define ENGINE_IMGUI_HUGIN_H_
+#pragma once
 
 #include <math/vec2.h>
 #include <platform/types.h>
@@ -354,5 +353,3 @@ auto UI_Generate_Render_Commands(RenderCommands* render_group) -> void;
 #define UI_ScopedPadding(padding) \
     UI_PushStylePadding(padding); \
     Defer({ UI_PopStylePadding(); });
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HOT_RELOAD_OPENGL_FRAMEBUFFER_H
-#define HOT_RELOAD_OPENGL_FRAMEBUFFER_H
+#pragma once
 
 #include <platform/types.h>
 #include "gl/gl.h"
@@ -74,5 +73,3 @@ struct MultiSampleFramebuffer {
         gl->bind_framebuffer(GL_FRAMEBUFFER, 0);
     }
 };
-
-#endif //HOT_RELOAD_OPENGL_FRAMEBUFFER_H

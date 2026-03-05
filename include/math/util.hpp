@@ -1,5 +1,4 @@
-#ifndef MATH_UTIL_HUGIN_H_
-#define MATH_UTIL_HUGIN_H_
+#pragma once
 
 #include <platform/types.h>
 
@@ -61,5 +60,3 @@ auto inline intersects(Rectangle2f a, Rectangle2f b) -> bool {
 }
 
 } // namespace hm
-
-#endif

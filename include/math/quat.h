@@ -1,5 +1,4 @@
-#ifndef QUAT_H
-#define QUAT_H
+#pragma once
 
 #include "mat4.h"
 #include "vec3.h"
@@ -62,5 +61,3 @@ mat4 quatToMat4(const quat& q);
 quat mat4ToQuat(const mat4& m);
 
 void print(const quat& to);
-
-#endif

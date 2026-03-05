@@ -1,3 +1,4 @@
+#pragma once
 #include <platform/types.h>
 
 auto inline radians(f32 degrees) -> f32 {

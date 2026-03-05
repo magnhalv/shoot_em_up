@@ -1,5 +1,4 @@
-#ifndef VEC2_H
-#define VEC2_H
+#pragma once
 
 #include <platform/types.h>
 
@@ -76,5 +75,3 @@ auto mag(const vec2& v) -> f32;
 inline auto ivec2_to_vec2(ivec2 iv) -> vec2 {
     return vec2(static_cast<f32>(iv.x), static_cast<f32>(iv.y));
 }
-
-#endif

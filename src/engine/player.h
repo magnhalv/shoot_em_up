@@ -1,5 +1,4 @@
-#ifndef HOT_RELOAD_OPENGL_PLAYER_H
-#define HOT_RELOAD_OPENGL_PLAYER_H
+#pragma once
 
 #include "engine.h"
 
@@ -17,5 +16,3 @@ auto update_player(EngineState *state, EngineInput *app_input) {
         state->meshes[0].transform.position.z += 2.0f * app_input->dt;
     }
 }
-
-#endif //HOT_RELOAD_OPENGL_PLAYER_H
