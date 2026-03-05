@@ -43,6 +43,7 @@ struct PrintEventNodeForest {
     u32 curr_tree_node_count;
 };
 
+// I.e. adds a new kid to the current tree. If parent_idx == Nil_Index you start a new tree, and can not continue building on the current one.
 auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) -> u32 {
     forest->current_idx = (forest->current_idx + 1) % (PrintEventNode_Count);
     // Skip index 0, as that is the NIL node
@@ -53,7 +54,7 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
     ProfileNode* new_node = &forest->nodes[forest->current_idx];
     *new_node = {};
     new_node->parent_idx = parent_idx;
-    // I.e. a new tree
+    // I.e. a new tree. Note, we assume you build one tree at a time.
     if (parent_idx == Nil_Index) {
         forest->curr_tree_node_count = 1;
     }
@@ -76,6 +77,11 @@ struct BreadCrumb {
     StackList<const char*, 10> node_guids;
 };
 
+struct UnclosedNodeBranch {
+    StackList<PrintDebugEventType, 16> kinds;
+    StackList<const char*, 16> guids;
+};
+
 struct DebugState {
     // MemoryArena permanent;
     u64 processed_frame_count;
@@ -84,6 +90,7 @@ struct DebugState {
     u32 historic_frame_indices[Historic_Frame_Count];
 
     BreadCrumb breadcrumbs[TOTAL_THREAD_COUNT];
+    UnclosedNodeBranch unclosed_nodes[TOTAL_THREAD_COUNT];
 
     bool is_initialized;
 };

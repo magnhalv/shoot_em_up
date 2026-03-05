@@ -1173,7 +1173,7 @@ DWORD WINAPI worker_proc(LPVOID lpParameter) {
     // TODO: Get ThreadID
     while (true) {
         if (win32_do_next_work_entry(queue)) {
-            // TIMED_BLOCK("Sleep");
+            TIMED_BLOCK("Wait on sempaphore");
             WaitForSingleObjectEx(queue->SemaphoreHandle, INFINITE, FALSE);
         }
     }
@@ -1345,12 +1345,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     platform.main_thread_id = get_thread_id();
 #endif
 
-    PlatformWorkQueue work_queue = {};
-    win32_thread_startup thread_startups[WORKER_THREAD_COUNT] = {};
-    platform.work_queue = &work_queue;
-    win32_make_queue(&platform, WORKER_THREAD_COUNT, thread_startups);
-    printf("Made teh queue\n");
-
     // INIT RENDERER //
     RendererDll renderer_dll = {};
     RendererType renderer_type = RendererType_Software;
@@ -1380,6 +1374,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     auto loop_started_tick = win32_get_tick();
     auto main_to_loop_duration = (f32)(loop_started_tick - main_entry_tick) / ticks_per_second;
+    i64 frame_start_rdtsc_clock = __rdtsc();
 
     printf("Startup before loop: %f seconds.\n", main_to_loop_duration);
 
@@ -1389,12 +1384,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     bool is_slow_mode = false;
     bool is_freeze_mode = false;
 
-    while (global_is_running) {
-        i64 frame_start_rdtsc_clock = __rdtsc();
+    // Must be enabled before workers to capture the first sleep event
+    global_debug_table->collect_events = true;
+    PlatformWorkQueue work_queue = {};
+    win32_thread_startup thread_startups[WORKER_THREAD_COUNT] = {};
+    platform.work_queue = &work_queue;
+    win32_make_queue(&platform, WORKER_THREAD_COUNT, thread_startups);
 
-        platform.total_frame_duration_clock_cycles = __rdtsc() - frame_start_rdtsc_clock;
-        frame_start_rdtsc_clock = __rdtsc();
-        global_debug_table->collect_events = true;
+    while (global_is_running) {
 
         engine_input.performance_counter_frequency = win32_get_performance_counter_frequency();
 
@@ -1583,6 +1580,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         previous_input = &inputs[prev_input_idx];
         current_input->frame_clear(*previous_input);
         engine_input.frame_count++;
+
+        platform.total_frame_duration_clock_cycles = __rdtsc() - frame_start_rdtsc_clock;
+        frame_start_rdtsc_clock = __rdtsc();
     }
 
     return 0;

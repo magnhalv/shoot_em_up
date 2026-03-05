@@ -11,6 +11,7 @@
 #include <math/vec2.h>
 #include <math/vec3.h>
 
+#include <core/hash.hpp>
 #include <core/logger.h>
 
 #include <renderers/renderer.h>
@@ -647,7 +648,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                             ProfileNode* node = &debug_nodes[node_idx];
                             UI_WindowFull("Block3", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                 while (node->kind != PrintDebugEventType_Nil) {
-                                    UI_ScopedBackgroundColor(global_color_palette[block_idx % Global_Color_Palette_Count]);
+                                    u64 hash = hash64(node->GUID);
+                                    UI_ScopedBackgroundColor(global_color_palette[hash % Global_Color_Palette_Count]);
 
                                     u64 node_clock_end = node->clock_end;
                                     if (node_clock_end == 0) {

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "string8.hpp"
 
 #define XOR ^

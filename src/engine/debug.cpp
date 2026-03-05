@@ -61,11 +61,32 @@ DEBUG_FRAME_END(debug_frame_end) {
     copy_memory(original_thread_node_indexes, current_thread_node_indexes, sizeof(u32) * TOTAL_THREAD_COUNT);
     frame_node->first_kid_idx = current_thread_node_indexes[0];
 
+    // For each thread, add any non-closed branch from the previous frame
+    for (u32 i = 0; i < TOTAL_THREAD_COUNT; i++) {
+        u32 current_node_idx = current_thread_node_indexes[i];
+        UnclosedNodeBranch* branch = &state->unclosed_nodes[i];
+        for (Size branch_idx = 0; branch_idx < branch->guids.count(); branch_idx++) {
+            const char* GUID = branch->guids[branch_idx];
+            PrintDebugEventType kind = branch->kinds[branch_idx];
+
+            u32 new_node_idx = add_kid(&state->node_forest, current_node_idx);
+            ProfileNode* new_node = &state->node_forest.nodes[new_node_idx];
+            new_node->GUID = GUID;
+            new_node->clock_start = ticks_at_start_of_frame;
+            new_node->clock_end = 0;
+            new_node->kind = kind;
+
+            current_node_idx = new_node_idx;
+        }
+        current_thread_node_indexes[i] = current_node_idx;
+    }
+
     for (u32 event_idx = 0; event_idx < event_count; event_idx++) {
         DebugEvent* event = global_debug_table->events[array_idx] + event_idx;
         u32 thread_idx = thread_id_to_idx(event->thread_id);
         // Each thread is on a seperate branch. So get the current node idx from that branch.
         u32* current_node_idx = &current_thread_node_indexes[thread_idx];
+        Assert(*current_node_idx != Nil_Index);
         switch (event->event_type) {
 
         case DebugEventType_BeginBlock: {
@@ -80,6 +101,7 @@ DEBUG_FRAME_END(debug_frame_end) {
         } break;
         case DebugEventType_EndBlock: {
             ProfileNode* current_node = &state->node_forest.nodes[*current_node_idx];
+            Assert(current_node->clock_end == 0);
             current_node->clock_end = event->clock;
             *current_node_idx = current_node->parent_idx;
         } break;
@@ -91,16 +113,12 @@ DEBUG_FRAME_END(debug_frame_end) {
         }
     }
 
-    u64 clock_end = __rdtsc();
     u32 debug_index = add_kid(&state->node_forest, frame_node_idx);
     ProfileNode* debug_processing = &state->node_forest.nodes[debug_index];
     debug_processing->GUID = DEBUG_NAME("process_debug_events");
+    debug_processing->kind = PrintDebugEventType_TimeBlock;
     debug_processing->clock_start = clock_start;
-    debug_processing->clock_end = clock_end;
-
-    debug_processing->parent_idx = frame_node_idx;
-    state->node_forest.nodes[frame_node->last_kid_idx].next_sib_idx = debug_index;
-    frame_node->last_kid_idx = debug_index;
+    debug_processing->clock_end = __rdtsc();
 
     u64 curr_frame_idx = state->processed_frame_count++;
     state->historic_frame_indices[curr_frame_idx % Historic_Frame_Count] = frame_node_idx;
@@ -110,9 +128,29 @@ DEBUG_FRAME_END(debug_frame_end) {
         Assert(state->node_forest.curr_tree_node_count < distance);
     }
 
-    // For each thread, find out if a branch
-    u32 traverse_idx = frame_node_idx;
-    /*while (traverse_idx != Nil_Index) {*/
-    /*    ProfileNode* traverse_node = &state->node_forest.nodes[traverse_idx];*/
-    /*}*/
+    // For each thread, find the last branch and check whether it's open
+    for (u32 i = 0; i < TOTAL_THREAD_COUNT; i++) {
+        u32 traverse_idx = state->node_forest.nodes[original_thread_node_indexes[i]].last_kid_idx;
+        Assert(traverse_idx != Nil_Index);
+        UnclosedNodeBranch* branch = &state->unclosed_nodes[i];
+        branch->guids.clear();
+        branch->kinds.clear();
+        while (traverse_idx != Nil_Index) {
+            ProfileNode* traverse_node = &state->node_forest.nodes[traverse_idx];
+            branch->guids.push(traverse_node->GUID);
+            branch->kinds.push(traverse_node->kind);
+            if (traverse_node->last_kid_idx == Nil_Index) {
+                if (traverse_node->clock_end == 0) {
+                    // TODO: Technically, this is incorrect, the child might be done but the parent is not.
+                    traverse_node->clock_end = frame_node->clock_end;
+                }
+                else {
+                    // The branch was closed, so we remove all the nodes we've added
+                    branch->guids.clear();
+                    branch->kinds.clear();
+                }
+            }
+            traverse_idx = traverse_node->last_kid_idx;
+        }
+    }
 }
