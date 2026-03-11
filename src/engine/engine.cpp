@@ -179,7 +179,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
 #if HOMEMADE_DEBUG
     {
-        // TIMED_BLOCK("debug_checks");
+        TIMED_BLOCK("debug_checks");
         state->permanent.check_integrity();
         state->transient.check_integrity();
     }

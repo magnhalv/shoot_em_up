@@ -289,6 +289,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     mat2 M_m_to_c = rot_mat * scale_mat;
     mat2 M_c_to_m = inverse(M_m_to_c);
 
+    f32 border_tichkness = 1.0f;
+
     vec2 bl_c = quad.bl * M_m_to_c;
     vec2 tl_c = quad.tl * M_m_to_c;
     vec2 tr_c = quad.tr * M_m_to_c;
@@ -298,6 +300,11 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     tl_c = tl_c + translation;
     tr_c = tr_c + translation;
     br_c = br_c + translation;
+
+    vec2 bl_border_c = vec2(bl_c.x + border_tichkness, bl_c.y + border_tichkness);
+    vec2 tl_border_c = vec2(tl_c.x + border_tichkness, tl_c.y - border_tichkness);
+    vec2 tr_border_c = vec2(tr_c.x - border_tichkness, tr_c.y - border_tichkness);
+    vec2 br_border_c = vec2(br_c.x - border_tichkness, br_c.y + border_tichkness);
 
     i32 min_x = round_f32_to_i32(hm::min(bl_c.x, tl_c.x, tr_c.x, br_c.x));
     i32 max_x = round_f32_to_i32(hm::max(bl_c.x, tl_c.x, tr_c.x, br_c.x));
@@ -314,6 +321,11 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     vec2 edge2 = tr_c - tl_c;
     vec2 edge3 = br_c - tr_c;
     vec2 edge4 = bl_c - br_c;
+
+    vec2 edge1_border = tl_border_c - bl_border_c;
+    vec2 edge2_border = tr_border_c - tl_border_c;
+    vec2 edge3_border = br_border_c - tr_border_c;
+    vec2 edge4_border = bl_border_c - br_border_c;
 
     Win32Texture* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
@@ -353,50 +365,63 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
             vec2 camera_point{ (f32)x, (f32)y };
 
-            bool is_inside = true;
+            bool is_inside_border = true;
             if (rotation != 0.0f) {
                 f32 dot1 = dot(camera_point - bl_c, edge1);
                 f32 dot2 = dot(camera_point - tl_c, edge2);
                 f32 dot3 = dot(camera_point - tr_c, edge3);
                 f32 dot4 = dot(camera_point - br_c, edge4);
-                is_inside = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
+                is_inside_border = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
             }
 
-            if (is_inside) {
+            bool is_inside_bitmap = true;
+            {
+                f32 dot1 = dot(camera_point - bl_border_c, edge1_border);
+                f32 dot2 = dot(camera_point - tl_border_c, edge2_border);
+                f32 dot3 = dot(camera_point - tr_border_c, edge3_border);
+                f32 dot4 = dot(camera_point - br_border_c, edge4_border);
+                is_inside_bitmap = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
+            }
 
+            if (is_inside_border) {
                 vec4 src_color_l1;
-                if (texture_id == 0) {
-                    src_color_l1 = default_color_l1;
+                if (!is_inside_bitmap) {
+                    src_color_l1 = srgb255_to_linear1(vec4(255.0f, 0.0f, 0.0f, 255.0f));
                 }
                 else {
-                    i32 x0 = (i32)floor(u);
-                    i32 y0 = (i32)floor(v);
-                    i32 x1 = x0 + 1;
-                    i32 y1 = y0 + 1;
+                    if (texture_id == 0) {
+                        src_color_l1 = default_color_l1;
+                    }
+                    else {
+                        i32 x0 = (i32)floor(u);
+                        i32 y0 = (i32)floor(v);
+                        i32 x1 = x0 + 1;
+                        i32 y1 = y0 + 1;
 
-                    x0 = clamp(x0, u_min, u_max);
-                    y0 = clamp(y0, v_min, v_max);
-                    x1 = clamp(x1, u_min, u_max);
-                    y1 = clamp(y1, v_min, v_max);
+                        x0 = clamp(x0, u_min, u_max);
+                        y0 = clamp(y0, v_min, v_max);
+                        x1 = clamp(x1, u_min, u_max);
+                        y1 = clamp(y1, v_min, v_max);
 
-                    f32 u_frac = clamp(u - (f32)x0, 0.0f, 1.0f);
-                    f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
+                        f32 u_frac = clamp(u - (f32)x0, 0.0f, 1.0f);
+                        f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
 
-                    Assert(texture->bytes_per_pixel == 4);
-                    u32* data = (u32*)state.textures[texture_id].data;
-                    // Bilinear filtering
-                    vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));
-                    vec4 texel10_l1 =
-                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
-                    vec4 texel01_l1 =
-                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));
-                    vec4 texel11_l1 =
-                        unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));
+                        Assert(texture->bytes_per_pixel == 4);
+                        u32* data = (u32*)state.textures[texture_id].data;
+                        // Bilinear filtering
+                        vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));
+                        vec4 texel10_l1 = unpack4x8_srgb255_to_linear1(
+                            *((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
+                        vec4 texel01_l1 = unpack4x8_srgb255_to_linear1(
+                            *((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));
+                        vec4 texel11_l1 = unpack4x8_srgb255_to_linear1(
+                            *((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));
 
-                    src_color_l1 = lerp(                       //
-                        lerp(texel00_l1, u_frac, texel10_l1),  //
-                        v_frac,                                //
-                        lerp(texel01_l1, u_frac, texel11_l1)); //
+                        src_color_l1 = lerp(                       //
+                            lerp(texel00_l1, u_frac, texel10_l1),  //
+                            v_frac,                                //
+                            lerp(texel01_l1, u_frac, texel11_l1)); //
+                    }
                 }
 
                 vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*pixel);
