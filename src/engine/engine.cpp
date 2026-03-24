@@ -129,7 +129,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         {
             auto player = get_bitmap_meta(state->assets, bitmap_id);
             state->player = default_entity(&player);
-            state->player.P = vec2(300, 300);
+            state->player.P = vec2(300.5f, 300.5f);
         }
 
         state->player_projectiles.init(state->permanent, 100);
@@ -381,9 +381,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         {
             f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
-            //        state->player.rotation += app_input->dt;
-            state->player.scale = vec2(1.0f, 1.0f);
-            // state->player.rotation += app_input->dt;
+            //        state->player.rotation += app_input->dt; state->player.scale = vec2(1.0f, 1.0f);
+            state->player.rotation += app_input->dt;
+            state->player.scale = vec2(2.0f, 2.0f);
             //  state->player.P = vec2(24.0f, 29.0f);
             auto bitmap_id =
                 get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
@@ -409,7 +409,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
-        {
+        if (false) {
 
             auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_EnemySpaceShip);
             auto bitmap = get_bitmap(state->assets, bitmap_id);
@@ -436,7 +436,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
-        {
+        if (false) {
             if (state->player_projectiles.size() != 0) {
                 auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_Projectile);
                 auto bitmap = get_bitmap(state->assets, bitmap_id);
@@ -463,7 +463,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 }
             }
         }
-        {
+        if (false) {
             if (state->explosions.size() != 0) {
                 for (auto& ex : state->explosions) {
                     auto bitmap_id =

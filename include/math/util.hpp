@@ -59,4 +59,16 @@ auto inline intersects(Rectangle2f a, Rectangle2f b) -> bool {
     return false;
 }
 
+auto inline square_root(f32 v) {
+    return sqrt(v);
+}
+
+auto inline signed_distance(vec2 a, vec2 b, vec2 p) -> f32 {
+    f32 dx = b.x - a.x;
+    f32 dy = b.y - a.y;
+    f32 num = (dy * p.x) - (dx * p.y) + (b.x * a.y) - (b.y * a.x);
+    f32 denom = square_root(dx * dx + dy * dy);
+    return num / denom;
+}
+
 } // namespace hm

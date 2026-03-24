@@ -30,9 +30,9 @@ struct RenderEntityBasis {
     vec2 offset;
 };
 
-enum RenderGroupEntryType {
-    RenderCommands_RenderEntryClear,
-    RenderCommands_RenderEntryBitmap
+enum RenderGroupEntryType {          //
+    RenderCommands_RenderEntryClear, //
+    RenderCommands_RenderEntryBitmap //
 };
 
 struct RenderGroupEntryHeader {
@@ -63,6 +63,8 @@ typedef struct {
     i32 texture_id;
     ivec2 uv_min;
     ivec2 uv_max;
+    f32 border_thickness;
+    vec4 border_color;
 } RenderEntryBitmap;
 
 struct RenderCommands {

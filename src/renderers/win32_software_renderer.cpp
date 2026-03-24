@@ -271,9 +271,8 @@ auto color_channel_f32_to_u8(f32 channel) {
     return result;
 }
 
-static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect) {
-
+static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id, ivec2 uv_min,
+    ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, f32 border_thickness, vec4 border_color) {
     f32 model_width = (quad.br.x - quad.bl.x);
     f32 model_height = (quad.tr.y - quad.br.y);
 
@@ -289,8 +288,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     mat2 M_m_to_c = rot_mat * scale_mat;
     mat2 M_c_to_m = inverse(M_m_to_c);
 
-    f32 border_tichkness = 1.0f;
-
     vec2 bl_c = quad.bl * M_m_to_c;
     vec2 tl_c = quad.tl * M_m_to_c;
     vec2 tr_c = quad.tr * M_m_to_c;
@@ -301,10 +298,28 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     tr_c = tr_c + translation;
     br_c = br_c + translation;
 
-    vec2 bl_border_c = vec2(bl_c.x + border_tichkness, bl_c.y + border_tichkness);
-    vec2 tl_border_c = vec2(tl_c.x + border_tichkness, tl_c.y - border_tichkness);
-    vec2 tr_border_c = vec2(tr_c.x - border_tichkness, tr_c.y - border_tichkness);
-    vec2 br_border_c = vec2(br_c.x - border_tichkness, br_c.y + border_tichkness);
+    vec2 bl_border_c, tl_border_c, tr_border_c, br_border_c;
+    {
+        bl_border_c = quad.bl * scale_mat;
+        tl_border_c = quad.tl * scale_mat;
+        tr_border_c = quad.tr * scale_mat;
+        br_border_c = quad.br * scale_mat;
+
+        bl_border_c = bl_border_c + vec2(border_thickness, border_thickness);
+        tl_border_c = tl_border_c + vec2(border_thickness, -border_thickness);
+        tr_border_c = tr_border_c + vec2(-border_thickness, -border_thickness);
+        br_border_c = br_border_c + vec2(-border_thickness, border_thickness);
+
+        bl_border_c = bl_border_c * rot_mat;
+        tl_border_c = tl_border_c * rot_mat;
+        tr_border_c = tr_border_c * rot_mat;
+        br_border_c = br_border_c * rot_mat;
+
+        bl_border_c = bl_border_c + translation;
+        tl_border_c = tl_border_c + translation;
+        tr_border_c = tr_border_c + translation;
+        br_border_c = br_border_c + translation;
+    }
 
     i32 min_x = round_f32_to_i32(hm::min(bl_c.x, tl_c.x, tr_c.x, br_c.x));
     i32 max_x = round_f32_to_i32(hm::max(bl_c.x, tl_c.x, tr_c.x, br_c.x));
@@ -341,8 +356,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     f32 tex_range_u = (f32)(u_max - u_min);
     f32 tex_range_v = (f32)(v_max - v_min);
 
-    f32 scaled_du = (scale.x * (f32)tex_range_u) / (scaled_width - 1.0f);
-    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (scaled_height - 1.0f);
+    f32 scaled_du = (scale.x * (f32)tex_range_u) / (scaled_width);
+    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (scaled_height);
 
     vec2 ds_dx = vec2(M_c_to_m.xx * scaled_du, M_c_to_m.xy * scaled_dv);
     vec2 ds_dy = vec2(M_c_to_m.yx * scaled_du, M_c_to_m.yy * scaled_dv);
@@ -365,27 +380,27 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 
             vec2 camera_point{ (f32)x, (f32)y };
 
-            bool is_inside_border = true;
+            bool is_inside = true;
             if (rotation != 0.0f) {
                 f32 dot1 = dot(camera_point - bl_c, edge1);
                 f32 dot2 = dot(camera_point - tl_c, edge2);
                 f32 dot3 = dot(camera_point - tr_c, edge3);
                 f32 dot4 = dot(camera_point - br_c, edge4);
-                is_inside_border = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
+                is_inside = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
             }
 
-            bool is_inside_bitmap = true;
-            {
+            bool is_on_border = false;
+            if (is_inside && border_thickness > 0.0f) {
                 f32 dot1 = dot(camera_point - bl_border_c, edge1_border);
                 f32 dot2 = dot(camera_point - tl_border_c, edge2_border);
                 f32 dot3 = dot(camera_point - tr_border_c, edge3_border);
                 f32 dot4 = dot(camera_point - br_border_c, edge4_border);
-                is_inside_bitmap = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
+                is_on_border = !(dot1 >= 0 && dot2 >= 0 && dot3 >= 0 && dot4 >= 0);
             }
 
-            if (is_inside_border) {
+            if (is_inside) {
                 vec4 src_color_l1;
-                if (!is_inside_bitmap) {
+                if (is_on_border) {
                     src_color_l1 = srgb255_to_linear1(vec4(255.0f, 0.0f, 0.0f, 255.0f));
                 }
                 else {
@@ -452,6 +467,9 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
     f32 scaled_width = (quad.br.x - quad.bl.x) * scale.x;
     f32 scaled_height = (quad.tr.y - quad.br.y) * scale.y;
 
+    /*printf("Model width: %f\n", model_width);*/
+    /*printf("Scaled width: %f\n", scaled_width);*/
+
     vec2 translation = offset;
 
     mat2 rot_mat = mat2_rotate(rotation);
@@ -501,8 +519,8 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
     f32 tex_range_u = (f32)(u_max - u_min);
     f32 tex_range_v = (f32)(v_max - v_min);
 
-    f32 scaled_du = (scale.x * (f32)tex_range_u) / (scaled_width - 1.0f);
-    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (scaled_height - 1.0f);
+    f32 scaled_du = (scale.x * (f32)tex_range_u) / (scaled_width);
+    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (scaled_height);
 
     vec2 ds_dx = vec2(M_c_to_m.xx * scaled_du, M_c_to_m.xy * scaled_dv);
     vec2 ds_dy = vec2(M_c_to_m.yx * scaled_du, M_c_to_m.yy * scaled_dv);
@@ -817,9 +835,12 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap_avx2(entry->quad, entry->offset, entry->scale, entry->rotation, entry->color, entry->texture_id,
-                entry->uv_min, entry->uv_max, commands->screen_width, commands->screen_height, &clip_rect);
-
+            draw_bitmap(entry->quad, entry->offset,                          //
+                entry->scale, entry->rotation, entry->color,                 //
+                entry->texture_id, entry->uv_min, entry->uv_max,             //
+                commands->screen_width, commands->screen_height, &clip_rect, //
+                entry->border_thickness, entry->border_color                 //
+            );
             base_address += sizeof(*entry);
         } break;
         default: InvalidCodePath;

@@ -209,6 +209,9 @@ struct UI_Entity {
     List<CodePoint> text;
 
     vec4 background_color;
+
+    vec4 border_color;
+    f32 border_thickness;
 };
 
 struct UI_FrameState {
@@ -243,6 +246,8 @@ struct UI_Style {
     UI_FlexDirection flex_direction;
     UI_EdgeInsets margin;
     UI_EdgeInsets padding;
+    vec4 border_color;
+    f32 border_thickness;
 };
 
 inline UI_Style default_style = {  //
@@ -261,6 +266,8 @@ inline UI_Style default_style = {  //
     .flex_direction = UI_FlexDirection_Row,
     .margin = {},
     .padding = {},
+    .border_color = {},
+    .border_thickness = 0.5f,
 };
 
 struct UI_Context {

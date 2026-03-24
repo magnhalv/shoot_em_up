@@ -132,8 +132,8 @@ auto inline get_bbox(const BitmapMeta* meta) -> BBox {
     f32 align_y = meta->align_percentage.y;
     result.bl = vec2(-width * align_x, -height * align_y);
     result.tl = vec2(-width * align_x, height * (1.0f - align_y));
-    result.tr = vec2(width * (1 - align_x), height * (1.0f - align_y));
-    result.br = vec2(width * (1 - align_x), -height * align_y);
+    result.tr = vec2(width * (1.0f - align_x), height * (1.0f - align_y));
+    result.br = vec2(width * (1.0f - align_x), -height * align_y);
     return result;
 }
 

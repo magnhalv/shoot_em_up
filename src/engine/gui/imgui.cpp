@@ -475,29 +475,32 @@ auto UI_Generate_Render_Commands(RenderCommands* render_group) -> void {
         f32 y = entity->position[Axis2_Y];
         f32 el_width = entity->computed_size[Axis2_X];
         f32 el_height = entity->computed_size[Axis2_Y];
-        if (entity->flags & UI_WidgetFlag_DrawBackground) {
 
-            if (global_context->state()->layout.layout_direction == UI_Direction_Up) {
-                entity->rect.bl = vec2(x, y);
-                entity->rect.tr = vec2(x + el_width, y + el_height);
-            }
-            else {
-                entity->rect.bl = vec2(x, y - el_height);
-                entity->rect.tr = vec2(x + el_width, y);
-            }
-
-            vec2 bl = entity->rect.bl;
-            vec2 tr = entity->rect.tr;
-            vec2 tl = vec2(bl.x, tr.y);
-            vec2 br = vec2(tr.x, bl.y);
-            auto* rendel_el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
-            rendel_el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-            rendel_el->offset = vec2(x + el_width / 2, y - el_height / 2);
-            rendel_el->scale = vec2(el_width, el_height);
-            rendel_el->rotation = 0;
-            rendel_el->texture_id = 0;
-            rendel_el->color = entity->background_color;
+        if (global_context->state()->layout.layout_direction == UI_Direction_Up) {
+            entity->rect.bl = vec2(x, y);
+            entity->rect.tr = vec2(x + el_width, y + el_height);
         }
+        else {
+            entity->rect.bl = vec2(x, y - el_height);
+            entity->rect.tr = vec2(x + el_width, y);
+        }
+
+        vec2 bl = entity->rect.bl;
+        vec2 tr = entity->rect.tr;
+        vec2 tl = vec2(bl.x, tr.y);
+        vec2 br = vec2(tr.x, bl.y);
+        auto* render_el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
+        render_el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
+        render_el->offset = vec2(x + el_width / 2, y - el_height / 2);
+        render_el->scale = vec2(el_width, el_height);
+        render_el->rotation = 0;
+        render_el->texture_id = 0;
+
+        if (entity->flags & UI_WidgetFlag_DrawBackground) {
+            render_el->color = entity->background_color;
+        }
+        render_el->border_thickness = entity->border_thickness;
+        render_el->border_color = entity->border_color;
 
         if (entity->flags & UI_WidgetFlag_DrawText) {
             LoadedFont* font = global_context->font;
@@ -513,18 +516,18 @@ auto UI_Generate_Render_Commands(RenderCommands* render_group) -> void {
                 auto glyph_width = uv_max.x - uv_min.x;
                 auto glyph_height = uv_max.y - uv_min.y;
 
-                auto* el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
-                el->uv_min = uv_min;
-                el->uv_max = uv_max;
+                auto* char_el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
+                char_el->uv_min = uv_min;
+                char_el->uv_max = uv_max;
 
-                el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
+                char_el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
                 // Offset with 0.5f to not make the bilinear interpolation not make the font blurry.
-                el->offset = vec2((glyph_width) / 2.0f + x + cp.xoff + 0.5f,
+                char_el->offset = vec2((glyph_width) / 2.0f + x + cp.xoff + 0.5f,
                     (glyph_height / 2.0f) + y - (glyph_height + cp.yoff) + 0.5f);
-                el->scale = vec2((f32)glyph_width, (f32)glyph_height);
-                el->rotation = 0.0f;
-                el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
-                el->texture_id = global_context->texture_id;
+                char_el->scale = vec2((f32)glyph_width, (f32)glyph_height);
+                char_el->rotation = 0.0f;
+                char_el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+                char_el->texture_id = global_context->texture_id;
 
                 // Offset with 0.5f to not make the bilinear interpolation not make the font blurry.
                 x += floorf(cp.xadvance + 0.5f);
@@ -593,6 +596,9 @@ auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {
 
     entity->z_index = global_context->style->z_index;
     entity->flex_direction = global_context->style->flex_direction;
+
+    entity->border_color = global_context->style->border_color;
+    entity->border_thickness = global_context->style->border_thickness;
 }
 
 auto UI_PushWindow(string8 text, UI_Position x, UI_Position y, UI_Size width, UI_Size height) -> void {
