@@ -1229,13 +1229,14 @@ auto win32_create_window(HINSTANCE hInstance, PSTR szCmdLine) -> HWND {
 
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int client_width = SCREEN_WIDTH;
-    int client_height = SCREEN_HEIGHT;
+    int client_width = CLIENT_WIDTH;
+    int client_height = CLIENT_HEIGHT;
     RECT windowRect;
     SetRect(&windowRect, (screenWidth / 2) - (client_width / 2), (screenHeight / 2) - (client_height / 2),
         (screenWidth / 2) + (client_width / 2), (screenHeight / 2) + (client_height / 2));
 
-    DWORD style = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX); // WS_THICKFRAME to resize
+    // DWORD style = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX); // WS_THICKFRAME to resize
+    DWORD style = WS_POPUPWINDOW;
     AdjustWindowRectEx(&windowRect, style, FALSE, 0);
 
     HWND window = CreateWindowEx(0, wndclass.lpszClassName, "Game Window", style, windowRect.left, windowRect.top,
@@ -1505,6 +1506,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             GetClientRect(window, &client_rect);
             engine_input.client_height = client_rect.bottom - client_rect.top;
             engine_input.client_width = client_rect.right - client_rect.left;
+            printf("Width: %d, Height: %d\n", engine_input.client_width, engine_input.client_height);
 
             engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_dll.api);
 

@@ -37,6 +37,15 @@ struct OffscreenBuffer {
     i32 pitch;
 };
 
+struct FrameBuffer {
+    void* memory;
+    i32 memory_size;
+    i32 width;
+    i32 height;
+    i32 bytes_per_pixel;
+    i32 pitch;
+};
+
 struct Win32Texture {
     void* data;
     i32 width;
@@ -50,6 +59,7 @@ struct Win32Texture {
 // TODO: This should probably go to an arena
 struct SWRendererState {
     OffscreenBuffer global_offscreen_buffer;
+    FrameBuffer frame_buffer;
     MemoryArena permanent;
     MemoryArena transient;
 
@@ -83,7 +93,7 @@ static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
     buffer->Info.bmiHeader.biWidth = buffer->width;
     buffer->Info.bmiHeader.biHeight = buffer->height;
     buffer->Info.bmiHeader.biPlanes = 1;
-    buffer->Info.bmiHeader.biBitCount = 32;
+    buffer->Info.bmiHeader.biBitCount = BYTES_PER_PIXEL * 8;
     buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     buffer->bytes_per_pixel = 4;
@@ -93,6 +103,23 @@ static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
 
     // Should always be 64KB aligned from virtual alloc
     Assert(is_aligned(buffer->memory, 65536));
+}
+
+static void resize_frame_buffer(FrameBuffer* buffer, int width, int height) {
+    // TODO: Bulletproof this
+    // Maybe don't free first, free after, then free first if that fails. I.e. if VirtualAlloc fails.
+    if (buffer->memory) {
+        VirtualFree(buffer->memory, 0, MEM_RELEASE);
+    }
+
+    buffer->width = width;
+    buffer->height = height;
+    buffer->bytes_per_pixel = BYTES_PER_PIXEL;
+    buffer->memory_size = buffer->bytes_per_pixel * (buffer->width * buffer->height);
+    buffer->memory = VirtualAlloc(0, buffer->memory_size, MEM_COMMIT, PAGE_READWRITE);
+    buffer->pitch = buffer->width * buffer->bytes_per_pixel;
+    // Should always be 64KB aligned from virtual alloc
+    Assert(is_aligned(buffer->memory, KiloBytes(64)));
 }
 
 auto square(f32 v) -> f32 {
@@ -231,11 +258,16 @@ inline auto srgb255_to_linear1_2(vec4 color) -> color_v8 {
     return result;
 }
 
-static void draw_rectangle(OffscreenBuffer* buffer, Rectangle2i rect, f32 r, f32 g, f32 b) {
+static void draw_rectangle(FrameBuffer* buffer, Rectangle2i rect, f32 r, f32 g, f32 b) {
     u32 color = (round_f32_to_i32(r * 255.0f) << 16) | (round_f32_to_i32(g * 255.0f) << 8) | (round_f32_to_i32(b * 255.0f));
 
-    for (int y = rect.min_y; y < rect.max_y; y++) {
-        for (int x = rect.min_x; x < rect.max_x; x++) {
+    u32 min_x = hm::max(rect.min_x, 0);
+    u32 max_x = hm::min(rect.max_x, buffer->width);
+    u32 min_y = hm::max(rect.min_y, 0);
+    u32 max_y = hm::min(rect.max_y, buffer->height);
+
+    for (u32 y = min_y; y < max_y; y++) {
+        for (u32 x = min_x; x < max_x; x++) {
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
             *pixel = color;
@@ -244,10 +276,10 @@ static void draw_rectangle(OffscreenBuffer* buffer, Rectangle2i rect, f32 r, f32
 }
 
 static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i* clip_rect) {
-    draw_rectangle(                     //
-        &state.global_offscreen_buffer, //
-        *clip_rect,                     //
-        color.r, color.g, color.b       //
+    draw_rectangle(               //
+        &state.frame_buffer,      //
+        *clip_rect,               //
+        color.r, color.g, color.b //
     );
 }
 
@@ -326,11 +358,15 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 min_y = round_f32_to_i32(hm::min(bl_c.y, tl_c.y, tr_c.y, br_c.y));
     i32 max_y = round_f32_to_i32(hm::max(bl_c.y, tl_c.y, tr_c.y, br_c.y));
 
-    OffscreenBuffer* buffer = &state.global_offscreen_buffer;
     min_x = hm::max(min_x, clip_rect->min_x);
     max_x = hm::min(max_x, clip_rect->max_x);
     min_y = hm::max(min_y, clip_rect->min_y);
     max_y = hm::min(max_y, clip_rect->max_y);
+
+    // min_x = hm::max(min_x, 0);
+    // max_x = hm::min(max_x, state.frame_buffer.width);
+    // min_y = hm::max(min_y, 0);
+    // max_y = hm::min(max_y, state.frame_buffer.height);
 
     vec2 edge1 = tl_c - bl_c;
     vec2 edge2 = tr_c - tl_c;
@@ -375,6 +411,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
         f32 u = texel_u_row;
         f32 v = texel_v_row;
         for (int x = min_x; x < max_x; x++) {
+            FrameBuffer* buffer = &state.frame_buffer;
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
@@ -395,7 +432,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 f32 dot2 = dot(camera_point - tl_border_c, edge2_border);
                 f32 dot3 = dot(camera_point - tr_border_c, edge3_border);
                 f32 dot4 = dot(camera_point - br_border_c, edge4_border);
-                is_on_border = !(dot1 >= 0 && dot2 >= 0 && dot3 >= 0 && dot4 >= 0);
+                is_on_border = !(dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0);
             }
 
             if (is_inside) {
@@ -494,7 +531,6 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
     i32 min_y = round_f32_to_i32(hm::min(bl_c.y, tl_c.y, tr_c.y, br_c.y));
     i32 max_y = round_f32_to_i32(hm::max(bl_c.y, tl_c.y, tr_c.y, br_c.y));
 
-    OffscreenBuffer* buffer = &state.global_offscreen_buffer;
     min_x = hm::max(min_x, clip_rect->min_x);
     max_x = hm::min(max_x, clip_rect->max_x);
     min_y = hm::max(min_y, clip_rect->min_y);
@@ -549,6 +585,7 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
         }
         const u32 Lane_Width = 8;
         for (int x = min_x; x < max_x; x += Lane_Width) {
+            FrameBuffer* buffer = &state.frame_buffer;
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
@@ -719,7 +756,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     // TODO: We should check for need of resizing on every draw call.
 
     // resize_dib_section(&state.global_offscreen_buffer, 48, 58);
-    resize_dib_section(&state.global_offscreen_buffer, SCREEN_WIDTH, SCREEN_HEIGHT);
+    resize_dib_section(&state.global_offscreen_buffer, CLIENT_WIDTH, CLIENT_HEIGHT);
+    resize_frame_buffer(&state.frame_buffer, INTERNAL_WIDTH, INTERNAL_HEIGHT);
 
     HM_ASSERT(memory != nullptr);
     HM_ASSERT(memory->data != nullptr);
@@ -733,8 +771,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     null_texture->height = 1;
     null_texture->width = 1;
     null_texture->count = 1;
-    null_texture->size = sizeof(u32);
-    null_texture->bytes_per_pixel = sizeof(u32);
+    null_texture->bytes_per_pixel = BYTES_PER_PIXEL;
+    null_texture->size = null_texture->count * null_texture->bytes_per_pixel;
     null_texture->data = allocate<u32>(state.permanent);
     u32* data = (u32*)null_texture->data;
     *data = pack4x8(vec4(1.0f, 0.0f, 0.0f, 1.0f));
@@ -922,6 +960,18 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     i32 width = state.global_offscreen_buffer.width;
     i32 height = state.global_offscreen_buffer.height;
 
+    Assert(state.global_offscreen_buffer.bytes_per_pixel = state.frame_buffer.bytes_per_pixel);
+    u32 scale = state.global_offscreen_buffer.width / state.frame_buffer.width;
+    for (i32 y = 0; y < state.frame_buffer.height; y++) {
+        u32* dest = (u32*)state.global_offscreen_buffer.memory + (y * state.global_offscreen_buffer.width);
+        u32* src = (u32*)state.frame_buffer.memory + (y * state.frame_buffer.width);
+        for (i32 x = 0; x < state.frame_buffer.width; x++) {
+            for (u32 s = 0; s < scale; s++) {
+                *dest++ = *src;
+            }
+            src++;
+        }
+    }
     u32 result = StretchDIBits(               //
         device_context,                       //
         0, 0,                                 //

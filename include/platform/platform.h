@@ -12,13 +12,18 @@
 #include "types.h"
 #include "user_input.h"
 
-const i32 SCREEN_WIDTH = 960;
-const i32 SCREEN_HEIGHT = 540;
+// const i32 CLIENT_WIDTH = 960;
+// const i32 CLIENT_HEIGHT = 540;
+const i32 CLIENT_WIDTH = 48 * 4;
+const i32 CLIENT_HEIGHT = 58 * 4;
+const i32 INTERNAL_WIDTH = CLIENT_WIDTH / 4;
+const i32 INTERNAL_HEIGHT = CLIENT_HEIGHT / 4;
+const i32 BYTES_PER_PIXEL = 4;
 
 const u32 WORKER_THREAD_COUNT = 3;
 const u32 TOTAL_THREAD_COUNT = WORKER_THREAD_COUNT + 1;
 
-const u32 Gl_Invalid_Id = 0;
+const u32 Gl_Invalid_Id = 0; // TODO: Remove this
 
 typedef struct {
     bool has_errors;

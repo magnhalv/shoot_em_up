@@ -267,7 +267,7 @@ inline UI_Style default_style = {  //
     .margin = {},
     .padding = {},
     .border_color = {},
-    .border_thickness = 0.5f,
+    .border_thickness = 0.0f,
 };
 
 struct UI_Context {

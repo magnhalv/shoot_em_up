@@ -30,9 +30,10 @@ struct RenderEntityBasis {
     vec2 offset;
 };
 
-enum RenderGroupEntryType {          //
-    RenderCommands_RenderEntryClear, //
-    RenderCommands_RenderEntryBitmap //
+enum RenderGroupEntryType {           //
+    RenderCommands_RenderEntryClear,  //
+    RenderCommands_RenderEntryBitmap, //
+    RenderCommands_RenderLine         //
 };
 
 struct RenderGroupEntryHeader {
@@ -52,7 +53,7 @@ struct RenderEntryQuadrilateral {
     vec2 scale;
 };
 
-typedef struct {
+struct RenderEntryBitmap {
     RenderEntityBasis render_basis;
     Quadrilateral quad;
     Quadrilateral uv;
@@ -65,7 +66,13 @@ typedef struct {
     ivec2 uv_max;
     f32 border_thickness;
     vec4 border_color;
-} RenderEntryBitmap;
+};
+
+struct RenderLine {
+    vec2 start;
+    vec2 end;
+    vec4 color;
+};
 
 struct RenderCommands {
     f32 meters_to_pixels;
