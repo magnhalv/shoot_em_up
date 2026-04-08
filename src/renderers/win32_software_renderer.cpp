@@ -275,12 +275,31 @@ static void draw_rectangle(FrameBuffer* buffer, Rectangle2i rect, f32 r, f32 g, 
     }
 }
 
-static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i* clip_rect) {
-    draw_rectangle(               //
-        &state.frame_buffer,      //
-        *clip_rect,               //
-        color.r, color.g, color.b //
-    );
+static void draw_chess_map(FrameBuffer* buffer, Rectangle2i rect) {
+    u32 color1 = 0xFFFF0000;
+    u32 color2 = 0xFF00FF00;
+
+    u32 min_x = hm::max(rect.min_x, 0);
+    u32 max_x = hm::min(rect.max_x, buffer->width);
+    u32 min_y = hm::max(rect.min_y, 0);
+    u32 max_y = hm::min(rect.max_y, buffer->height);
+
+    for (u32 y = min_y; y < max_y; y++) {
+        u32* dest = ((u32*)buffer->memory + (y * buffer->width));
+        for (u32 x = min_x; x < max_x; x++) {
+            u32 color = (y + x) % 2 == 0 ? color1 : color2;
+            *dest++ = color;
+        }
+    }
+}
+
+static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i clip_rect) {
+    // draw_rectangle(               //
+    //     &state.frame_buffer,      //
+    //     *clip_rect,               //
+    //     color.r, color.g, color.b //
+    // );
+    draw_chess_map(&state.frame_buffer, clip_rect);
 }
 
 static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
@@ -385,8 +404,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     i32 v_max = uv_max.y;
 
     if (u_max == 0 || v_max == 0) {
-        u_max = texture->width - 1;
-        v_max = texture->height - 1;
+        u_max = texture->width;
+        v_max = texture->height;
     }
 
     f32 tex_range_u = (f32)(u_max - u_min);
@@ -868,7 +887,7 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
         switch (header->type) {
         case RenderCommands_RenderEntryClear: {
             RenderEntryClear* entry = (RenderEntryClear*)data;
-            clear(commands->screen_width, commands->screen_height, entry->color, &clip_rect);
+            clear(commands->screen_width, commands->screen_height, entry->color, clip_rect);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
@@ -962,14 +981,14 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
 
     Assert(state.global_offscreen_buffer.bytes_per_pixel = state.frame_buffer.bytes_per_pixel);
     u32 scale = state.global_offscreen_buffer.width / state.frame_buffer.width;
-    for (i32 y = 0; y < state.frame_buffer.height; y++) {
+    for (i32 y = 0; y < state.global_offscreen_buffer.height; y++) {
         u32* dest = (u32*)state.global_offscreen_buffer.memory + (y * state.global_offscreen_buffer.width);
-        u32* src = (u32*)state.frame_buffer.memory + (y * state.frame_buffer.width);
-        for (i32 x = 0; x < state.frame_buffer.width; x++) {
-            for (u32 s = 0; s < scale; s++) {
-                *dest++ = *src;
-            }
-            src++;
+
+        u32 frame_buffer_y = y / scale;
+        u32* src = (u32*)state.frame_buffer.memory + (frame_buffer_y * state.frame_buffer.width);
+        for (i32 x = 0; x < state.global_offscreen_buffer.width; x++) {
+            u32 frame_buffer_x = x / scale;
+            *dest++ = *(src + frame_buffer_x);
         }
     }
     u32 result = StretchDIBits(               //
