@@ -1504,9 +1504,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
             RECT client_rect;
             GetClientRect(window, &client_rect);
-            engine_input.client_height = client_rect.bottom - client_rect.top;
-            engine_input.client_width = client_rect.right - client_rect.left;
-            printf("Width: %d, Height: %d\n", engine_input.client_width, engine_input.client_height);
+            engine_input.client_width = INTERNAL_WIDTH;
+            engine_input.client_height = INTERNAL_HEIGHT;
 
             engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_dll.api);
 

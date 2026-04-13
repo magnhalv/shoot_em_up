@@ -478,7 +478,7 @@ static auto write_asset_file(GameAssetsWrite* assets, const char* file_name) -> 
 
 /////// Write assets ////////////////
 static auto write_bitmaps() -> void {
-    GameAssetsWrite assets_ = { 0 };
+    GameAssetsWrite assets_ = {};
     GameAssetsWrite* assets = &assets_;
 
     initialize(assets);
@@ -502,6 +502,10 @@ static auto write_bitmaps() -> void {
 
     begin_asset_group(assets, AssetGroupId_Test);
     add_bitmap_asset(assets, "assets/bitmaps/test.png");
+    end_asset_group(assets);
+
+    begin_asset_group(assets, AssetGroupId_TestStripes);
+    add_bitmap_asset(assets, "assets/bitmaps/test_stripes.png");
     end_asset_group(assets);
 
     AddAssetGroup(assets, AssetGroupId_Explosion) {
@@ -531,7 +535,7 @@ static auto write_bitmaps() -> void {
 }
 
 static auto write_audio() -> void {
-    GameAssetsWrite assets_ = { 0 };
+    GameAssetsWrite assets_ = {};
     GameAssetsWrite* assets = &assets_;
 
     initialize(assets);

@@ -15,6 +15,7 @@
 #include <engine/hm_assert.h>
 #include <engine/profiling.hpp>
 
+#include <renderers/cpu_render_algorithms.hpp>
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
@@ -29,15 +30,6 @@ struct WindowDimension {
 
 struct OffscreenBuffer {
     BITMAPINFO Info;
-    void* memory;
-    i32 memory_size;
-    i32 width;
-    i32 height;
-    i32 bytes_per_pixel;
-    i32 pitch;
-};
-
-struct FrameBuffer {
     void* memory;
     i32 memory_size;
     i32 width;
@@ -276,8 +268,8 @@ static void draw_rectangle(FrameBuffer* buffer, Rectangle2i rect, f32 r, f32 g, 
 }
 
 static void draw_chess_map(FrameBuffer* buffer, Rectangle2i rect) {
-    u32 color1 = 0xFFFF0000;
-    u32 color2 = 0xFF00FF00;
+    u32 color1 = 0xFFAAAAAA;
+    u32 color2 = 0xFFEBEBEB;
 
     u32 min_x = hm::max(rect.min_x, 0);
     u32 max_x = hm::min(rect.max_x, buffer->width);
@@ -776,7 +768,9 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
 
     // resize_dib_section(&state.global_offscreen_buffer, 48, 58);
     resize_dib_section(&state.global_offscreen_buffer, CLIENT_WIDTH, CLIENT_HEIGHT);
+    log_info(" Output resolution: %d x %d", CLIENT_WIDTH, CLIENT_HEIGHT);
     resize_frame_buffer(&state.frame_buffer, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+    log_info(" Internal resolution: %d x %d", INTERNAL_WIDTH, INTERNAL_HEIGHT);
 
     HM_ASSERT(memory != nullptr);
     HM_ASSERT(memory->data != nullptr);
@@ -888,6 +882,11 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
         case RenderCommands_RenderEntryClear: {
             RenderEntryClear* entry = (RenderEntryClear*)data;
             clear(commands->screen_width, commands->screen_height, entry->color, clip_rect);
+            base_address += sizeof(*entry);
+        } break;
+        case RenderCommands_RenderLine: {
+            RenderLine* entry = (RenderLine*)data;
+            render_line_bresenham(entry->start, entry->end, entry->color, clip_rect, &state.frame_buffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {

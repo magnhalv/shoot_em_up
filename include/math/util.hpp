@@ -20,6 +20,11 @@ struct Rectangle2i {
     i32 max_y;
 };
 
+// @brief: Inclusive min, exclusive max
+auto inline is_inside(vec2 pos, Rectangle2i rectangle) {
+    return (pos.x >= rectangle.min_x && pos.x < rectangle.max_x) && (pos.y >= rectangle.min_y && pos.y < rectangle.max_y);
+}
+
 namespace hm {
 
 auto inline to_rect(Transform transform) {

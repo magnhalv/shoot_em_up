@@ -376,11 +376,19 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.sort_keys.init(g_transient, 1024);
         group.sort_entries_offset.init(g_transient, 1024);
 
-        auto* line = PushRenderElement(&group, RenderLine, 0);
-        line->start = vec2(0.0f, 100.0f);
-        line->end = vec2((f32)app_input->client_width, 100.0f);
+        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
+        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
+
+        // auto* line = PushRenderElement(&group, RenderLine, 0);
+        // vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+        // center.print();
+        // line->start = center;
+        // line->end = vec2(center.x + 10.0f, center.y);
+        // line->color = vec4(1.0, 0.0, 0.0, 1.0f);
+
+        renderer->render(Platform->work_queue, &group);
     }
-    {
+    if (false) {
         // TIMED_BLOCK("render_game");
         RenderCommands group{};
         group.push_buffer_size = 0;

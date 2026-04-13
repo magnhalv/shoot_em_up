@@ -1,16 +1,8 @@
-  
-gen: env
-  ./scripts/generate.bat
-
 env:
   ./scripts/env.bat
 
 build: env
   time ./scripts/build.bat
-
-test: env
-  cmake --build cmake-build --target tests
-  ./cmake-build/tests/tests.exe
 
 
 engine:
@@ -25,14 +17,14 @@ software_renderer:
 opengl_renderer:
   { time ./scripts/compile.bat opengl_renderer; }  > opengl_renderer.log 2>&1
 
-tests:
+build-tests:
   { time ./scripts/compile.bat tests; }  > tests.log 2>&1
 
 build-assets:
   { time ./scripts/compile.bat asset_builder; }  > build_assets.log 2>&1
 
 [parallel]
-build-all: engine main software_renderer build-assets
+build-all: engine main software_renderer build-assets build-tests
     ./scripts/check_errors.bat
 
 
@@ -41,6 +33,11 @@ run:
     rm -f *.log
     time just build-all
     ../build/shoot_em_up.exe
+
+tests: 
+    rm -f *.log
+    time just build-all
+    ./build/tests.exe
 
 
 [working-directory: 'data']

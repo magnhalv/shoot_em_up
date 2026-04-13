@@ -28,6 +28,7 @@ enum AssetGroupId : u32 {
     AssetGroupId_Projectile,
     AssetGroupId_Explosion,
     AssetGroupId_Test,
+    AssetGroupId_TestStripes,
 
     // Audio
     AssetGroupId_Audio_Laser,
