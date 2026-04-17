@@ -277,7 +277,7 @@ static void draw_chess_map(FrameBuffer* buffer, Rectangle2i rect) {
     u32 max_y = hm::min(rect.max_y, buffer->height);
 
     for (u32 y = min_y; y < max_y; y++) {
-        u32* dest = ((u32*)buffer->memory + (y * buffer->width));
+        u32* dest = ((u32*)buffer->memory + (y * buffer->width)) + (min_x);
         for (u32 x = min_x; x < max_x; x++) {
             u32 color = (y + x) % 2 == 0 ? color1 : color2;
             *dest++ = color;
@@ -288,7 +288,7 @@ static void draw_chess_map(FrameBuffer* buffer, Rectangle2i rect) {
 static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i clip_rect) {
     // draw_rectangle(               //
     //     &state.frame_buffer,      //
-    //     *clip_rect,               //
+    //     clip_rect,                //
     //     color.r, color.g, color.b //
     // );
     draw_chess_map(&state.frame_buffer, clip_rect);

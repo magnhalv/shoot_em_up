@@ -379,12 +379,40 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
         clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
 
-        // auto* line = PushRenderElement(&group, RenderLine, 0);
-        // vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-        // center.print();
-        // line->start = center;
-        // line->end = vec2(center.x + 10.0f, center.y);
-        // line->color = vec4(1.0, 0.0, 0.0, 1.0f);
+        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+        const i32 num = 20;
+        vec2 end_points[] = {
+            vec2(center.x + num, center.y),
+            vec2(center.x + num * cosf((1 * PI) / 8.0f), center.y + num * sinf((1 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((2 * PI) / 8.0f), center.y + num * sinf((2 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((3 * PI) / 8.0f), center.y + num * sinf((3 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((4 * PI) / 8.0f), center.y + num * sinf((4 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((5 * PI) / 8.0f), center.y + num * sinf((5 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((6 * PI) / 8.0f), center.y + num * sinf((6 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((7 * PI) / 8.0f), center.y + num * sinf((7 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((8 * PI) / 8.0f), center.y + num * sinf((8 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((9 * PI) / 8.0f), center.y + num * sinf((9 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((10 * PI) / 8.0f), center.y + num * sinf((10 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((11 * PI) / 8.0f), center.y + num * sinf((11 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((12 * PI) / 8.0f), center.y + num * sinf((12 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((13 * PI) / 8.0f), center.y + num * sinf((13 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((14 * PI) / 8.0f), center.y + num * sinf((14 * PI) / 8.0f)),
+            vec2(center.x + num * cosf((15 * PI) / 8.0f), center.y + num * sinf((15 * PI) / 8.0f)),
+            center,
+        };
+
+        end_points[0].print();
+        end_points[1].print();
+        center.print();
+
+        Assert(ArrayCount(global_color_palette) >= ArrayCount(end_points));
+
+        for (u32 i = 0; i < ArrayCount(end_points); i++) {
+            auto* line = PushRenderElement(&group, RenderLine, 0);
+            line->start = center;
+            line->end = end_points[i];
+            line->color = global_color_palette[i];
+        }
 
         renderer->render(Platform->work_queue, &group);
     }
