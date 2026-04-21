@@ -365,7 +365,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     //// Rendering ////////////
     ///////////////////////////
 
-    {
+    if (false) {
         TIMED_BLOCK("render_test_stuff");
         RenderCommands group{};
         group.push_buffer_size = 0;
@@ -380,24 +380,24 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
 
         vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-        const i32 num = 20;
+        const i32 length = 20;
         vec2 end_points[] = {
-            vec2(center.x + num, center.y),
-            vec2(center.x + num * cosf((1 * PI) / 8.0f), center.y + num * sinf((1 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((2 * PI) / 8.0f), center.y + num * sinf((2 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((3 * PI) / 8.0f), center.y + num * sinf((3 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((4 * PI) / 8.0f), center.y + num * sinf((4 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((5 * PI) / 8.0f), center.y + num * sinf((5 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((6 * PI) / 8.0f), center.y + num * sinf((6 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((7 * PI) / 8.0f), center.y + num * sinf((7 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((8 * PI) / 8.0f), center.y + num * sinf((8 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((9 * PI) / 8.0f), center.y + num * sinf((9 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((10 * PI) / 8.0f), center.y + num * sinf((10 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((11 * PI) / 8.0f), center.y + num * sinf((11 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((12 * PI) / 8.0f), center.y + num * sinf((12 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((13 * PI) / 8.0f), center.y + num * sinf((13 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((14 * PI) / 8.0f), center.y + num * sinf((14 * PI) / 8.0f)),
-            vec2(center.x + num * cosf((15 * PI) / 8.0f), center.y + num * sinf((15 * PI) / 8.0f)),
+            vec2(center.x + length, center.y),
+            vec2(center.x + length * cosf((1 * PI) / 8.0f), center.y + length * sinf((1 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((2 * PI) / 8.0f), center.y + length * sinf((2 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((3 * PI) / 8.0f), center.y + length * sinf((3 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((4 * PI) / 8.0f), center.y + length * sinf((4 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((5 * PI) / 8.0f), center.y + length * sinf((5 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((6 * PI) / 8.0f), center.y + length * sinf((6 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((7 * PI) / 8.0f), center.y + length * sinf((7 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((8 * PI) / 8.0f), center.y + length * sinf((8 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((9 * PI) / 8.0f), center.y + length * sinf((9 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((10 * PI) / 8.0f), center.y + length * sinf((10 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((11 * PI) / 8.0f), center.y + length * sinf((11 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((12 * PI) / 8.0f), center.y + length * sinf((12 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((13 * PI) / 8.0f), center.y + length * sinf((13 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((14 * PI) / 8.0f), center.y + length * sinf((14 * PI) / 8.0f)),
+            vec2(center.x + length * cosf((15 * PI) / 8.0f), center.y + length * sinf((15 * PI) / 8.0f)),
             center,
         };
 
@@ -408,11 +408,34 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         Assert(ArrayCount(global_color_palette) >= ArrayCount(end_points));
 
         for (u32 i = 0; i < ArrayCount(end_points); i++) {
-            auto* line = PushRenderElement(&group, RenderLine, 0);
+            auto* line = PushRenderElement(&group, RenderEntryLine, 0);
             line->start = center;
             line->end = end_points[i];
             line->color = global_color_palette[i];
         }
+
+        renderer->render(Platform->work_queue, &group);
+    }
+
+    if (true) {
+        TIMED_BLOCK("render_test_stuff");
+        RenderCommands group{};
+        group.push_buffer_size = 0;
+        group.max_push_buffer_size = MegaBytes(4);
+        group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
+        group.screen_width = app_input->client_width;
+        group.screen_height = app_input->client_height;
+        group.sort_keys.init(g_transient, 1024);
+        group.sort_entries_offset.init(g_transient, 1024);
+
+        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
+        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
+
+        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+        auto* circle = PushRenderElement(&group, RenderEntryCircle, 0);
+        circle->P = center;
+        circle->radius = 16.0f;
+        circle->color = global_color_palette[0];
 
         renderer->render(Platform->work_queue, &group);
     }

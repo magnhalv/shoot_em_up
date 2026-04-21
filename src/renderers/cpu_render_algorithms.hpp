@@ -74,7 +74,7 @@ auto inline render_line_bresenham_y(
     }
 }
 
-auto inline render_line_bresenham(vec2 start, vec2 end, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
+auto inline render_line_bresenham(vec2 start, vec2 end, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer) -> void {
     i32 xs = round_f32_to_i32(start.x);
     i32 xe = round_f32_to_i32(end.x);
     i32 ys = round_f32_to_i32(start.y);
@@ -98,6 +98,43 @@ auto inline render_line_bresenham(vec2 start, vec2 end, vec4 color, Rectangle2i 
         }
         else {
             render_line_bresenham_y(xe, ye, xs, ys, -dx, -dy, color, clip_rect, buffer);
+        }
+    }
+}
+
+auto inline set_pixel(i32 x, i32 y, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
+    if (is_inside(ivec2(x, y), clip_rect)) {
+        u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
+        *dest = color;
+    }
+}
+auto inline set_8_pixels(i32 x, i32 y, i32 cx, i32 cy, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
+    set_pixel(cx + x, cy + y, color, clip_rect, buffer);
+    set_pixel(cx + y, cy + x, color, clip_rect, buffer);
+    set_pixel(cx + y, cy - x, color, clip_rect, buffer);
+    set_pixel(cx + x, cy - y, color, clip_rect, buffer);
+    set_pixel(cx - x, cy - y, color, clip_rect, buffer);
+    set_pixel(cx - y, cy - x, color, clip_rect, buffer);
+    set_pixel(cx - y, cy + x, color, clip_rect, buffer);
+    set_pixel(cx - x, cy + y, color, clip_rect, buffer);
+}
+
+auto inline render_circle_bresenham(vec2 P, f32 radius, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer) -> void {
+    i32 x = 0;
+    i32 y = round_f32_to_i32(radius);
+    i32 e = -y;
+
+    i32 px = round_f32_to_i32(P.x);
+    i32 py = round_f32_to_i32(P.y);
+    u32 c = (round_f32_to_i32(color.a * 255.0f) << 24) | (round_f32_to_i32(color.r * 255.0f) << 16) |
+        (round_f32_to_i32(color.g * 255.0f) << 8) | (round_f32_to_i32(color.b * 255.0f));
+    while (x <= y) {
+        set_8_pixels(x, y, px, py, c, clip_rect, buffer);
+        e = e + (2 * x) + 1;
+        x++;
+        if (e >= 0) {
+            e = e - (2 * y) + 2;
+            y--;
         }
     }
 }

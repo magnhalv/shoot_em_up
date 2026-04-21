@@ -884,9 +884,14 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
             clear(commands->screen_width, commands->screen_height, entry->color, clip_rect);
             base_address += sizeof(*entry);
         } break;
-        case RenderCommands_RenderLine: {
-            RenderLine* entry = (RenderLine*)data;
+        case RenderCommands_RenderEntryLine: {
+            RenderEntryLine* entry = (RenderEntryLine*)data;
             render_line_bresenham(entry->start, entry->end, entry->color, clip_rect, &state.frame_buffer);
+            base_address += sizeof(*entry);
+        } break;
+        case RenderCommands_RenderEntryCircle: {
+            auto entry = (RenderEntryCircle*)data;
+            render_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, &state.frame_buffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {

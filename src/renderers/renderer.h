@@ -33,7 +33,8 @@ struct RenderEntityBasis {
 enum RenderGroupEntryType {           //
     RenderCommands_RenderEntryClear,  //
     RenderCommands_RenderEntryBitmap, //
-    RenderCommands_RenderLine         //
+    RenderCommands_RenderEntryLine,   //
+    RenderCommands_RenderEntryCircle  //
 };
 
 struct RenderGroupEntryHeader {
@@ -68,9 +69,15 @@ struct RenderEntryBitmap {
     vec4 border_color;
 };
 
-struct RenderLine {
+struct RenderEntryLine {
     vec2 start;
     vec2 end;
+    vec4 color;
+};
+
+struct RenderEntryCircle {
+    vec2 P;
+    f32 radius;
     vec4 color;
 };
 
