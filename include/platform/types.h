@@ -91,6 +91,17 @@ constexpr auto operator+(T e) noexcept -> std::enable_if_t<std::is_enum<T>::valu
     return static_cast<std::underlying_type_t<T>>(e);
 }
 
+#define Assert(expr)                                                                   \
+    if (!(expr)) {                                                                     \
+        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
+        abort();                                                                       \
+    }
+#define InvalidCodePath Assert(!"InvalidCodePath")
+#define InvalidDefaultCase \
+    default: {             \
+        InvalidCodePath;   \
+    } break
+
 #define local_persist static
 #define global_variable static
 #define internal static

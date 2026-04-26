@@ -871,7 +871,8 @@ global_variable vec4 global_color_palette[32] = {
     vec4(255.0f, 255.0f, 255.0f, 255.0f)  // white
 };
 
-auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_render_order, Rectangle2i clip_rect) -> void {
+auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_render_order, Rectangle2i clip_rect,
+    MemoryArena& transient) -> void {
     for (i32 i = 0; i < commands->sort_keys.count(); i++) {
         u64 base_address = commands->sort_entries_offset[command_render_order[i]];
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(commands->push_buffer + base_address);
@@ -886,7 +887,7 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
         } break;
         case RenderCommands_RenderEntryLine: {
             RenderEntryLine* entry = (RenderEntryLine*)data;
-            render_line_bresenham(entry->start, entry->end, entry->color, clip_rect, &state.frame_buffer);
+            render_line_gambetta(entry->start, entry->end, entry->color, clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryCircle: {
@@ -922,7 +923,8 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
     Assert(job);
     Assert(job->commands);
     BEGIN_BLOCK("Execute render commands");
-    execute_render_commands(job->id, job->commands, job->command_render_order, job->clip_rect);
+
+    execute_render_commands(job->id, job->commands, job->command_render_order, job->clip_rect, *transient);
     END_BLOCK();
     MemoryBarrier();
 }

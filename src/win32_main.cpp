@@ -13,6 +13,7 @@
 #include <platform/user_input.h>
 
 #include <core/memory.h>
+#include <core/stack_array.hpp>
 #include <engine/engine.h>
 #include <engine/profiling.hpp>
 
@@ -1130,8 +1131,9 @@ internal void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_call
     ReleaseSemaphore(queue->SemaphoreHandle, 1, 0);
 }
 
-bool win32_do_next_work_entry(PlatformWorkQueue* queue) {
+bool win32_do_next_work_entry(Win32ThreadContext* context) {
 
+    PlatformWorkQueue* queue = context->queue;
     bool we_should_sleep = false;
 
     u32 original_next_entry_to_read = queue->NextEntryToRead;
@@ -1145,7 +1147,9 @@ bool win32_do_next_work_entry(PlatformWorkQueue* queue) {
 
         if (index == original_next_entry_to_read) {
             platform_work_queue_entry entry = queue->entries[index];
-            entry.Callback(queue, entry.Data);
+
+            context->arena.clear_to_zero();
+            entry.Callback(queue, entry.Data, &context->arena);
             InterlockedIncrement((LONG volatile*)&queue->completion_count);
         }
     }
@@ -1158,9 +1162,10 @@ bool win32_do_next_work_entry(PlatformWorkQueue* queue) {
 
 static void win32_complete_all_work(PlatformWorkQueue* queue) {
     while (queue->completion_count != queue->completion_goal) {
-        if (win32_do_next_work_entry(queue)) {
-            YieldProcessor();
-        };
+
+        // if (win32_do_next_work_entry(queue)) {
+        // };
+        YieldProcessor();
     }
 
     queue->completion_goal = 0;
@@ -1168,19 +1173,19 @@ static void win32_complete_all_work(PlatformWorkQueue* queue) {
 }
 
 DWORD WINAPI worker_proc(LPVOID lpParameter) {
-    win32_thread_startup* thread = (win32_thread_startup*)lpParameter;
-    PlatformWorkQueue* queue = thread->queue;
+    Win32ThreadContext* context = (Win32ThreadContext*)lpParameter;
     // TODO: Get ThreadID
     while (true) {
-        if (win32_do_next_work_entry(queue)) {
+        if (win32_do_next_work_entry(context)) {
             TIMED_BLOCK("Wait on sempaphore");
-            WaitForSingleObjectEx(queue->SemaphoreHandle, INFINITE, FALSE);
+            WaitForSingleObjectEx(context->queue->SemaphoreHandle, INFINITE, FALSE);
         }
     }
     return 0;
 }
 
-static void win32_make_queue(PlatformApi* platform, u32 num_threads, win32_thread_startup* startups) {
+static void win32_make_queue(
+    PlatformApi* platform, u32 num_threads, Array<Win32ThreadContext> contexts, Array<MemoryBlock> memory_blocks) {
     PlatformWorkQueue* queue = platform->work_queue;
     queue->completion_goal = 0;
     queue->completion_count = 0;
@@ -1195,11 +1200,15 @@ static void win32_make_queue(PlatformApi* platform, u32 num_threads, win32_threa
     printf("Main thread: %d\n", platform->main_thread_id);
     Assert(platform->main_thread_id != 0);
     for (u32 i = 0; i < num_threads; i++) {
-        win32_thread_startup* startup = startups + i;
-        startup->queue = queue;
+        Win32ThreadContext* context = &contexts[i];
+
+        context->thread_idx = i + 1;
+        context->arena.init((u8*)memory_blocks[i].data, memory_blocks[i].size);
+        context->queue = queue;
 
         DWORD thread_id;
-        HANDLE thread_handle = CreateThread(0, 0, &worker_proc, startup, 0, &thread_id);
+        HANDLE thread_handle = CreateThread(0, 0, &worker_proc, context, 0, &thread_id);
+        context->thread_id = thread_id;
         printf("Created thread: %lu\n", thread_id);
         platform->thread_ids[i + 1] = (u32)thread_id;
 
@@ -1312,6 +1321,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         return -1;
     }
 
+    StackArray<MemoryBlock, TOTAL_THREAD_COUNT> thread_memory_blocks;
+    for (u32 i = 0; i < thread_memory_blocks.count(); i++) {
+
+        thread_memory_blocks[i].size = Thread_Memory_Block_Size;
+        thread_memory_blocks[i].data = VirtualAlloc(nullptr, // TODO: Might want to set this
+            (SIZE_T)thread_memory_blocks[i].size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        if (thread_memory_blocks[i].data == nullptr) {
+            auto error = GetLastError();
+            printf("Unable to allocate thead memory: %lu", error);
+            return -1;
+        }
+    }
+
     engine_memory.permanent = memory_block;
     engine_memory.transient = (u8*)engine_memory.permanent + Permanent_Memory_Block_Size;
     engine_memory.debug = debug_memory;
@@ -1388,9 +1410,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     // Must be enabled before workers to capture the first sleep event
     global_debug_table->collect_events = true;
     PlatformWorkQueue work_queue = {};
-    win32_thread_startup thread_startups[WORKER_THREAD_COUNT] = {};
+    StackArray<Win32ThreadContext, WORKER_THREAD_COUNT> thread_contexts = {};
+
     platform.work_queue = &work_queue;
-    win32_make_queue(&platform, WORKER_THREAD_COUNT, thread_startups);
+    win32_make_queue(&platform, WORKER_THREAD_COUNT, thread_contexts.to_array(), thread_memory_blocks.to_array());
 
     while (global_is_running) {
 

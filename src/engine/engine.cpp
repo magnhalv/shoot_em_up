@@ -365,7 +365,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     //// Rendering ////////////
     ///////////////////////////
 
-    if (false) {
+    if (true) {
         TIMED_BLOCK("render_test_stuff");
         RenderCommands group{};
         group.push_buffer_size = 0;
@@ -417,7 +417,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         renderer->render(Platform->work_queue, &group);
     }
 
-    if (true) {
+    if (false) {
         TIMED_BLOCK("render_test_stuff");
         RenderCommands group{};
         group.push_buffer_size = 0;

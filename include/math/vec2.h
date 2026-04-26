@@ -68,6 +68,12 @@ inline f32 dot(const vec2& l, const vec2& r) {
     return l.x * r.x + l.y * r.y;
 }
 
+inline auto swap(vec2& a, vec2& b) -> void {
+    vec2 temp = a;
+    a = b;
+    b = temp;
+}
+
 auto normalize(vec2& v) -> void;
 auto normalized(const vec2& v) -> vec2;
 auto mag(const vec2& v) -> f32;

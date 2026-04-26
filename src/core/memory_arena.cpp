@@ -2,8 +2,6 @@
 #include <cinttypes>
 #include <cstring>
 
-#include <platform/platform.h>
-
 #include <core/logger.h>
 #include <core/memory.h>
 
@@ -82,7 +80,9 @@ auto MemoryArena::shrink(void* aligned_block_in, u64 reduction_size) -> void {
 }
 
 auto MemoryArena::allocate_arena(u64 request_size) -> MemoryArena* {
-    void* mem_block = static_cast<u8*>(allocate(request_size + sizeof(MemoryArena)));
+    ArenaPushParams params = DefaultArenaParams();
+    params.alignment = alignof(MemoryArena);
+    void* mem_block = static_cast<u8*>(allocate(request_size + sizeof(MemoryArena), params));
     auto* new_arena = static_cast<MemoryArena*>(mem_block);
     new_arena->init(static_cast<u8*>(mem_block) + sizeof(MemoryArena), request_size);
     return new_arena;

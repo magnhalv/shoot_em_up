@@ -1,6 +1,10 @@
 #include <platform/platform.h>
 #include <platform/types.h>
 
+#include <core/color.hpp>
+#include <core/memory_arena.h>
+#include <engine/array.h>
+
 #include <math/util.hpp>
 #include <math/vec2.h>
 #include <math/vec4.h>
@@ -12,6 +16,14 @@ struct FrameBuffer {
     i32 height;
     i32 bytes_per_pixel;
     i32 pitch;
+
+    auto set_pixel(i32 x, i32 y, u32 color) -> void {
+        Assert(x >= 0 && x < width);
+        Assert(y >= 0 && y < height);
+        Assert(sizeof(color) == sizeof(u32));
+        u32* dest = (u32*)((u8*)memory + (y * pitch) + (x * bytes_per_pixel));
+        *dest = color;
+    }
 };
 
 auto inline get_color(FrameBuffer* buffer, i32 x, i32 y) -> u32 {
@@ -61,8 +73,7 @@ auto inline render_line_bresenham_y(
         (round_f32_to_i32(color.g * 255.0f) << 8) | (round_f32_to_i32(color.b * 255.0f));
     while (y <= ye) {
         if (is_inside(ivec2(x, y), clip_rect)) {
-            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
-            *dest = c;
+            buffer->set_pixel(x, y, c);
         }
 
         y++;
@@ -104,8 +115,7 @@ auto inline render_line_bresenham(vec2 start, vec2 end, vec4 color, Rectangle2i 
 
 auto inline set_pixel(i32 x, i32 y, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
     if (is_inside(ivec2(x, y), clip_rect)) {
-        u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
-        *dest = color;
+        buffer->set_pixel(x, y, color);
     }
 }
 auto inline set_8_pixels(i32 x, i32 y, i32 cx, i32 cy, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
@@ -126,8 +136,7 @@ auto inline render_circle_bresenham(vec2 P, f32 radius, vec4 color, Rectangle2i 
 
     i32 px = round_f32_to_i32(P.x);
     i32 py = round_f32_to_i32(P.y);
-    u32 c = (round_f32_to_i32(color.a * 255.0f) << 24) | (round_f32_to_i32(color.r * 255.0f) << 16) |
-        (round_f32_to_i32(color.g * 255.0f) << 8) | (round_f32_to_i32(color.b * 255.0f));
+    u32 c = ncolor_to_u32(color);
     while (x <= y) {
         set_8_pixels(x, y, px, py, c, clip_rect, buffer);
         e = e + (2 * x) + 1;
@@ -135,6 +144,55 @@ auto inline render_circle_bresenham(vec2 P, f32 radius, vec4 color, Rectangle2i 
         if (e >= 0) {
             e = e - (2 * y) + 2;
             y--;
+        }
+    }
+}
+
+auto inline interpolate(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) -> Array<i32> {
+    Assert(i0 <= i1);
+    i32 length = i1 - i0;
+    if (length == 0) {
+        auto result = Array<i32>::create_proper(1, arena);
+        return result;
+    }
+    auto result = Array<i32>::create_proper(length, arena);
+
+    f32 a = ((f32)(d1 - d0)) / (i1 - i0); // dx/ix
+    f32 d = (f32)d0;
+    for (i32 i = 0; i < length; i++) {
+        result[i] = round_f32_to_i32(d);
+        d += a;
+    }
+    return result;
+}
+
+auto inline render_line_gambetta(vec2 P0, vec2 P1, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena)
+    -> void {
+    u32 c = ncolor_to_u32(color);
+    if (abs(P1.x - P0.x) > abs(P1.y - P0.y)) {
+        if (P0.x > P1.x) {
+            swap(P0, P1);
+        }
+        i32 x0 = round_f32_to_i32(P0.x);
+        i32 y0 = round_f32_to_i32(P0.y);
+        i32 x1 = round_f32_to_i32(P1.x);
+        i32 y1 = round_f32_to_i32(P1.y);
+        Array<i32> ys = interpolate(x0, y0, x1, y1, arena);
+        for (i32 x = x0; x < x1; x++) {
+            set_pixel(x, ys[x - x0], c, clip_rect, buffer);
+        }
+    }
+    else {
+        if (P0.y > P1.y) {
+            swap(P0, P1);
+        }
+        i32 x0 = round_f32_to_i32(P0.x);
+        i32 y0 = round_f32_to_i32(P0.y);
+        i32 x1 = round_f32_to_i32(P1.x);
+        i32 y1 = round_f32_to_i32(P1.y);
+        Array<i32> xs = interpolate(y0, x0, y1, x1, arena);
+        for (i32 y = y0; y < y1; y++) {
+            set_pixel(xs[y - y0], y, c, clip_rect, buffer);
         }
     }
 }

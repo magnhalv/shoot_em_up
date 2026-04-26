@@ -12,6 +12,8 @@
 #include "types.h"
 #include "user_input.h"
 
+#include <core/memory_arena.h>
+
 // const i32 CLIENT_WIDTH = 960;
 // const i32 CLIENT_HEIGHT = 540;
 const i32 FRAME_SCALE = 8;
@@ -95,7 +97,7 @@ typedef PLATFORM_READ_FILE(platform_read_file);
 typedef PLATFORM_PRINT_STACK_TRACE(platform_print_stack_trace);
 
 struct PlatformWorkQueue;
-#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* queue, void* data)
+#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* queue, void* data, MemoryArena* transient)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 
 typedef void platform_add_work_queue_entry(PlatformWorkQueue* Queue, platform_work_queue_callback* Callback, void* Data);
@@ -136,21 +138,11 @@ global_variable PlatformApi* Platform = nullptr;
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
 const u64 Transient_Memory_Block_Size = MegaBytes(20);
 const u64 Debug_Memory_Block_Size = MegaBytes(20);
+const u64 Thread_Memory_Block_Size = MegaBytes(1);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Debug_Memory_Block_Size;
 const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);
 const u64 Renderer_Transient_Memory_Size = MegaBytes(10);
 const u64 Renderer_Total_Memory_Size = Renderer_Permanent_Memory_Size + Renderer_Transient_Memory_Size;
-
-#define Assert(expr)                                                                   \
-    if (!(expr)) {                                                                     \
-        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
-        abort();                                                                       \
-    }
-#define InvalidCodePath Assert(!"InvalidCodePath")
-#define InvalidDefaultCase \
-    default: {             \
-        InvalidCodePath;   \
-    } break
 
 inline u32 safe_truncate_u64(u64 value) {
     Assert(value <= 0xFFFFFFFF);

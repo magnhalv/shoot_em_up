@@ -14,7 +14,12 @@
 template <typename T> struct Array {
     static auto create(size_t size, MemoryArena& arena) -> Array<T>* {
         auto* result = allocate<Array>(arena, 1);
-        result->init(arena, size);
+        result->init_arena(arena, size);
+        return result;
+    }
+    static auto create_proper(size_t size, MemoryArena& arena) -> Array<T> {
+        Array<T> result;
+        result.init_arena(arena, size);
         return result;
     }
 
@@ -31,7 +36,7 @@ template <typename T> struct Array {
         m_size = size;
     }
 
-    auto init(MemoryArena& arena, u64 size) -> void {
+    auto init_arena(MemoryArena& arena, u64 size) -> void {
         m_data = allocate<T>(arena, size);
         m_size = size;
     }

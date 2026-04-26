@@ -23,6 +23,9 @@ struct PlatformWorkQueue {
     platform_work_queue_entry entries[256];
 };
 
-struct win32_thread_startup {
+struct Win32ThreadContext {
+    i32 thread_id;
+    i32 thread_idx;
     PlatformWorkQueue* queue;
+    MemoryArena arena;
 };
