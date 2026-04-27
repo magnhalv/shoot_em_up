@@ -23,31 +23,31 @@ template <typename T> struct Array {
         return result;
     }
 
-    Array() : m_size(0), m_data(nullptr) {
+    Array() : m_count(0), m_data(nullptr) {
     }
 
-    Array(T* values, size_t size) : m_data{ values }, m_size{ size } {
+    Array(T* values, size_t size) : m_data{ values }, m_count{ size } {
     }
 
     ~Array() = default;
 
     auto init(T* values, size_t size) -> void {
         m_data = values;
-        m_size = size;
+        m_count = size;
     }
 
     auto init_arena(MemoryArena& arena, u64 size) -> void {
         m_data = allocate<T>(arena, size);
-        m_size = size;
+        m_count = size;
     }
 
     T& operator[](size_t index) {
-        HM_ASSERT(index < m_size);
+        HM_ASSERT(index < m_count);
         return m_data[index];
     }
 
     const T& operator[](size_t index) const {
-        assert(index < m_size);
+        assert(index < m_count);
         return m_data[index];
     }
 
@@ -55,8 +55,12 @@ template <typename T> struct Array {
         return m_data;
     }
 
+    [[nodiscard]] auto inline count() const -> size_t {
+        return m_count;
+    }
+
     [[nodiscard]] auto inline size() const -> size_t {
-        return m_size;
+        return m_count * sizeof(T);
     }
 
     struct ArrayIterator {
@@ -86,19 +90,27 @@ template <typename T> struct Array {
     }
 
     [[nodiscard]] ArrayIterator end() const {
-        return ArrayIterator(m_data + m_size);
+        return ArrayIterator(m_data + m_count);
     }
 
-    size_t m_size;
+    size_t m_count;
     T* m_data;
 };
 
+template <typename T> auto inline concat(Array<T>& arr1, Array<T>& arr2, MemoryArena& arena) -> Array<T> {
+    Array<T> result = Array<T>::create_proper(arr1.count() + arr2.count(), arena);
+    copy_memory(arr1.data(), result.data(), arr1.size());
+    copy_memory(arr2.data(), result.data() + arr1.count(), arr2.size());
+
+    return result;
+}
+
 template <typename T> auto inline span(Array<T>& arr, size_t start, size_t end = -1) -> Array<T> {
     if (end == -1) {
-        end = arr.size();
+        end = arr.count();
     }
-    assert(start >= 0 && start < end);
-    assert(end <= arr.size());
+    assert(start >= 0 && (start < end || (end == 0 && start == 0)));
+    assert(end <= arr.count());
 
     return Array<T>{ &arr[start], end - start };
 }

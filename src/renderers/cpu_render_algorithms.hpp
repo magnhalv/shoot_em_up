@@ -150,11 +150,12 @@ auto inline render_circle_bresenham(vec2 P, f32 radius, vec4 color, Rectangle2i 
 
 auto inline interpolate(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) -> Array<i32> {
     Assert(i0 <= i1);
-    i32 length = i1 - i0;
-    if (length == 0) {
+    if (i0 == i1) {
         auto result = Array<i32>::create_proper(1, arena);
+        result[0] = d0;
         return result;
     }
+    i32 length = (i1 - i0) + 1;
     auto result = Array<i32>::create_proper(length, arena);
 
     f32 a = ((f32)(d1 - d0)) / (i1 - i0); // dx/ix
@@ -178,7 +179,7 @@ auto inline render_line_gambetta(vec2 P0, vec2 P1, vec4 color, Rectangle2i clip_
         i32 x1 = round_f32_to_i32(P1.x);
         i32 y1 = round_f32_to_i32(P1.y);
         Array<i32> ys = interpolate(x0, y0, x1, y1, arena);
-        for (i32 x = x0; x < x1; x++) {
+        for (i32 x = x0; x <= x1; x++) {
             set_pixel(x, ys[x - x0], c, clip_rect, buffer);
         }
     }
@@ -191,8 +192,63 @@ auto inline render_line_gambetta(vec2 P0, vec2 P1, vec4 color, Rectangle2i clip_
         i32 x1 = round_f32_to_i32(P1.x);
         i32 y1 = round_f32_to_i32(P1.y);
         Array<i32> xs = interpolate(y0, x0, y1, x1, arena);
-        for (i32 y = y0; y < y1; y++) {
+        for (i32 y = y0; y <= y1; y++) {
             set_pixel(xs[y - y0], y, c, clip_rect, buffer);
+        }
+    }
+}
+
+auto inline render_triangle_gambetta(
+    vec2 P0, vec2 P1, vec2 P2, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena) -> void {
+    render_line_gambetta(P0, P1, color, clip_rect, buffer, arena);
+    render_line_gambetta(P1, P2, color, clip_rect, buffer, arena);
+    render_line_gambetta(P2, P0, color, clip_rect, buffer, arena);
+}
+
+auto inline render_filled_triangle_gambetta(
+    vec2 P0, vec2 P1, vec2 P2, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& transient) -> void {
+
+    if (P1.y < P0.y) {
+        swap(P0, P1);
+    }
+    if (P2.y < P0.y) {
+        swap(P0, P2);
+    }
+    if (P2.y < P1.y) {
+        swap(P1, P2);
+    }
+
+    i32 x0 = round_f32_to_i32(P0.x);
+    i32 y0 = round_f32_to_i32(P0.y);
+    i32 x1 = round_f32_to_i32(P1.x);
+    i32 y1 = round_f32_to_i32(P1.y);
+    i32 x2 = round_f32_to_i32(P2.x);
+    i32 y2 = round_f32_to_i32(P2.y);
+
+    Array<i32> x01 = interpolate(y0, x0, y1, x1, transient);
+    Array<i32> x12 = interpolate(y1, x1, y2, x2, transient);
+
+    x01 = span(x01, 0, x01.count() - 1);
+    Array<i32> x012 = concat(x01, x12, transient);
+
+    Array<i32> x02 = interpolate(y0, x0, y2, x2, transient);
+
+    i32 m = (i32)x012.count() / 2;
+    Array<i32> x_left;
+    Array<i32> x_right;
+    if (x02[m] < x012[m]) {
+        x_left = x02;
+        x_right = x012;
+    }
+    else {
+        x_right = x02;
+        x_left = x012;
+    }
+
+    const u32 c = ncolor_to_u32(color);
+    for (i32 y = y0; y <= y2; y++) {
+        for (i32 x = x_left[y - y0]; x <= x_right[y - y0]; x++) {
+            set_pixel(x, y, c, clip_rect, buffer);
         }
     }
 }

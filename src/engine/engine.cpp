@@ -365,8 +365,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     //// Rendering ////////////
     ///////////////////////////
 
-    if (true) {
-        TIMED_BLOCK("render_test_stuff");
+    if (false) {
+        TIMED_BLOCK("render_test_lines");
         RenderCommands group{};
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
@@ -418,7 +418,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     }
 
     if (false) {
-        TIMED_BLOCK("render_test_stuff");
+        TIMED_BLOCK("render_test_circle");
         RenderCommands group{};
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
@@ -436,6 +436,31 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         circle->P = center;
         circle->radius = 16.0f;
         circle->color = global_color_palette[0];
+
+        renderer->render(Platform->work_queue, &group);
+    }
+    if (true) {
+        TIMED_BLOCK("render_test_triangle");
+        RenderCommands group{};
+        group.push_buffer_size = 0;
+        group.max_push_buffer_size = MegaBytes(4);
+        group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
+        group.screen_width = app_input->client_width;
+        group.screen_height = app_input->client_height;
+        group.sort_keys.init(g_transient, 1024);
+        group.sort_entries_offset.init(g_transient, 1024);
+
+        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
+        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
+
+        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+        center.print();
+        auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
+        f32 t = (f32)app_input->t;
+        triangle->vertices[0] = center;
+        triangle->vertices[1] = vec2(cosf(t) * 10, sinf(t) * 10) + center;
+        triangle->vertices[2] = (vec2(cosf(t + (PI / 2)), sinf(t + (PI / 2))) * 10) + center;
+        triangle->color = global_color_palette[0];
 
         renderer->render(Platform->work_queue, &group);
     }
