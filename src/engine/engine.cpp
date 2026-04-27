@@ -458,9 +458,15 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
         f32 t = (f32)app_input->t;
         triangle->vertices[0] = center;
-        triangle->vertices[1] = vec2(cosf(t) * 10, sinf(t) * 10) + center;
-        triangle->vertices[2] = (vec2(cosf(t + (PI / 2)), sinf(t + (PI / 2))) * 10) + center;
+        triangle->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
+        triangle->vertices[2] = vec2(10.0f, 0.0f) + center;
         triangle->color = global_color_palette[0];
+
+        auto* triangle2 = PushRenderElement(&group, RenderEntryTriangle, 0);
+        triangle2->vertices[0] = center;
+        triangle2->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
+        triangle2->vertices[2] = vec2(10.0f, 0.0f) + center;
+        triangle2->color = vec4(0.0f);
 
         renderer->render(Platform->work_queue, &group);
     }
