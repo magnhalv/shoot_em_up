@@ -120,13 +120,17 @@ auto inline set_pixel(i32 x, i32 y, u32 color, Rectangle2i clip_rect, FrameBuffe
 }
 auto inline set_8_pixels(i32 x, i32 y, i32 cx, i32 cy, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
     set_pixel(cx + x, cy + y, color, clip_rect, buffer);
-    set_pixel(cx + y, cy + x, color, clip_rect, buffer);
-    set_pixel(cx + y, cy - x, color, clip_rect, buffer);
+    set_pixel(cx - x, cy + y, color, clip_rect, buffer);
+    render_line_bresenham(vec2((f32)cx + x, (f32)(cy + y)), vec2((f32)cx - x, (f32)cy + y), vec4(1.0, 0, 0, 1), clip_rect, buffer);
+
     set_pixel(cx + x, cy - y, color, clip_rect, buffer);
     set_pixel(cx - x, cy - y, color, clip_rect, buffer);
-    set_pixel(cx - y, cy - x, color, clip_rect, buffer);
+
+    set_pixel(cx + y, cy + x, color, clip_rect, buffer);
     set_pixel(cx - y, cy + x, color, clip_rect, buffer);
-    set_pixel(cx - x, cy + y, color, clip_rect, buffer);
+
+    set_pixel(cx + y, cy - x, color, clip_rect, buffer);
+    set_pixel(cx - y, cy - x, color, clip_rect, buffer);
 }
 
 auto inline render_circle_bresenham(vec2 P, f32 radius, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer) -> void {
