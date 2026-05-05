@@ -18,5 +18,6 @@ auto inline is_aligned(void* memory, u64 alignment) -> bool {
 
 void clear_memory(void* memory, u64 size);
 void copy_memory(void* src, void* dest, u64 size);
+void set_memory_u32(void* dest, u32 value, u64 count);
 
 void DEBUG_print_memory_as_hex(void* memory, u64 size);

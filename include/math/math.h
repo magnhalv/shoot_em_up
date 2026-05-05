@@ -66,6 +66,10 @@ auto inline clamp(i32 val, i32 min, i32 max) -> i32 {
     return val;
 }
 
+auto inline in_range(i32 min, i32 value, i32 max) -> bool {
+  return value >= min && value < max;
+}
+
 inline i32 round_f32_to_i32(f32 real) {
     return (i32)(real + 0.5f);
 }

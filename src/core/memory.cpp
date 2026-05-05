@@ -40,6 +40,14 @@ auto copy_memory(void* src, void* dest, u64 size) -> void {
     }
 }
 
+
+auto set_memory_u32(void* dest, u32 value, u64 count) -> void {
+  u32* dest_u32 = (u32*)dest;
+  for (u64 i = 0; i < count; i++) {
+    dest_u32[i] = value;
+  }
+}
+
 void DEBUG_print_memory_as_hex(void* memory, u64 size) {
     u32* data = (u32*)memory;
     for (u64 i = 0; i < size; i++) {
