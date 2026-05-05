@@ -995,7 +995,7 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     i32 width = state.global_offscreen_buffer.width;
     i32 height = state.global_offscreen_buffer.height;
 
-    Assert(state.global_offscreen_buffer.bytes_per_pixel = state.frame_buffer.bytes_per_pixel);
+    Assert(state.global_offscreen_buffer.bytes_per_pixel == state.frame_buffer.bytes_per_pixel);
     u32 scale = state.global_offscreen_buffer.width / state.frame_buffer.width;
     for (i32 y = 0; y < state.global_offscreen_buffer.height; y++) {
         u32* dest = (u32*)state.global_offscreen_buffer.memory + (y * state.global_offscreen_buffer.width);

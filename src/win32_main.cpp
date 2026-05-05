@@ -1093,17 +1093,18 @@ LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
 }
 
 internal auto win32_sleep_until(i64 target_tick, HANDLE timer) -> bool {
-    //  Only sleep if there's more than 1.6ms left, otherwise we might sleep passed the frame target.
+    // Only sleep if there's more than 1.6ms left, otherwise we might sleep past the frame target.
     const i64 Min_Sleep_Duration_us = 1600;
     bool did_sleep = false;
     f64 us_to_sleep = (f64)(target_tick - win32_get_tick()) / ticks_per_us;
-    // Sleep in intervals, to avoid sleeping too long
-    while (us_to_sleep >= Min_Sleep_Duration_us) {
+    while (us_to_sleep > Min_Sleep_Duration_us) {
+        // Sleep for (remaining - safety_margin) so we typically only need one sleep,
+        // leaving Min_Sleep_Duration_us for the spin-wait. Capped at 4ms to limit overshoot risk.
+        i64 sleep_us = (i64)(us_to_sleep - Min_Sleep_Duration_us);
+        if (sleep_us > 4000) sleep_us = 4000;
+        // In 100ns units, negative = relative time.
         LARGE_INTEGER due_time;
-        // TODO: Check if shorter sleeps are possible??
-        i64 Max_Sleep_Duration = 1000;
-        // This is in 100s of ns, hence * 10. Negative value means a relative date!
-        due_time.QuadPart = -(Max_Sleep_Duration > 0 ? (Max_Sleep_Duration * 10) : 1); // Make sure we have values <= -1
+        due_time.QuadPart = -(sleep_us * 10);
 
         SetWaitableTimer(timer, &due_time, 0, nullptr, nullptr, FALSE);
         WaitForSingleObject(timer, INFINITE);
