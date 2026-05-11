@@ -99,7 +99,7 @@ auto inline render_line_bresenham(vec2 start, vec2 end, vec4 color, Rectangle2i 
     i32 dy = ye - ys;
 
     u32 color_packed = pack_color_8x4(color);
-      bool is_x_major = abs(dx) >= abs(dy);
+    bool is_x_major = abs(dx) >= abs(dy);
     if (is_x_major) {
         if (dx >= 0) {
             render_line_bresenham_x(xs, ys, xe, ye, dx, dy, color_packed, clip_rect, buffer);
@@ -125,14 +125,13 @@ auto inline set_pixel(i32 x, i32 y, u32 color, Rectangle2i clip_rect, FrameBuffe
 }
 
 auto inline set_pixels(i32 x_start, i32 x_end, i32 y, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
-  if (!in_range(clip_rect.min_y, y, clip_rect.max_y)) {
-    return;
-  }
-  x_start = hm::max(x_start, clip_rect.min_x);
-  x_end = hm::min(x_end, clip_rect.min_x);
-  Assert(x_start <= x_end);
-  set_memory_u32(buffer->get_pixel(x_start, y), color, x_end - x_start);
-
+    if (!in_range(clip_rect.min_y, y, clip_rect.max_y)) {
+        return;
+    }
+    x_start = hm::max(x_start, clip_rect.min_x);
+    x_end = hm::min(x_end, clip_rect.min_x);
+    Assert(x_start <= x_end);
+    set_memory_u32(buffer->get_pixel(x_start, y), color, x_end - x_start);
 }
 
 auto inline set_8_pixels(i32 x, i32 y, i32 cx, i32 cy, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
@@ -152,19 +151,52 @@ auto inline set_8_pixels(i32 x, i32 y, i32 cx, i32 cy, u32 color, Rectangle2i cl
 auto inline fill_8_pixels(i32 x, i32 y, i32 cx, i32 cy, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer) {
     set_pixel(cx + x, cy + y, color, clip_rect, buffer);
     set_pixel(cx - x, cy + y, color, clip_rect, buffer);
-    render_line_bresenham_x(cx + x, cy + y, cx - x, cy + y, color, clip_rect, buffer);
+    {
+        // Note, order matters here! Assuming that start < end
+        i32 xs = cx - x;
+        i32 ys = cy + y;
+        i32 xe = cx + x;
+        i32 ye = cy + y;
+        i32 dx = xe - xs;
+        i32 dy = ye - ys;
+        render_line_bresenham_x(xs, ys, xe, ye, dx, dy, color, clip_rect, buffer);
+    }
 
     set_pixel(cx + x, cy - y, color, clip_rect, buffer);
     set_pixel(cx - x, cy - y, color, clip_rect, buffer);
-    render_line_bresenham(vec2((f32)cx + x, (f32)(cy - y)), vec2((f32)cx - x, (f32)cy - y), vec4(1.0, 0, 0, 1), clip_rect, buffer);
+    {
+        i32 xs = cx - x;
+        i32 ys = cy - y;
+        i32 xe = cx + x;
+        i32 ye = cy - y;
+        i32 dx = xe - xs;
+        i32 dy = ye - ys;
+        render_line_bresenham_x(xs, ys, xe, ye, dx, dy, color, clip_rect, buffer);
+    }
 
     set_pixel(cx + y, cy + x, color, clip_rect, buffer);
     set_pixel(cx - y, cy + x, color, clip_rect, buffer);
-    render_line_bresenham(vec2((f32)cx + y, (f32)(cy + x)), vec2((f32)cx - y, (f32)cy + x), vec4(1.0, 0, 0, 1), clip_rect, buffer);
+    {
+        i32 xs = cx - y;
+        i32 ys = cy + x;
+        i32 xe = cx + y;
+        i32 ye = cy + x;
+        i32 dx = xe - xs;
+        i32 dy = ye - ys;
+        render_line_bresenham_x(xs, ys, xe, ye, dx, dy, color, clip_rect, buffer);
+    }
 
     set_pixel(cx + y, cy - x, color, clip_rect, buffer);
     set_pixel(cx - y, cy - x, color, clip_rect, buffer);
-    render_line_bresenham(vec2((f32)cx + y, (f32)(cy - x)), vec2((f32)cx - y, (f32)cy - x), vec4(1.0, 0, 0, 1), clip_rect, buffer);
+    {
+        i32 xs = cx - y;
+        i32 ys = cy - x;
+        i32 xe = cx + y;
+        i32 ye = cy - x;
+        i32 dx = xe - xs;
+        i32 dy = ye - ys;
+        render_line_bresenham_x(xs, ys, xe, ye, dx, dy, color, clip_rect, buffer);
+    }
 }
 
 auto inline render_circle_bresenham(vec2 P, f32 radius, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer) -> void {
