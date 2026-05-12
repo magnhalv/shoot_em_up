@@ -35,6 +35,7 @@ enum RenderGroupEntryType {                  //
     RenderCommands_RenderEntryBitmap,        //
     RenderCommands_RenderEntryLine,          //
     RenderCommands_RenderEntryCircle,        //
+    RenderCommands_RenderEntryFilledCircle,  //
     RenderCommands_RenderEntryTriangle,      //
     RenderCommands_RenderEntryFilledTriangle //
 };
@@ -78,6 +79,12 @@ struct RenderEntryLine {
 };
 
 struct RenderEntryCircle {
+    vec2 P;
+    f32 radius;
+    vec4 color;
+};
+
+struct RenderEntryFilledCircle {
     vec2 P;
     f32 radius;
     vec4 color;

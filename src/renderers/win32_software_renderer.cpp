@@ -895,6 +895,11 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
             render_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, &state.frame_buffer);
             base_address += sizeof(*entry);
         } break;
+        case RenderCommands_RenderEntryFilledCircle: {
+            auto entry = (RenderEntryFilledCircle*)data;
+            render_filled_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, &state.frame_buffer);
+            base_address += sizeof(*entry);
+        } break;
         case RenderCommands_RenderEntryTriangle: {
             auto entry = (RenderEntryTriangle*)data;
             render_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, &state.frame_buffer, transient);

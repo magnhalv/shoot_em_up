@@ -417,7 +417,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         renderer->render(Platform->work_queue, &group);
     }
 
-    if (true) {
+    if (false) {
         TIMED_BLOCK("render_test_circle");
         RenderCommands group{};
         group.push_buffer_size = 0;
@@ -433,6 +433,29 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
         auto* circle = PushRenderElement(&group, RenderEntryCircle, 0);
+        circle->P = center;
+        circle->radius = 16.0f;
+        circle->color = global_color_palette[0];
+
+        renderer->render(Platform->work_queue, &group);
+    }
+
+    if (true) {
+        TIMED_BLOCK("render_test_circle");
+        RenderCommands group{};
+        group.push_buffer_size = 0;
+        group.max_push_buffer_size = MegaBytes(4);
+        group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
+        group.screen_width = app_input->client_width;
+        group.screen_height = app_input->client_height;
+        group.sort_keys.init(g_transient, 1024);
+        group.sort_entries_offset.init(g_transient, 1024);
+
+        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
+        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
+
+        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+        auto* circle = PushRenderElement(&group, RenderEntryFilledCircle, 0);
         circle->P = center;
         circle->radius = 16.0f;
         circle->color = global_color_palette[0];
