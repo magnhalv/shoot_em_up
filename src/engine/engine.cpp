@@ -365,8 +365,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     //// Rendering ////////////
     ///////////////////////////
 
-    if (false) {
-        TIMED_BLOCK("render_test_lines");
+    {
         RenderCommands group{};
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
@@ -379,118 +378,74 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
         clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
 
-        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-        const i32 length = 20;
-        vec2 end_points[] = {
-            vec2(center.x + length, center.y),
-            vec2(center.x + length * cosf((1 * PI) / 8.0f), center.y + length * sinf((1 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((2 * PI) / 8.0f), center.y + length * sinf((2 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((3 * PI) / 8.0f), center.y + length * sinf((3 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((4 * PI) / 8.0f), center.y + length * sinf((4 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((5 * PI) / 8.0f), center.y + length * sinf((5 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((6 * PI) / 8.0f), center.y + length * sinf((6 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((7 * PI) / 8.0f), center.y + length * sinf((7 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((8 * PI) / 8.0f), center.y + length * sinf((8 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((9 * PI) / 8.0f), center.y + length * sinf((9 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((10 * PI) / 8.0f), center.y + length * sinf((10 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((11 * PI) / 8.0f), center.y + length * sinf((11 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((12 * PI) / 8.0f), center.y + length * sinf((12 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((13 * PI) / 8.0f), center.y + length * sinf((13 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((14 * PI) / 8.0f), center.y + length * sinf((14 * PI) / 8.0f)),
-            vec2(center.x + length * cosf((15 * PI) / 8.0f), center.y + length * sinf((15 * PI) / 8.0f)),
-            center,
-        };
+        if (false) {
+            TIMED_BLOCK("render_test_lines");
 
-        end_points[0].print();
-        end_points[1].print();
-        center.print();
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            const i32 length = 20;
+            vec2 end_points[] = {
+                vec2(center.x + length, center.y),
+                vec2(center.x + length * cosf((1 * PI) / 8.0f), center.y + length * sinf((1 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((2 * PI) / 8.0f), center.y + length * sinf((2 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((3 * PI) / 8.0f), center.y + length * sinf((3 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((4 * PI) / 8.0f), center.y + length * sinf((4 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((5 * PI) / 8.0f), center.y + length * sinf((5 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((6 * PI) / 8.0f), center.y + length * sinf((6 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((7 * PI) / 8.0f), center.y + length * sinf((7 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((8 * PI) / 8.0f), center.y + length * sinf((8 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((9 * PI) / 8.0f), center.y + length * sinf((9 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((10 * PI) / 8.0f), center.y + length * sinf((10 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((11 * PI) / 8.0f), center.y + length * sinf((11 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((12 * PI) / 8.0f), center.y + length * sinf((12 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((13 * PI) / 8.0f), center.y + length * sinf((13 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((14 * PI) / 8.0f), center.y + length * sinf((14 * PI) / 8.0f)),
+                vec2(center.x + length * cosf((15 * PI) / 8.0f), center.y + length * sinf((15 * PI) / 8.0f)),
+                center,
+            };
 
-        Assert(ArrayCount(global_color_palette) >= ArrayCount(end_points));
+            Assert(ArrayCount(global_color_palette) >= ArrayCount(end_points));
 
-        for (u32 i = 0; i < ArrayCount(end_points); i++) {
-            auto* line = PushRenderElement(&group, RenderEntryLine, 0);
-            line->start = center;
-            line->end = end_points[i];
-            line->color = global_color_palette[i];
+            for (u32 i = 0; i < ArrayCount(end_points); i++) {
+                auto* line = PushRenderElement(&group, RenderEntryLine, 0);
+                line->start = center;
+                line->end = end_points[i];
+                line->color = global_color_palette[i];
+            }
         }
 
-        renderer->render(Platform->work_queue, &group);
-    }
+        if (false) {
+            TIMED_BLOCK("render_test_circle");
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            auto* circle = PushRenderElement(&group, RenderEntryCircle, 0);
+            circle->P = center;
+            circle->radius = 16.0f;
+            circle->color = global_color_palette[0];
+        }
 
-    if (false) {
-        TIMED_BLOCK("render_test_circle");
-        RenderCommands group{};
-        group.push_buffer_size = 0;
-        group.max_push_buffer_size = MegaBytes(4);
-        group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-        group.screen_width = app_input->client_width;
-        group.screen_height = app_input->client_height;
-        group.sort_keys.init(g_transient, 1024);
-        group.sort_entries_offset.init(g_transient, 1024);
+        if (false) {
+            TIMED_BLOCK("render_test_circle");
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            auto* circle = PushRenderElement(&group, RenderEntryFilledCircle, 0);
+            circle->P = center;
+            circle->radius = 16.0f;
+            circle->color = global_color_palette[0];
+        }
+        if (true) {
+            TIMED_BLOCK("render_test_triangle");
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
+            f32 t = (f32)app_input->t;
+            triangle->vertices[0] = center;
+            triangle->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
+            triangle->vertices[2] = vec2(10.0f, 0.0f) + center;
+            triangle->color = global_color_palette[0];
 
-        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
-        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
-
-        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-        auto* circle = PushRenderElement(&group, RenderEntryCircle, 0);
-        circle->P = center;
-        circle->radius = 16.0f;
-        circle->color = global_color_palette[0];
-
-        renderer->render(Platform->work_queue, &group);
-    }
-
-    if (true) {
-        TIMED_BLOCK("render_test_circle");
-        RenderCommands group{};
-        group.push_buffer_size = 0;
-        group.max_push_buffer_size = MegaBytes(4);
-        group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-        group.screen_width = app_input->client_width;
-        group.screen_height = app_input->client_height;
-        group.sort_keys.init(g_transient, 1024);
-        group.sort_entries_offset.init(g_transient, 1024);
-
-        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
-        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
-
-        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-        auto* circle = PushRenderElement(&group, RenderEntryFilledCircle, 0);
-        circle->P = center;
-        circle->radius = 16.0f;
-        circle->color = global_color_palette[0];
-
-        renderer->render(Platform->work_queue, &group);
-    }
-    if (false) {
-        TIMED_BLOCK("render_test_triangle");
-        RenderCommands group{};
-        group.push_buffer_size = 0;
-        group.max_push_buffer_size = MegaBytes(4);
-        group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-        group.screen_width = app_input->client_width;
-        group.screen_height = app_input->client_height;
-        group.sort_keys.init(g_transient, 1024);
-        group.sort_entries_offset.init(g_transient, 1024);
-
-        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
-        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
-
-        vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-        center.print();
-        auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
-        f32 t = (f32)app_input->t;
-        triangle->vertices[0] = center;
-        triangle->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
-        triangle->vertices[2] = vec2(10.0f, 0.0f) + center;
-        triangle->color = global_color_palette[0];
-
-        auto* triangle2 = PushRenderElement(&group, RenderEntryTriangle, 0);
-        triangle2->vertices[0] = center;
-        triangle2->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
-        triangle2->vertices[2] = vec2(10.0f, 0.0f) + center;
-        triangle2->color = vec4(0.0f);
-
+            // auto* triangle2 = PushRenderElement(&group, RenderEntryTriangle, 0);
+            // triangle2->vertices[0] = center;
+            // triangle2->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
+            // triangle2->vertices[2] = vec2(10.0f, 0.0f) + center;
+            // triangle2->color = vec4(0.0f);
+        }
         renderer->render(Platform->work_queue, &group);
     }
     if (false) {
