@@ -15,5 +15,7 @@ src/deps/archives
 data/*.haf
 data/assets/**/*
 
+compile_commands.json
+
 *log
 *png

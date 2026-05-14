@@ -2,14 +2,13 @@
 
 ## Build
 
-### CMAKE + Ninja
+## MSVC
 
-```
-cmake -S . -B cmake-build -G "Ninja"
-cmake --build cmake-build
-cmake --build cmake-build --target ShootEmUp|engine_dyn|tests>
-cmake --build cmake-build && ./cmake-build/shoot_em_up.exe
-```
+See justfile.
+
+## compile_commands.json
+
+Run `python scripts/generate_compile_commands.py`.
 
 ## TODO 
 
