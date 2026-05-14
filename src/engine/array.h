@@ -55,7 +55,7 @@ template <typename T> struct Array {
         return m_data;
     }
 
-    [[nodiscard]] auto inline count() const -> size_t {
+    [[nodiscard]] auto inline constexpr count() const -> size_t {
         return m_count;
     }
 

@@ -103,7 +103,7 @@ auto inline blend_color_v8(color_v8 dest, color_v8 src) -> color_v8 {
 
     return blended;
 }
-auto inline get_color(__m256i packed_color_v8, f32* srgb255_to_linear_lut) -> color_v8 {
+auto inline get_color(__m256i packed_color_v8) -> color_v8 {
     const __m256i maskFF = _mm256_set1_epi32(0xFF);
     const __m256 inv255 = _mm256_set1_ps(1.0f / 255.0f);
 

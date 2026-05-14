@@ -231,7 +231,7 @@ auto inline render_filled_circle_bresenham(vec2 P, f32 radius, vec4 color, Recta
 }
 
 /// @brief: Moving from i0 to i1, this function will return all the "d"s for every discrete value of i between i0 and i1
-auto inline interpolate(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) -> Array<i32> {
+auto inline interpolate_i32(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) -> Array<i32> {
     Assert(i0 <= i1);
     if (i0 == i1) {
         auto result = Array<i32>::create_proper(1, arena);
@@ -250,6 +250,26 @@ auto inline interpolate(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) -> A
     return result;
 }
 
+/// @brief: Moving from i0 to i1, this function will return all the "d"s for every discrete value of i between i0 and i1
+auto inline interpolate_f32(i32 i0, f32 d0, i32 i1, f32 d1, MemoryArena& arena) -> Array<f32> {
+    Assert(i0 <= i1);
+    if (i0 == i1) {
+        auto result = Array<f32>::create_proper(1, arena);
+        result[0] = d0;
+        return result;
+    }
+    i32 length = (i1 - i0) + 1;
+    auto result = Array<f32>::create_proper(length, arena);
+
+    f32 a = (d1 - d0) / (i1 - i0); // dd/di
+    f32 d = d0;
+    for (i32 i = 0; i < length; i++) {
+        result[i] = d;
+        d += a;
+    }
+    return result;
+}
+
 auto inline render_line_gambetta_internal(
     vec2 P0, vec2 P1, u32 color, Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena) -> void {
     if (abs(P1.x - P0.x) > abs(P1.y - P0.y)) {
@@ -260,7 +280,7 @@ auto inline render_line_gambetta_internal(
         i32 y0 = round_f32_to_i32(P0.y);
         i32 x1 = round_f32_to_i32(P1.x);
         i32 y1 = round_f32_to_i32(P1.y);
-        Array<i32> ys = interpolate(x0, y0, x1, y1, arena);
+        Array<i32> ys = interpolate_i32(x0, y0, x1, y1, arena);
         for (i32 x = x0; x <= x1; x++) {
             set_pixel(x, ys[x - x0], color, clip_rect, buffer);
         }
@@ -273,7 +293,7 @@ auto inline render_line_gambetta_internal(
         i32 y0 = round_f32_to_i32(P0.y);
         i32 x1 = round_f32_to_i32(P1.x);
         i32 y1 = round_f32_to_i32(P1.y);
-        Array<i32> xs = interpolate(y0, x0, y1, x1, arena);
+        Array<i32> xs = interpolate_i32(y0, x0, y1, x1, arena);
         for (i32 y = y0; y <= y1; y++) {
             set_pixel(xs[y - y0], y, color, clip_rect, buffer);
         }
@@ -307,9 +327,6 @@ auto inline render_filled_triangle_gambetta(
     }
 
     u32 packed_color = pack_color_8x4(color);
-    render_line_gambetta_internal(P0, P1, packed_color, clip_rect, buffer, arena);
-    render_line_gambetta_internal(P1, P2, packed_color, clip_rect, buffer, arena);
-    render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
 
     i32 x0 = round_f32_to_i32(P0.x);
     i32 y0 = round_f32_to_i32(P0.y);
@@ -318,13 +335,13 @@ auto inline render_filled_triangle_gambetta(
     i32 x2 = round_f32_to_i32(P2.x);
     i32 y2 = round_f32_to_i32(P2.y);
 
-    Array<i32> x01 = interpolate(y0, x0, y1, x1, arena);
-    Array<i32> x12 = interpolate(y1, x1, y2, x2, arena);
+    Array<i32> x01 = interpolate_i32(y0, x0, y1, x1, arena);
+    Array<i32> x12 = interpolate_i32(y1, x1, y2, x2, arena);
 
     x01 = span(x01, 0, x01.count() - 1);
     Array<i32> x012 = concat(x01, x12, arena);
 
-    Array<i32> x02 = interpolate(y0, x0, y2, x2, arena);
+    Array<i32> x02 = interpolate_i32(y0, x0, y2, x2, arena);
 
     i32 m = (i32)x012.count() / 2;
     Array<i32> x_left;
@@ -340,6 +357,86 @@ auto inline render_filled_triangle_gambetta(
 
     for (i32 y = y0; y <= y2; y++) {
         for (i32 x = x_left[y - y0]; x <= x_right[y - y0]; x++) {
+            set_pixel(x, y, packed_color, clip_rect, buffer);
+        }
+    }
+
+    render_line_gambetta_internal(P0, P1, 0, clip_rect, buffer, arena);
+    render_line_gambetta_internal(P1, P2, 0, clip_rect, buffer, arena);
+    render_line_gambetta_internal(P2, P0, 0, clip_rect, buffer, arena);
+}
+
+auto inline render_shaded_triangle_gambetta(
+    vec2 P0, vec2 P1, vec2 P2, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena) -> void {
+
+    if (P1.y < P0.y) {
+        swap(P0, P1);
+    }
+    if (P2.y < P0.y) {
+        swap(P0, P2);
+    }
+    if (P2.y < P1.y) {
+        swap(P1, P2);
+    }
+
+    u32 packed_color = pack_color_8x4(color);
+    render_line_gambetta_internal(P0, P1, packed_color, clip_rect, buffer, arena);
+    render_line_gambetta_internal(P1, P2, packed_color, clip_rect, buffer, arena);
+    render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
+
+    i32 x0 = round_f32_to_i32(P0.x);
+    i32 y0 = round_f32_to_i32(P0.y);
+    i32 x1 = round_f32_to_i32(P1.x);
+    i32 y1 = round_f32_to_i32(P1.y);
+    i32 x2 = round_f32_to_i32(P2.x);
+    i32 y2 = round_f32_to_i32(P2.y);
+
+    f32 h0 = 0;
+    f32 h1 = 0.5;
+    f32 h2 = 1.0;
+
+    Array<i32> x01 = interpolate_i32(y0, x0, y1, x1, arena);
+    Array<f32> h01 = interpolate_f32(y0, h0, y1, h1, arena);
+
+    Array<i32> x12 = interpolate_i32(y1, x1, y2, x2, arena);
+    Array<f32> h12 = interpolate_f32(y1, h1, y2, h2, arena);
+
+    x01 = span(x01, 0, x01.count() - 1);
+    h01 = span(h01, 0, h01.count() - 1);
+    Array<i32> x012 = concat(x01, x12, arena);
+    Array<f32> h012 = concat(h01, h12, arena);
+
+    Array<i32> x02 = interpolate_i32(y0, x0, y2, x2, arena);
+    Array<f32> h02 = interpolate_f32(y0, h0, y2, h2, arena);
+
+    i32 m = (i32)x012.count() / 2;
+    Array<i32> x_left;
+    Array<i32> x_right;
+
+    Array<f32> h_left;
+    Array<f32> h_right;
+    if (x02[m] < x012[m]) {
+        x_left = x02;
+        h_left = h02;
+
+        x_right = x012;
+        h_right = h012;
+    }
+    else {
+        x_right = x02;
+        h_right = h02;
+
+        x_left = x012;
+        h_left = h012;
+    }
+
+    for (i32 y = y0; y <= y2; y++) {
+        const i32 y_idx = y - y0;
+        const i32 x_l = x_left[y_idx];
+        const i32 x_r = x_right[y_idx];
+
+        Array<f32> h_l_to_r = interpolate_f32(x_l, h_left[y_idx], x_r, h_right[y_idx], arena);
+        for (i32 x = x_l; x <= x_r; x++) {
             set_pixel(x, y, packed_color, clip_rect, buffer);
         }
     }

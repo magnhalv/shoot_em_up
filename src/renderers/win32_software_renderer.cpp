@@ -122,63 +122,6 @@ auto square_root(f32 v) -> f32 {
     return sqrtf(v);
 }
 
-const u32 LUT_ENTRY_COUNT = 256;
-global_variable f32 srgb255_to_linear_lut[LUT_ENTRY_COUNT];
-global_variable u32 linear1_to_srgb255_lut[LUT_ENTRY_COUNT];
-
-internal auto generate_luts() -> void {
-    // Foundations of Game Engine Development: Rendering, page 19
-    for (u32 i = 0; i < LUT_ENTRY_COUNT; i++) {
-        f32 c = (f32)i;
-        c = c / 255.0f;
-
-        if (c <= 0.04045f) {
-            c = c / 12.92f;
-        }
-        else {
-            c = powf((c + 0.055f) / 1.055f, 2.4);
-        }
-        srgb255_to_linear_lut[i] = c;
-    }
-
-    for (u32 i = 0; i < LUT_ENTRY_COUNT; i++) {
-        f32 c = (f32)i;
-        c = c / 255.0f;
-
-        if (c <= 0.0031308f) {
-            c = c * 12.92f;
-        }
-        else {
-            c = 1.055f * powf(c, 1.0f / 2.4f) - 0.055f;
-        }
-        c = c * 255.0f + 0.5f;
-        c = clamp(c, 0.0f, 255.0f);
-        linear1_to_srgb255_lut[i] = (u32)c;
-    }
-}
-
-inline auto srgb255_to_linear1_lookup(f32 color) -> f32 {
-    Assert(color >= 0.0f && color <= 255.0f);
-    i32 index = (i32)color;
-    return srgb255_to_linear_lut[index];
-}
-
-inline auto linear1_to_srgb255_lookup(f32 linear1) -> u32 {
-    Assert(linear1 >= 0.0f && linear1 <= 1.0f);
-    i32 index = (i32)(linear1 * 255.0f);
-    return linear1_to_srgb255_lut[index];
-}
-
-inline auto unpack4x8(u32 packed) -> vec4 {
-    vec4 result = {
-        (f32)((packed >> 16) & 0xFF), //
-        (f32)((packed >> 8) & 0xFF),  //
-        (f32)((packed >> 0) & 0xFF),  //
-        (f32)((packed >> 24) & 0xFF)  //
-    };
-    return result;
-}
-
 inline auto unpack4x8_srgb255_to_linear1(u32 packed) -> vec4 {
     u8 r = (packed >> 16) & 0xFF;
     u8 g = (packed >> 8) & 0xFF;
@@ -215,19 +158,6 @@ inline auto pack4x8(vec4 color) -> u32 {
         ((u32)(color.r + 0.5f)) << 16 | //
         ((u32)(color.g + 0.5f)) << 8 |  //
         ((u32)(color.b + 0.5f)) << 0;
-
-    return result;
-}
-
-inline vec4 srgb255_to_linear1(vec4 color) {
-    vec4 result = {};
-
-    f32 inv_255 = 1.0f / 255.0f;
-
-    result.r = srgb255_to_linear1_lookup(color.r);
-    result.g = srgb255_to_linear1_lookup(color.g);
-    result.b = srgb255_to_linear1_lookup(color.b);
-    result.a = inv_255 * color.a;
 
     return result;
 }
@@ -717,10 +647,10 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
                 __m256i texel10_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_10_v8, sizeof(u32));
                 __m256i texel11_srgba255_v8 = _mm256_i32gather_epi32((const i32*)data, texel_idx_11_v8, sizeof(u32));
 
-                color_v8 texel00_v8 = get_color(texel00_srgba255_v8, srgb255_to_linear_lut);
-                color_v8 texel10_v8 = get_color(texel10_srgba255_v8, srgb255_to_linear_lut);
-                color_v8 texel01_v8 = get_color(texel01_srgba255_v8, srgb255_to_linear_lut);
-                color_v8 texel11_v8 = get_color(texel11_srgba255_v8, srgb255_to_linear_lut);
+                color_v8 texel00_v8 = get_color(texel00_srgba255_v8);
+                color_v8 texel10_v8 = get_color(texel10_srgba255_v8);
+                color_v8 texel01_v8 = get_color(texel01_srgba255_v8);
+                color_v8 texel11_v8 = get_color(texel11_srgba255_v8);
 
                 src_color_l1_v8 = lerp(                      //
                     lerp(texel00_v8, u_frac_v8, texel10_v8), //
@@ -730,7 +660,7 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
             }
 
             __m256i destination_v8 = _mm256_loadu_si256((const __m256i*)pixel);
-            color_v8 destination_color_v8 = get_color(destination_v8, srgb255_to_linear_lut);
+            color_v8 destination_color_v8 = get_color(destination_v8);
             color_v8 blended_v8 = blend_color_v8(destination_color_v8, src_color_l1_v8);
 
             __m256i pixel_v8 = pack4x8_linear1_to_srgb255(blended_v8);
@@ -788,9 +718,7 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     null_texture->size = null_texture->count * null_texture->bytes_per_pixel;
     null_texture->data = allocate<u32>(state.permanent);
     u32* data = (u32*)null_texture->data;
-    *data = pack4x8(vec4(1.0f, 0.0f, 0.0f, 1.0f));
-
-    generate_luts();
+    *data = pack_color_8x4(vec4(1.0f, 0.0f, 0.0f, 1.0f));
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
