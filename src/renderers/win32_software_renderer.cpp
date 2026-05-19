@@ -812,6 +812,14 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
                 entry->color, clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;
+        case RenderCommands_RenderEntryCube: {
+            auto entry = (RenderEntryCube*)data;
+            render_cube_gambetta(                           //
+                entry->F0, entry->F1, entry->F2, entry->F3, //
+                entry->B0, entry->B1, entry->B2, entry->B3, //
+                clip_rect, &state.frame_buffer, transient);
+            base_address += sizeof(*entry);
+        } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
             draw_bitmap(entry->quad, entry->offset,                          //

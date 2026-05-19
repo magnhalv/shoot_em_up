@@ -38,7 +38,8 @@ enum RenderGroupEntryType {                   //
     RenderCommands_RenderEntryFilledCircle,   //
     RenderCommands_RenderEntryTriangle,       //
     RenderCommands_RenderEntryFilledTriangle, //
-    RenderCommands_RenderEntryShadedTriangle  //
+    RenderCommands_RenderEntryShadedTriangle, //
+    RenderCommands_RenderEntryCube            //
 };
 
 struct RenderGroupEntryHeader {
@@ -128,6 +129,25 @@ struct RenderEntryShadedTriangle {
     f32 h1;
     f32 h2;
     vec4 color;
+};
+
+struct RenderEntryCube {
+    union {
+        struct {
+            vec3 F0;
+            vec3 F1;
+            vec3 F2;
+            vec3 F3;
+            vec3 B0;
+            vec3 B1;
+            vec3 B2;
+            vec3 B3;
+        };
+        vec3 vertices[8];
+    };
+    vec4 color1;
+    vec4 color2;
+    vec4 color3;
 };
 
 struct RenderCommands {

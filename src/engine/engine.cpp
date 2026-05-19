@@ -441,7 +441,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             triangle->vertices[2] = vec2(10.0f, 0.0f) + center;
             triangle->color = global_color_palette[0];
         }
-        if (true) {
+        if (false) {
             TIMED_BLOCK("render_shaded_triangle");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* triangle = PushRenderElement(&group, RenderEntryShadedTriangle, 0);
@@ -454,6 +454,40 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             triangle->h1 = 0.0;
             triangle->h2 = 1.0;
             triangle->color = global_color_palette[0];
+        }
+
+        if (true) {
+            TIMED_BLOCK("render_cube");
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            auto* triangle = PushRenderElement(&group, RenderEntryCube, 0);
+            f32 t = (f32)app_input->t;
+            // t = PI + 0.1;
+            triangle->F0 = vec3(-1.0f, -0.5f, 5.0f);
+            triangle->F1 = vec3(-1.0f, 0.5f, 5.0f);
+            triangle->F2 = vec3(-0.0f, 0.5f, 5.0f);
+            triangle->F3 = vec3(-0.0f, -0.5f, 5.0f);
+
+            triangle->B0 = vec3(-1.0f, -0.5f, 10.0f);
+            triangle->B1 = vec3(-1.0f, 0.5f, 10.0f);
+            triangle->B2 = vec3(-0.0f, 0.5f, 10.0f);
+            triangle->B3 = vec3(-0.0f, -0.5f, 10.0f);
+        }
+
+        if (false) {
+            TIMED_BLOCK("render_cube");
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            auto* triangle = PushRenderElement(&group, RenderEntryCube, 0);
+            f32 t = (f32)app_input->t;
+            // t = PI + 0.1;
+            triangle->F0 = vec3(-1.0f, -0.5f, 5.0f);
+            triangle->F1 = vec3(-1.0f, 0.5f, 5.0f);
+            triangle->F2 = vec3(-0.0f, 0.5f, 5.0f);
+            triangle->F3 = vec3(-0.0f, -0.5f, 5.0f);
+
+            triangle->B0 = vec3(-1.0f, -0.5f, 10.0f);
+            triangle->B1 = vec3(-1.0f, 0.5f, 10.0f);
+            triangle->B2 = vec3(-0.0f, 0.5f, 10.0f);
+            triangle->B3 = vec3(-0.0f, -0.5f, 10.0f);
         }
         renderer->render(Platform->work_queue, &group);
     }

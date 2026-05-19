@@ -481,3 +481,45 @@ auto inline render_shaded_triangle_gambetta(vec2 P0, vec2 P1, vec2 P2, f32 h0, f
     render_line_gambetta_intensity_internal(P1, P2, h1, h2, color_l1, clip_rect, buffer, arena);
     render_line_gambetta_intensity_internal(P2, P0, h2, h0, color_l1, clip_rect, buffer, arena);
 }
+
+auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
+
+    const f32 Vw = 2.0f;
+    const f32 Vh = Vw * ((f32)INTERNAL_HEIGHT / (f32)INTERNAL_WIDTH); // ≈ 12.08
+    const f32 x_new = ((x / Vw) + 0.5f) * INTERNAL_WIDTH;
+    const f32 y_new = ((y / Vh) + 0.5f) * INTERNAL_HEIGHT;
+    return { x_new, y_new };
+}
+
+auto inline project_vertex(vec3 v) -> vec2 {
+    const f32 d = 5.0f;
+    return viewport_to_canvas((v.x * d) / v.z, (v.y * d) / v.z);
+}
+
+auto inline render_cube_gambetta(       //
+    vec3 F0, vec3 F1, vec3 F2, vec3 F3, //
+    vec3 B0, vec3 B1, vec3 B2, vec3 B3, //
+    Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena) -> void {
+
+    u32 red = pack_color_8x4(vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    u32 green = pack_color_8x4(vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    u32 blue = pack_color_8x4(vec4(0.0f, 0.0f, 1.0f, 1.0f));
+
+    // The back face
+    render_line_gambetta_internal(project_vertex(B0), project_vertex(B1), red, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(B1), project_vertex(B2), red, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(B2), project_vertex(B3), red, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(B3), project_vertex(B0), red, clip_rect, buffer, arena);
+
+    // The front-to-back edges
+    render_line_gambetta_internal(project_vertex(F0), project_vertex(B0), green, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(F1), project_vertex(B1), green, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(F2), project_vertex(B2), green, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(F3), project_vertex(B3), green, clip_rect, buffer, arena);
+
+    // The front face
+    render_line_gambetta_internal(project_vertex(F0), project_vertex(F1), blue, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(F1), project_vertex(F2), blue, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(F2), project_vertex(F3), blue, clip_rect, buffer, arena);
+    render_line_gambetta_internal(project_vertex(F3), project_vertex(F0), blue, clip_rect, buffer, arena);
+}
