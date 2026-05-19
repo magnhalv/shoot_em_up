@@ -30,14 +30,15 @@ struct RenderEntityBasis {
     vec2 offset;
 };
 
-enum RenderGroupEntryType {                  //
-    RenderCommands_RenderEntryClear,         //
-    RenderCommands_RenderEntryBitmap,        //
-    RenderCommands_RenderEntryLine,          //
-    RenderCommands_RenderEntryCircle,        //
-    RenderCommands_RenderEntryFilledCircle,  //
-    RenderCommands_RenderEntryTriangle,      //
-    RenderCommands_RenderEntryFilledTriangle //
+enum RenderGroupEntryType {                   //
+    RenderCommands_RenderEntryClear,          //
+    RenderCommands_RenderEntryBitmap,         //
+    RenderCommands_RenderEntryLine,           //
+    RenderCommands_RenderEntryCircle,         //
+    RenderCommands_RenderEntryFilledCircle,   //
+    RenderCommands_RenderEntryTriangle,       //
+    RenderCommands_RenderEntryFilledTriangle, //
+    RenderCommands_RenderEntryShadedTriangle  //
 };
 
 struct RenderGroupEntryHeader {
@@ -111,6 +112,21 @@ struct RenderEntryFilledTriangle {
         };
         vec2 vertices[3];
     };
+    vec4 color;
+};
+
+struct RenderEntryShadedTriangle {
+    union {
+        struct {
+            vec2 P0;
+            vec2 P1;
+            vec2 P2;
+        };
+        vec2 vertices[3];
+    };
+    f32 h0;
+    f32 h1;
+    f32 h2;
     vec4 color;
 };
 

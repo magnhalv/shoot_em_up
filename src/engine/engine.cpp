@@ -413,6 +413,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
+        const f32 size = 100.0f;
         if (false) {
             TIMED_BLOCK("render_test_circle");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
@@ -430,8 +431,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             circle->radius = 16.0f;
             circle->color = global_color_palette[0];
         }
-        if (true) {
-            TIMED_BLOCK("render_test_triangle");
+        if (false) {
+            TIMED_BLOCK("render_test_filled_triangle");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
             f32 t = (f32)app_input->t;
@@ -439,12 +440,20 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             triangle->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
             triangle->vertices[2] = vec2(10.0f, 0.0f) + center;
             triangle->color = global_color_palette[0];
-
-            // auto* triangle2 = PushRenderElement(&group, RenderEntryTriangle, 0);
-            // triangle2->vertices[0] = center;
-            // triangle2->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
-            // triangle2->vertices[2] = vec2(10.0f, 0.0f) + center;
-            // triangle2->color = vec4(0.0f);
+        }
+        if (true) {
+            TIMED_BLOCK("render_shaded_triangle");
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            auto* triangle = PushRenderElement(&group, RenderEntryShadedTriangle, 0);
+            f32 t = (f32)app_input->t;
+            // t = PI + 0.1;
+            triangle->vertices[0] = center;
+            triangle->vertices[1] = (vec2(cosf(t), sinf(t)) * size) + center;
+            triangle->vertices[2] = vec2(size, 0.0f) + center;
+            triangle->h0 = 0.0;
+            triangle->h1 = 0.0;
+            triangle->h2 = 1.0;
+            triangle->color = global_color_palette[0];
         }
         renderer->render(Platform->work_queue, &group);
     }

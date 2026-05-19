@@ -49,6 +49,10 @@ inline vec4 operator*(const vec4& v, f32 f) {
     return { v.x * f, v.y * f, v.z * f, v.w * f };
 }
 
+inline vec4 operator*(f32 f, const vec4& v) {
+    return { v.x * f, v.y * f, v.z * f, v.w * f };
+}
+
 inline vec4 operator*(const vec4& l, const vec4& r) {
     return { l.x * r.x, l.y * r.y, l.z * r.z, l.w * r.w };
 }

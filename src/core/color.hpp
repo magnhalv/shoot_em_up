@@ -5,8 +5,11 @@
 
 /// @brief: Normalized color to u32
 auto inline pack_color_8x4(vec4 color) -> u32 {
-    u32 c = (round_f32_to_i32(color.a * 255.0f) << 24) | (round_f32_to_i32(color.r * 255.0f) << 16) |
-        (round_f32_to_i32(color.g * 255.0f) << 8) | (round_f32_to_i32(color.b * 255.0f));
+    u32 c = 
+        (round_f32_to_i32(color.a * 255.0f) << 24)  //
+        | (round_f32_to_i32(color.r * 255.0f) << 16) //
+        | (round_f32_to_i32(color.g * 255.0f) << 8)  //
+        | (round_f32_to_i32(color.b * 255.0f)); //
 
     return c;
 }
@@ -68,9 +71,9 @@ constexpr u32 linear1_to_srgb255_lut[LUT_ENTRY_COUNT] = { 0, 13, 22, 28, 34, 38,
     234, 234, 235, 235, 236, 236, 237, 237, 238, 238, 238, 239, 239, 240, 240, 241, 241, 242, 242, 243, 243, 244, 244, 245,
     245, 246, 246, 246, 247, 247, 248, 248, 249, 249, 250, 250, 251, 251, 251, 252, 252, 253, 253, 254, 254, 255, 255 };
 
-inline auto srgb255_to_linear1_lookup(f32 color) -> f32 {
-    Assert(color >= 0.0f && color <= 255.0f);
-    i32 index = (i32)color;
+inline auto srgb_to_linear1_lookup(f32 channel) -> f32 {
+    Assert(channel >= 0.0f && channel <= 1.0f);
+    i32 index = (i32)(channel * 255.0f);
     return srgb255_to_linear_lut[index];
 }
 
@@ -80,15 +83,44 @@ inline auto linear1_to_srgb255_lookup(f32 linear1) -> u32 {
     return linear1_to_srgb255_lut[index];
 }
 
-inline vec4 srgb255_to_linear1(vec4 color) {
+inline vec4 srgb_to_linear1(vec4 color) {
     vec4 result = {};
 
-    f32 inv_255 = 1.0f / 255.0f;
+    result.r = srgb_to_linear1_lookup(color.r);
+    result.g = srgb_to_linear1_lookup(color.g);
+    result.b = srgb_to_linear1_lookup(color.b);
+    result.a = color.a;
 
-    result.r = srgb255_to_linear1_lookup(color.r);
-    result.g = srgb255_to_linear1_lookup(color.g);
-    result.b = srgb255_to_linear1_lookup(color.b);
-    result.a = inv_255 * color.a;
+    return result;
+}
+
+
+inline auto unpack4x8_srgb255_to_linear1(u32 packed) -> vec4 {
+    u8 r = (packed >> 16) & 0xFF;
+    u8 g = (packed >> 8) & 0xFF;
+    u8 b = (packed >> 0) & 0xFF;
+    u8 a = (packed >> 24) & 0xFF;
+
+    vec4 result;
+
+    result.r = srgb255_to_linear_lut[r];
+    result.g = srgb255_to_linear_lut[g];
+    result.b = srgb255_to_linear_lut[b];
+    result.a = (f32)a / 255.0f;
+    return result;
+}
+
+inline auto linear1_to_packed8x4_srgb255(vec4 color) -> u32 {
+    // NOTE: Not clamping miight be dangerous here
+    u32 r_idx = (u32)(color.r * 255.0f + 0.5f);
+    u32 g_idx = (u32)(color.g * 255.0f + 0.5f);
+    u32 b_idx = (u32)(color.b * 255.0f + 0.5f);
+    u32 a = (u32)(color.a * 255.0f + 0.5f);
+    u32 result =                              //
+        a << 24 |                             //
+        linear1_to_srgb255_lut[r_idx] << 16 | //
+        linear1_to_srgb255_lut[g_idx] << 8 |  //
+        linear1_to_srgb255_lut[b_idx] << 0;
 
     return result;
 }

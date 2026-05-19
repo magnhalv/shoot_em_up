@@ -1101,7 +1101,9 @@ internal auto win32_sleep_until(i64 target_tick, HANDLE timer) -> bool {
         // Sleep for (remaining - safety_margin) so we typically only need one sleep,
         // leaving Min_Sleep_Duration_us for the spin-wait. Capped at 4ms to limit overshoot risk.
         i64 sleep_us = (i64)(us_to_sleep - Min_Sleep_Duration_us);
-        if (sleep_us > 4000) sleep_us = 4000;
+        if (sleep_us > 4000) {
+            sleep_us = 4000;
+        }
         // In 100ns units, negative = relative time.
         LARGE_INTEGER due_time;
         due_time.QuadPart = -(sleep_us * 10);

@@ -46,6 +46,12 @@ inline auto f32_abs(f32 val) -> f32 {
 
 }; // namespace hm
 
+inline auto swap_f32(f32& a, f32& b) -> void {
+    f32 temp = a;
+    a = b;
+    b = temp;
+}
+
 auto inline clamp(f32 val, f32 min, f32 max) -> f32 {
     if (val < min) {
         return min;
@@ -67,7 +73,7 @@ auto inline clamp(i32 val, i32 min, i32 max) -> i32 {
 }
 
 auto inline in_range(i32 min, i32 value, i32 max) -> bool {
-  return value >= min && value < max;
+    return value >= min && value < max;
 }
 
 inline i32 round_f32_to_i32(f32 real) {

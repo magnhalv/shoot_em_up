@@ -122,36 +122,6 @@ auto square_root(f32 v) -> f32 {
     return sqrtf(v);
 }
 
-inline auto unpack4x8_srgb255_to_linear1(u32 packed) -> vec4 {
-    u8 r = (packed >> 16) & 0xFF;
-    u8 g = (packed >> 8) & 0xFF;
-    u8 b = (packed >> 0) & 0xFF;
-    u8 a = (packed >> 24) & 0xFF;
-
-    vec4 result;
-
-    result.r = srgb255_to_linear_lut[r];
-    result.g = srgb255_to_linear_lut[g];
-    result.b = srgb255_to_linear_lut[b];
-    result.a = (f32)a / 255.0f;
-    return result;
-}
-
-inline auto pack4x8_linear1_to_srgb255(vec4 color) -> u32 {
-    // NOTE: Not clamping miight be dangerous here
-    u32 r_idx = (u32)(color.r * 255.0f + 0.5f);
-    u32 g_idx = (u32)(color.g * 255.0f + 0.5f);
-    u32 b_idx = (u32)(color.b * 255.0f + 0.5f);
-    u32 a = (u32)(color.a * 255.0f + 0.5f);
-    u32 result =                              //
-        a << 24 |                             //
-        linear1_to_srgb255_lut[r_idx] << 16 | //
-        linear1_to_srgb255_lut[g_idx] << 8 |  //
-        linear1_to_srgb255_lut[b_idx] << 0;
-
-    return result;
-}
-
 inline auto pack4x8(vec4 color) -> u32 {
     u32 result =                        //
         ((u32)(color.a + 0.5f)) << 24 | //
@@ -162,15 +132,13 @@ inline auto pack4x8(vec4 color) -> u32 {
     return result;
 }
 
-inline auto srgb255_to_linear1_2(vec4 color) -> color_v8 {
+inline auto srgb_to_linear1_2(vec4 color) -> color_v8 {
     color_v8 result = {};
 
-    f32 inv_255 = 1.0f / 255.0f;
-
-    f32 r = srgb255_to_linear1_lookup(color.r);
-    f32 g = srgb255_to_linear1_lookup(color.g);
-    f32 b = srgb255_to_linear1_lookup(color.b);
-    f32 a = inv_255 * color.a;
+    f32 r = srgb_to_linear1_lookup(color.r);
+    f32 g = srgb_to_linear1_lookup(color.g);
+    f32 b = srgb_to_linear1_lookup(color.b);
+    f32 a = color.a;
 
     result.r = _mm256_set1_ps(r);
     result.g = _mm256_set1_ps(g);
@@ -347,7 +315,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     f32 texel_u_row = (start_x_m * M_c_to_m.xx + start_y_m * M_c_to_m.yx + model_width * 0.5f) * scaled_du + (f32)u_min;
     f32 texel_v_row = (start_x_m * M_c_to_m.xy + start_y_m * M_c_to_m.yy + model_height * 0.5f) * scaled_dv + (f32)v_min;
 
-    vec4 default_color_l1 = srgb255_to_linear1(color);
+    vec4 default_color_l1 = srgb_to_linear1(color);
     for (int y = min_y; y < max_y; y++) {
         f32 u = texel_u_row;
         f32 v = texel_v_row;
@@ -379,7 +347,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             if (is_inside) {
                 vec4 src_color_l1;
                 if (is_on_border) {
-                    src_color_l1 = srgb255_to_linear1(vec4(255.0f, 0.0f, 0.0f, 255.0f));
+                    src_color_l1 = srgb_to_linear1(vec4(255.0f, 0.0f, 0.0f, 255.0f));
                 }
                 else {
                     if (texture_id == 0) {
@@ -426,7 +394,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 }
                 // vec4 blended = dest_l1 * (1.0f - src_color_l1.a) + src_color_l1;
 
-                *pixel = pack4x8_linear1_to_srgb255(blended);
+                *pixel = linear1_to_packed8x4_srgb255(blended);
             }
             u += ds_dx.x;
             v += ds_dx.y;
@@ -510,7 +478,7 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
     f32 texel_u_row = (start_x_m * M_c_to_m.xx + start_y_m * M_c_to_m.yx + model_width * 0.5f) * scaled_du + (f32)u_min;
     f32 texel_v_row = (start_x_m * M_c_to_m.xy + start_y_m * M_c_to_m.yy + model_height * 0.5f) * scaled_dv + (f32)v_min;
 
-    color_v8 default_color_l1_v8 = srgb255_to_linear1_2(color);
+    color_v8 default_color_l1_v8 = srgb_to_linear1_2(color);
     for (int y = min_y; y < max_y; y++) {
         /*f32 u = texel_u_row;*/
         /*f32 v = texel_v_row;*/
@@ -764,39 +732,39 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
 }
 
 global_variable vec4 global_color_palette[32] = {
-    vec4(230.0f, 25.0f, 75.0f, 255.0f),   // vivid red
-    vec4(60.0f, 180.0f, 75.0f, 255.0f),   // green
-    vec4(255.0f, 225.0f, 25.0f, 255.0f),  // yellow
-    vec4(0.0f, 130.0f, 200.0f, 255.0f),   // blue
-    vec4(245.0f, 130.0f, 48.0f, 255.0f),  // orange
-    vec4(145.0f, 30.0f, 180.0f, 255.0f),  // purple
-    vec4(70.0f, 240.0f, 240.0f, 255.0f),  // cyan
-    vec4(240.0f, 50.0f, 230.0f, 255.0f),  // magenta
-    vec4(210.0f, 245.0f, 60.0f, 255.0f),  // lime
-    vec4(250.0f, 190.0f, 212.0f, 255.0f), // pink
-    vec4(0.0f, 128.0f, 128.0f, 255.0f),   // teal
-    vec4(220.0f, 190.0f, 255.0f, 255.0f), // lavender
-    vec4(170.0f, 110.0f, 40.0f, 255.0f),  // brown
-    vec4(255.0f, 250.0f, 200.0f, 255.0f), // beige
-    vec4(128.0f, 0.0f, 0.0f, 255.0f),     // maroon
-    vec4(170.0f, 255.0f, 195.0f, 255.0f), // mint
+    vec4(0.902f, 0.098f, 0.294f, 1.0f), // vivid red
+    vec4(0.235f, 0.706f, 0.294f, 1.0f), // green
+    vec4(1.000f, 0.882f, 0.098f, 1.0f), // yellow
+    vec4(0.000f, 0.510f, 0.784f, 1.0f), // blue
+    vec4(0.961f, 0.510f, 0.188f, 1.0f), // orange
+    vec4(0.569f, 0.118f, 0.706f, 1.0f), // purple
+    vec4(0.275f, 0.941f, 0.941f, 1.0f), // cyan
+    vec4(0.941f, 0.196f, 0.902f, 1.0f), // magenta
+    vec4(0.824f, 0.961f, 0.235f, 1.0f), // lime
+    vec4(0.980f, 0.745f, 0.831f, 1.0f), // pink
+    vec4(0.000f, 0.502f, 0.502f, 1.0f), // teal
+    vec4(0.863f, 0.745f, 1.000f, 1.0f), // lavender
+    vec4(0.667f, 0.431f, 0.157f, 1.0f), // brown
+    vec4(1.000f, 0.980f, 0.784f, 1.0f), // beige
+    vec4(0.502f, 0.000f, 0.000f, 1.0f), // maroon
+    vec4(0.667f, 1.000f, 0.765f, 1.0f), // mint
 
-    vec4(128.0f, 128.0f, 0.0f, 255.0f),   // olive
-    vec4(255.0f, 215.0f, 180.0f, 255.0f), // apricot
-    vec4(0.0f, 0.0f, 128.0f, 255.0f),     // navy
-    vec4(255.0f, 225.0f, 180.0f, 255.0f), // peach
-    vec4(0.0f, 255.0f, 0.0f, 255.0f),     // bright green
-    vec4(255.0f, 160.0f, 122.0f, 255.0f), // salmon
-    vec4(0.0f, 255.0f, 255.0f, 255.0f),   // aqua
-    vec4(186.0f, 85.0f, 211.0f, 255.0f),  // medium purple
-    vec4(255.0f, 99.0f, 71.0f, 255.0f),   // tomato
-    vec4(154.0f, 205.0f, 50.0f, 255.0f),  // yellow green
-    vec4(72.0f, 61.0f, 139.0f, 255.0f),   // slate blue
-    vec4(255.0f, 140.0f, 0.0f, 255.0f),   // dark orange
-    vec4(64.0f, 224.0f, 208.0f, 255.0f),  // turquoise
-    vec4(199.0f, 21.0f, 133.0f, 255.0f),  // medium violet red
-    vec4(135.0f, 206.0f, 235.0f, 255.0f), // sky blue
-    vec4(255.0f, 255.0f, 255.0f, 255.0f)  // white
+    vec4(0.502f, 0.502f, 0.000f, 1.0f), // olive
+    vec4(1.000f, 0.843f, 0.706f, 1.0f), // apricot
+    vec4(0.000f, 0.000f, 0.502f, 1.0f), // navy
+    vec4(1.000f, 0.882f, 0.706f, 1.0f), // peach
+    vec4(0.000f, 1.000f, 0.000f, 1.0f), // bright green
+    vec4(1.000f, 0.627f, 0.478f, 1.0f), // salmon
+    vec4(0.000f, 1.000f, 1.000f, 1.0f), // aqua
+    vec4(0.729f, 0.333f, 0.827f, 1.0f), // medium purple
+    vec4(1.000f, 0.388f, 0.278f, 1.0f), // tomato
+    vec4(0.604f, 0.804f, 0.196f, 1.0f), // yellow green
+    vec4(0.282f, 0.239f, 0.545f, 1.0f), // slate blue
+    vec4(1.000f, 0.549f, 0.000f, 1.0f), // dark orange
+    vec4(0.251f, 0.878f, 0.816f, 1.0f), // turquoise
+    vec4(0.780f, 0.082f, 0.522f, 1.0f), // medium violet red
+    vec4(0.529f, 0.808f, 0.922f, 1.0f), // sky blue
+    vec4(1.000f, 1.000f, 1.000f, 1.0f), // white
 };
 
 auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_render_order, Rectangle2i clip_rect,
@@ -836,6 +804,12 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
         case RenderCommands_RenderEntryFilledTriangle: {
             auto entry = (RenderEntryFilledTriangle*)data;
             render_filled_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, &state.frame_buffer, transient);
+            base_address += sizeof(*entry);
+        } break;
+        case RenderCommands_RenderEntryShadedTriangle: {
+            auto entry = (RenderEntryShadedTriangle*)data;
+            render_shaded_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->h0, entry->h1, entry->h2,
+                entry->color, clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {

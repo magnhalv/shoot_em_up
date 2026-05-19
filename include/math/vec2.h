@@ -68,7 +68,7 @@ inline f32 dot(const vec2& l, const vec2& r) {
     return l.x * r.x + l.y * r.y;
 }
 
-inline auto swap(vec2& a, vec2& b) -> void {
+inline auto swap_vec2(vec2& a, vec2& b) -> void {
     vec2 temp = a;
     a = b;
     b = temp;
