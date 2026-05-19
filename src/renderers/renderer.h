@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/array.h"
 #include <platform/platform.h>
 #include <platform/types.h>
 
@@ -39,7 +40,7 @@ enum RenderGroupEntryType {                   //
     RenderCommands_RenderEntryTriangle,       //
     RenderCommands_RenderEntryFilledTriangle, //
     RenderCommands_RenderEntryShadedTriangle, //
-    RenderCommands_RenderEntryCube            //
+    RenderCommands_RenderEntryPolygon         //
 };
 
 struct RenderGroupEntryHeader {
@@ -131,23 +132,10 @@ struct RenderEntryShadedTriangle {
     vec4 color;
 };
 
-struct RenderEntryCube {
-    union {
-        struct {
-            vec3 F0;
-            vec3 F1;
-            vec3 F2;
-            vec3 F3;
-            vec3 B0;
-            vec3 B1;
-            vec3 B2;
-            vec3 B3;
-        };
-        vec3 vertices[8];
-    };
-    vec4 color1;
-    vec4 color2;
-    vec4 color3;
+struct RenderEntryPolygon {
+    Array<vec3> vertices;
+    Array<ivec3> triangles;
+    Array<vec4> colors;
 };
 
 struct RenderCommands {

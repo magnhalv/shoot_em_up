@@ -234,12 +234,12 @@ auto inline render_filled_circle_bresenham(vec2 P, f32 radius, vec4 color, Recta
 auto inline interpolate_i32(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) -> Array<i32> {
     Assert(i0 <= i1);
     if (i0 == i1) {
-        auto result = Array<i32>::create_proper(1, arena);
+        auto result = Array<i32>::create(1, arena);
         result[0] = d0;
         return result;
     }
     i32 length = (i1 - i0) + 1;
-    auto result = Array<i32>::create_proper(length, arena);
+    auto result = Array<i32>::create(length, arena);
 
     f32 a = ((f32)(d1 - d0)) / (i1 - i0); // dd/di
     f32 d = (f32)d0;
@@ -254,12 +254,12 @@ auto inline interpolate_i32(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) 
 auto inline interpolate_f32(i32 i0, f32 d0, i32 i1, f32 d1, MemoryArena& arena) -> Array<f32> {
     // Assert(i0 <= i1);
     if (i0 == i1) {
-        auto result = Array<f32>::create_proper(1, arena);
+        auto result = Array<f32>::create(1, arena);
         result[0] = d0;
         return result;
     }
     i32 length = abs(i1 - i0) + 1;
-    auto result = Array<f32>::create_proper(length, arena);
+    auto result = Array<f32>::create(length, arena);
 
     f32 a = (d1 - d0) / (i1 - i0); // dd/di
     f32 d = d0;
@@ -344,7 +344,7 @@ auto inline render_line_gambetta(vec2 P0, vec2 P1, vec4 color, Rectangle2i clip_
     render_line_gambetta_internal(P0, P1, c, clip_rect, buffer, arena);
 }
 
-auto inline render_triangle_gambetta(
+auto inline render_triangle_writeframe_gambetta(
     vec2 P0, vec2 P1, vec2 P2, vec4 color, Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena) -> void {
     render_line_gambetta(P0, P1, color, clip_rect, buffer, arena);
     render_line_gambetta(P1, P2, color, clip_rect, buffer, arena);
@@ -484,7 +484,7 @@ auto inline render_shaded_triangle_gambetta(vec2 P0, vec2 P1, vec2 P2, f32 h0, f
 
 auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
 
-    const f32 Vw = 2.0f;
+    const f32 Vw = 4.0f;
     const f32 Vh = Vw * ((f32)INTERNAL_HEIGHT / (f32)INTERNAL_WIDTH); // ≈ 12.08
     const f32 x_new = ((x / Vw) + 0.5f) * INTERNAL_WIDTH;
     const f32 y_new = ((y / Vh) + 0.5f) * INTERNAL_HEIGHT;
@@ -522,4 +522,25 @@ auto inline render_cube_gambetta(       //
     render_line_gambetta_internal(project_vertex(F1), project_vertex(F2), blue, clip_rect, buffer, arena);
     render_line_gambetta_internal(project_vertex(F2), project_vertex(F3), blue, clip_rect, buffer, arena);
     render_line_gambetta_internal(project_vertex(F3), project_vertex(F0), blue, clip_rect, buffer, arena);
+}
+
+auto inline render_polygon_gambetta( //
+    Array<vec3> vertices, Array<ivec3> triangles, Array<vec4> colors, Rectangle2i clip_rect, FrameBuffer* buffer,
+    MemoryArena& arena) -> void {
+    Assert(triangles.count() == colors.count());
+
+    auto projected_vertices = Array<vec2>::create(vertices.count(), arena);
+    vec3 translate = vec3(-1.5, 0, 7);
+    for (u32 i = 0; i < vertices.count(); i++) {
+        projected_vertices[i] = project_vertex(vertices[i] + translate);
+    }
+
+    for (u32 i = 0; i < triangles.count(); i++) {
+        const auto& t = triangles[i];
+        render_triangle_writeframe_gambetta( //
+            projected_vertices[t.x],         //
+            projected_vertices[t.y],         //
+            projected_vertices[t.z],         //
+            colors[i], clip_rect, buffer, arena);
+    }
 }

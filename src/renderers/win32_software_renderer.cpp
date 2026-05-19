@@ -798,7 +798,8 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
         } break;
         case RenderCommands_RenderEntryTriangle: {
             auto entry = (RenderEntryTriangle*)data;
-            render_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, &state.frame_buffer, transient);
+            render_triangle_writeframe_gambetta(
+                entry->P0, entry->P1, entry->P2, entry->color, clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledTriangle: {
@@ -812,11 +813,10 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
                 entry->color, clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;
-        case RenderCommands_RenderEntryCube: {
-            auto entry = (RenderEntryCube*)data;
-            render_cube_gambetta(                           //
-                entry->F0, entry->F1, entry->F2, entry->F3, //
-                entry->B0, entry->B1, entry->B2, entry->B3, //
+        case RenderCommands_RenderEntryPolygon: {
+            auto entry = (RenderEntryPolygon*)data;
+            render_polygon_gambetta(                              //
+                entry->vertices, entry->triangles, entry->colors, //
                 clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;

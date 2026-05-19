@@ -18,6 +18,7 @@
 
 #include "assets.h"
 #include "audio.hpp"
+#include "core/memory_arena.h"
 #include "core/string8.hpp"
 #include "engine.h"
 #include "gameplay.h"
@@ -459,36 +460,49 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (true) {
             TIMED_BLOCK("render_cube");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-            auto* triangle = PushRenderElement(&group, RenderEntryCube, 0);
+            auto* polygon = PushRenderElement(&group, RenderEntryPolygon, 0);
             f32 t = (f32)app_input->t;
             // t = PI + 0.1;
-            triangle->F0 = vec3(-1.0f, -0.5f, 5.0f);
-            triangle->F1 = vec3(-1.0f, 0.5f, 5.0f);
-            triangle->F2 = vec3(-0.0f, 0.5f, 5.0f);
-            triangle->F3 = vec3(-0.0f, -0.5f, 5.0f);
+            polygon->vertices = Array<vec3>::create(8, *g_transient);
+            polygon->triangles = Array<ivec3>::create(12, *g_transient);
+            polygon->colors = Array<vec4>::create(12, *g_transient);
 
-            triangle->B0 = vec3(-1.0f, -0.5f, 10.0f);
-            triangle->B1 = vec3(-1.0f, 0.5f, 10.0f);
-            triangle->B2 = vec3(-0.0f, 0.5f, 10.0f);
-            triangle->B3 = vec3(-0.0f, -0.5f, 10.0f);
+            polygon->vertices[0] = vec3(1.0f, 1.0f, 1.0f);
+            polygon->vertices[1] = vec3(-1.0f, 1.0f, 1.0f);
+            polygon->vertices[2] = vec3(-1.0f, -1.0f, 1.0f);
+            polygon->vertices[3] = vec3(1.0f, -1.0f, 1.0f);
+            polygon->vertices[4] = vec3(1.0f, 1.0f, -1.0f);
+            polygon->vertices[5] = vec3(-1.0f, 1.0f, -1.0f);
+            polygon->vertices[6] = vec3(-1.0f, -1.0f, -1.0f);
+            polygon->vertices[7] = vec3(1.0f, -1.0f, -1.0f);
+
+            polygon->triangles[0] = ivec3(0, 1, 2);
+            polygon->triangles[1] = ivec3(0, 2, 3);
+            polygon->triangles[2] = ivec3(4, 0, 3);
+            polygon->triangles[3] = ivec3(4, 3, 7);
+            polygon->triangles[4] = ivec3(5, 4, 7);
+            polygon->triangles[5] = ivec3(5, 7, 6);
+            polygon->triangles[6] = ivec3(1, 5, 6);
+            polygon->triangles[7] = ivec3(1, 6, 2);
+            polygon->triangles[8] = ivec3(4, 5, 1);
+            polygon->triangles[9] = ivec3(4, 1, 0);
+            polygon->triangles[10] = ivec3(2, 6, 7);
+            polygon->triangles[11] = ivec3(2, 7, 3);
+
+            polygon->colors[0] = RED;
+            polygon->colors[1] = RED;
+            polygon->colors[2] = GREEN;
+            polygon->colors[3] = GREEN;
+            polygon->colors[4] = BLUE;
+            polygon->colors[5] = BLUE;
+            polygon->colors[6] = YELLOW;
+            polygon->colors[7] = YELLOW;
+            polygon->colors[8] = PURPLE;
+            polygon->colors[9] = PURPLE;
+            polygon->colors[10] = CYAN;
+            polygon->colors[11] = CYAN;
         }
 
-        if (false) {
-            TIMED_BLOCK("render_cube");
-            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-            auto* triangle = PushRenderElement(&group, RenderEntryCube, 0);
-            f32 t = (f32)app_input->t;
-            // t = PI + 0.1;
-            triangle->F0 = vec3(-1.0f, -0.5f, 5.0f);
-            triangle->F1 = vec3(-1.0f, 0.5f, 5.0f);
-            triangle->F2 = vec3(-0.0f, 0.5f, 5.0f);
-            triangle->F3 = vec3(-0.0f, -0.5f, 5.0f);
-
-            triangle->B0 = vec3(-1.0f, -0.5f, 10.0f);
-            triangle->B1 = vec3(-1.0f, 0.5f, 10.0f);
-            triangle->B2 = vec3(-0.0f, 0.5f, 10.0f);
-            triangle->B3 = vec3(-0.0f, -0.5f, 10.0f);
-        }
         renderer->render(Platform->work_queue, &group);
     }
     if (false) {

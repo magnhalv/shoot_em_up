@@ -30,6 +30,30 @@ struct vec3 {
     }
 };
 
+struct ivec3 {
+    union {
+        struct {
+            i32 x;
+            i32 y;
+            i32 z;
+        };
+        i32 v[3]{};
+    };
+    inline ivec3() : x(0), y(0), z(0) {
+    }
+    inline ivec3(i32 _x, i32 _y, i32 _z) : x(_x), y(_y), z(_z) {
+    }
+    inline explicit ivec3(i32* fv) : x(fv[0]), y(fv[1]), z(fv[2]) {
+    }
+
+    inline ivec3(ivec2 xy, i32 z) : x(xy.x), y(xy.y), z(z) {
+    }
+
+    auto xy() -> ivec2 {
+        return ivec2(x, y);
+    }
+};
+
 vec3 operator+(const vec3& l, const vec3& r);
 vec3 operator-(const vec3& l, const vec3& r);
 vec3 operator*(const vec3& v, f32 f);

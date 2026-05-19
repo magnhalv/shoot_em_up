@@ -12,14 +12,9 @@
 #include "hm_assert.h"
 
 template <typename T> struct Array {
-    static auto create(size_t size, MemoryArena& arena) -> Array<T>* {
-        auto* result = allocate<Array>(arena, 1);
-        result->init_arena(arena, size);
-        return result;
-    }
-    static auto create_proper(size_t size, MemoryArena& arena) -> Array<T> {
+    static auto create(size_t count, MemoryArena& arena) -> Array<T> {
         Array<T> result;
-        result.init_arena(arena, size);
+        result.init_arena(arena, count);
         return result;
     }
 
@@ -98,7 +93,7 @@ template <typename T> struct Array {
 };
 
 template <typename T> auto inline concat(Array<T>& arr1, Array<T>& arr2, MemoryArena& arena) -> Array<T> {
-    Array<T> result = Array<T>::create_proper(arr1.count() + arr2.count(), arena);
+    Array<T> result = Array<T>::create(arr1.count() + arr2.count(), arena);
     copy_memory(arr1.data(), result.data(), arr1.size());
     copy_memory(arr2.data(), result.data() + arr1.count(), arr2.size());
 
