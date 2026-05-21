@@ -36,27 +36,27 @@ mat4 operator+(const mat4& a, const mat4& b) {
 }
 
 #define M4D(aRow, bCol) \
-    a.v[0 * 4 + aRow] * b.v[bCol * 4 + 0] + \
-    a.v[1 * 4 + aRow] * b.v[bCol * 4 + 1] + \
-    a.v[2 * 4 + aRow] * b.v[bCol * 4 + 2] + \
-    a.v[3 * 4 + aRow] * b.v[bCol * 4 + 3]
+    a.v[aRow * 4 + 0] * b.v[0 * 4 + bCol] + \
+    a.v[aRow * 4 + 1] * b.v[1 * 4 + bCol] + \
+    a.v[aRow * 4 + 2] * b.v[2 * 4 + bCol] + \
+    a.v[aRow * 4 + 3] * b.v[3 * 4 + bCol]
 
 mat4 operator*(const mat4& a, const mat4& b) {
     return mat4(
-            M4D(0, 0), M4D(1, 0), M4D(2, 0), M4D(3, 0), // Column 0
-            M4D(0, 1), M4D(1, 1), M4D(2, 1), M4D(3, 1), // Column 1
-            M4D(0, 2), M4D(1, 2), M4D(2, 2), M4D(3, 2), // Column 2
-            M4D(0, 3), M4D(1, 3), M4D(2, 3), M4D(3, 3)  // Column 3
+            M4D(0, 0), M4D(0, 1), M4D(0, 2), M4D(0, 3), // Row 0
+            M4D(1, 0), M4D(1, 1), M4D(1, 2), M4D(1, 3), // Row 1
+            M4D(2, 0), M4D(2, 1), M4D(2, 2), M4D(2, 3), // Row 2
+            M4D(3, 0), M4D(3, 1), M4D(3, 2), M4D(3, 3)  // Row 3
     );
 }
 
-#define M4V4D(mRow, x, y, z, w) \
-    x * m.v[0 * 4 + mRow] + \
-    y * m.v[1 * 4 + mRow] + \
-    z * m.v[2 * 4 + mRow] + \
-    w * m.v[3 * 4 + mRow]
+#define M4V4D(mCol, x, y, z, w) \
+    x * m.v[0 * 4 + mCol] + \
+    y * m.v[1 * 4 + mCol] + \
+    z * m.v[2 * 4 + mCol] + \
+    w * m.v[3 * 4 + mCol]
 
-vec4 operator*(const mat4& m, const vec4& v) {
+vec4 operator*(const vec4 &v, const mat4& m) {
     return vec4(
             M4V4D(0, v.x, v.y, v.z, v.w),
             M4V4D(1, v.x, v.y, v.z, v.w),
@@ -65,6 +65,7 @@ vec4 operator*(const mat4& m, const vec4& v) {
     );
 }
 
+// What do I need this for?
 vec3 transform_vector(const mat4& m, const vec3& v) {
     return vec3(
             M4V4D(0, v.x, v.y, v.z, 0.0f),

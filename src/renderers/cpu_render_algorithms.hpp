@@ -491,56 +491,31 @@ auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
     return { x_new, y_new };
 }
 
-auto inline project_vertex(vec3 v) -> vec2 {
+auto inline project_vertex(vec4 v) -> vec2 {
     const f32 d = 5.0f;
     return viewport_to_canvas((v.x * d) / v.z, (v.y * d) / v.z);
 }
 
-auto inline render_cube_gambetta(       //
-    vec3 F0, vec3 F1, vec3 F2, vec3 F3, //
-    vec3 B0, vec3 B1, vec3 B2, vec3 B3, //
-    Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena) -> void {
-
-    u32 red = pack_color_8x4(vec4(1.0f, 0.0f, 0.0f, 1.0f));
-    u32 green = pack_color_8x4(vec4(0.0f, 1.0f, 0.0f, 1.0f));
-    u32 blue = pack_color_8x4(vec4(0.0f, 0.0f, 1.0f, 1.0f));
-
-    // The back face
-    render_line_gambetta_internal(project_vertex(B0), project_vertex(B1), red, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(B1), project_vertex(B2), red, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(B2), project_vertex(B3), red, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(B3), project_vertex(B0), red, clip_rect, buffer, arena);
-
-    // The front-to-back edges
-    render_line_gambetta_internal(project_vertex(F0), project_vertex(B0), green, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(F1), project_vertex(B1), green, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(F2), project_vertex(B2), green, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(F3), project_vertex(B3), green, clip_rect, buffer, arena);
-
-    // The front face
-    render_line_gambetta_internal(project_vertex(F0), project_vertex(F1), blue, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(F1), project_vertex(F2), blue, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(F2), project_vertex(F3), blue, clip_rect, buffer, arena);
-    render_line_gambetta_internal(project_vertex(F3), project_vertex(F0), blue, clip_rect, buffer, arena);
-}
-
 auto inline render_polygon_gambetta( //
-    Array<vec3> vertices, Array<ivec3> triangles, Array<vec4> colors, Rectangle2i clip_rect, FrameBuffer* buffer,
-    MemoryArena& arena) -> void {
+    Array<vec4> vertices, Array<ivec3> triangles, Array<vec4> colors, Array<Transform> instances, Rectangle2i clip_rect,
+    FrameBuffer* buffer, MemoryArena& arena) -> void {
     Assert(triangles.count() == colors.count());
 
-    auto projected_vertices = Array<vec2>::create(vertices.count(), arena);
-    vec3 translate = vec3(-1.5, 0, 7);
-    for (u32 i = 0; i < vertices.count(); i++) {
-        projected_vertices[i] = project_vertex(vertices[i] + translate);
-    }
+    for (const auto& instance : instances) {
+        auto projected_vertices = Array<vec2>::create(vertices.count(), arena);
 
-    for (u32 i = 0; i < triangles.count(); i++) {
-        const auto& t = triangles[i];
-        render_triangle_writeframe_gambetta( //
-            projected_vertices[t.x],         //
-            projected_vertices[t.y],         //
-            projected_vertices[t.z],         //
-            colors[i], clip_rect, buffer, arena);
+        mat4 M_to_W = instance.to_mat4();
+        for (u32 i = 0; i < vertices.count(); i++) {
+            projected_vertices[i] = project_vertex(vertices[i] * M_to_W);
+        }
+
+        for (u32 i = 0; i < triangles.count(); i++) {
+            const auto& t = triangles[i];
+            render_triangle_writeframe_gambetta( //
+                projected_vertices[t.x],         //
+                projected_vertices[t.y],         //
+                projected_vertices[t.z],         //
+                colors[i], clip_rect, buffer, arena);
+        }
     }
 }

@@ -1,5 +1,7 @@
 #include "mat2.cpp"
 #include "mat3.cpp"
 #include "mat4.cpp"
+#include "quat.cpp"
+#include "transform.cpp"
 #include "vec2.cpp"
 #include "vec3.cpp"

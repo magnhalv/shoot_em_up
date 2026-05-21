@@ -2,7 +2,7 @@
 
 #include <math/quat.h>
 
-void quat_print(const quat &q) {
+void quat_print(const quat& q) {
     printf("w: %f, x: %f, y: %f, z: %f\n", q.w, q.x, q.y, q.z);
 }
 
@@ -10,12 +10,7 @@ quat angle_axis(float angle, const vec3& axis) {
     vec3 norm = normalized(axis);
     float s = sinf(angle * 0.5f);
 
-    return quat(
-            norm.x * s,
-            norm.y * s,
-            norm.z * s,
-            cosf(angle * 0.5f)
-    );
+    return quat(norm.x * s, norm.y * s, norm.z * s, cosf(angle * 0.5f));
 }
 
 quat fromTo(const vec3& from, const vec3& to) {
@@ -41,12 +36,7 @@ quat fromTo(const vec3& from, const vec3& to) {
     vec3 half = normalized(f + t);
     vec3 axis = cross(f, half);
 
-    return quat(
-            axis.x,
-            axis.y,
-            axis.z,
-            dot(f, half)
-    );
+    return quat(axis.x, axis.y, axis.z, dot(f, half));
 }
 
 vec3 getAxis(const quat& quat) {
@@ -58,47 +48,24 @@ float getAngle(const quat& quat) {
 }
 
 quat operator+(const quat& a, const quat& b) {
-    return quat(
-            a.x + b.x,
-            a.y + b.y,
-            a.z + b.z,
-            a.w + b.w
-    );
+    return quat(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
 }
 
 quat operator-(const quat& a, const quat& b) {
-    return quat(
-            a.x - b.x,
-            a.y - b.y,
-            a.z - b.z,
-            a.w - b.w
-    );
+    return quat(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
 }
 
 quat operator*(const quat& a, float b) {
-    return quat(
-            a.x * b,
-            a.y * b,
-            a.z * b,
-            a.w * b
-    );
+    return quat(a.x * b, a.y * b, a.z * b, a.w * b);
 }
 
 quat operator-(const quat& q) {
-    return quat(
-            -q.x,
-            -q.y,
-            -q.z,
-            -q.w
-    );
+    return quat(-q.x, -q.y, -q.z, -q.w);
 }
 
 bool operator==(const quat& left, const quat& right) {
-    return
-            (fabsf(left.x) - fabsf(right.x)) <= QUAT_EPSILON &&
-            (fabsf(left.y) - fabsf(right.y)) <= QUAT_EPSILON &&
-            (fabsf(left.z) - fabsf(right.z)) <= QUAT_EPSILON &&
-            (fabsf(left.w) - fabsf(right.w)) <= QUAT_EPSILON;
+    return (fabsf(left.x) - fabsf(right.x)) <= QUAT_EPSILON && (fabsf(left.y) - fabsf(right.y)) <= QUAT_EPSILON &&
+        (fabsf(left.z) - fabsf(right.z)) <= QUAT_EPSILON && (fabsf(left.w) - fabsf(right.w)) <= QUAT_EPSILON;
 }
 
 bool operator!=(const quat& a, const quat& b) {
@@ -106,8 +73,10 @@ bool operator!=(const quat& a, const quat& b) {
 }
 
 bool sameOrientation(const quat& left, const quat& right) {
-    return (fabsf(left.x - right.x) <= QUAT_EPSILON && fabsf(left.y - right.y) <= QUAT_EPSILON && fabsf(left.z - right.z) <= QUAT_EPSILON && fabsf(left.w - left.w) <= QUAT_EPSILON)
-           || (fabsf(left.x + right.x) <= QUAT_EPSILON && fabsf(left.y + right.y) <= QUAT_EPSILON && fabsf(left.z + right.z) <= QUAT_EPSILON && fabsf(left.w + left.w) <= QUAT_EPSILON);
+    return (fabsf(left.x - right.x) <= QUAT_EPSILON && fabsf(left.y - right.y) <= QUAT_EPSILON &&
+               fabsf(left.z - right.z) <= QUAT_EPSILON && fabsf(left.w - left.w) <= QUAT_EPSILON) ||
+        (fabsf(left.x + right.x) <= QUAT_EPSILON && fabsf(left.y + right.y) <= QUAT_EPSILON &&
+            fabsf(left.z + right.z) <= QUAT_EPSILON && fabsf(left.w + left.w) <= QUAT_EPSILON);
 }
 
 float dot(const quat& a, const quat& b) {
@@ -146,21 +115,11 @@ quat normalized(const quat& q) {
     }
     float i_len = 1.0f / sqrtf(lenSq);
 
-    return quat(
-            q.x * i_len,
-            q.y * i_len,
-            q.z * i_len,
-            q.w * i_len
-    );
+    return quat(q.x * i_len, q.y * i_len, q.z * i_len, q.w * i_len);
 }
 
 quat conjugate(const quat& q) {
-    return quat(
-            -q.x,
-            -q.y,
-            -q.z,
-            q.w
-    );
+    return quat(-q.x, -q.y, -q.z, q.w);
 }
 
 quat inverse(const quat& q) {
@@ -171,27 +130,17 @@ quat inverse(const quat& q) {
     float recip = 1.0f / lenSq;
 
     // conjugate / norm
-    return quat(
-            -q.x * recip,
-            -q.y * recip,
-            -q.z * recip,
-            q.w * recip
-    );
+    return quat(-q.x * recip, -q.y * recip, -q.z * recip, q.w * recip);
 }
 
 quat operator*(const quat& Q1, const quat& Q2) {
-    return quat(
-            Q2.x * Q1.w + Q2.y * Q1.z - Q2.z * Q1.y + Q2.w * Q1.x,
-            -Q2.x * Q1.z + Q2.y * Q1.w + Q2.z * Q1.x + Q2.w * Q1.y,
-            Q2.x * Q1.y - Q2.y * Q1.x + Q2.z * Q1.w + Q2.w * Q1.z,
-            -Q2.x * Q1.x - Q2.y * Q1.y - Q2.z * Q1.z + Q2.w * Q1.w
-    );
+    return quat(Q2.x * Q1.w + Q2.y * Q1.z - Q2.z * Q1.y + Q2.w * Q1.x, -Q2.x * Q1.z + Q2.y * Q1.w + Q2.z * Q1.x + Q2.w * Q1.y,
+        Q2.x * Q1.y - Q2.y * Q1.x + Q2.z * Q1.w + Q2.w * Q1.z, -Q2.x * Q1.x - Q2.y * Q1.y - Q2.z * Q1.z + Q2.w * Q1.w);
 }
 
 vec3 operator*(const quat& q, const vec3& v) {
-    return    q.vector * 2.0f * dot(q.vector, v) +
-              v * (q.scalar * q.scalar - dot(q.vector, q.vector)) +
-              cross(q.vector, v) * 2.0f * q.scalar;
+    return q.vector * 2.0f * dot(q.vector, v) + v * (q.scalar * q.scalar - dot(q.vector, q.vector)) +
+        cross(q.vector, v) * 2.0f * q.scalar;
 }
 
 quat mix(const quat& from, const quat& to, float t) {
@@ -209,12 +158,7 @@ quat operator^(const quat& q, float f) {
     float halfCos = cosf(f * angle * 0.5f);
     float halfSin = sinf(f * angle * 0.5f);
 
-    return quat(
-            axis.x * halfSin,
-            axis.y * halfSin,
-            axis.z * halfSin,
-            halfCos
-    );
+    return quat(axis.x * halfSin, axis.y * halfSin, axis.z * halfSin, halfCos);
 }
 
 quat slerp(const quat& q0, const quat& q1, float t) {
@@ -231,7 +175,7 @@ quat slerp(const quat& q0, const quat& q1, float t) {
         return nlerp(q0, q1_copy, t);
     }
 
-    return normalized((q1_copy*(inverse(q0)) ^ t) * q0);
+    return normalized((q1_copy * (inverse(q0)) ^ t) * q0);
 }
 
 quat lookRotation(const vec3& direcion, const vec3& up) {
@@ -260,12 +204,34 @@ mat4 quatToMat4(const quat& q) {
     vec3 u = q * vec3(0, 1, 0);
     vec3 f = q * vec3(0, 0, 1);
 
-    return mat4(
-            r.x, r.y, r.z, 0,
-            u.x, u.y, u.z, 0,
-            f.x, f.y, f.z, 0,
-            0, 0, 0, 1
-    );
+    return mat4(          //
+        r.x, r.y, r.z, 0, //
+        u.x, u.y, u.z, 0, //
+        f.x, f.y, f.z, 0, //
+        0, 0, 0, 1);
+
+    // f32 x = q.x;
+    // f32 y = q.y;
+    // f32 z = q.z;
+    // f32 w = q.w;
+    // // See p. 284 3D Math Primer for Graphics and Game Development
+    // vec3 r = vec3(                     //
+    //     1 - (2 * y * y) - (2 * z * z), //
+    //     (2 * x * y) + (2 * w * z),     //
+    //     (2 * x * z) - (2 * w * y)      //
+    // );
+    // vec3 u = vec3(                     //
+    //     (2 * x * y) - (2 * w * z),     //
+    //     1 - (2 * x * x) - (2 * z * z), //
+    //     (2 * y * z + 2 * w * x)        //
+    // );
+    // vec3 f = vec3(                    //
+    //     (2 * x * z) + (2 * w * y),    //
+    //     (2 * y * z) - (2 * w * x),    //
+    //     1 - (2 * x * x) - (2 * y * y) //
+    // );
+    //
+    // return mat4(r.x, r.y, r.z, 0, u.x, u.y, u.z, 0, f.x, f.y, f.z, 0, 0, 0, 0, 1);
 }
 
 quat mat4ToQuat(const mat4& m) {

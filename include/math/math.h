@@ -85,9 +85,9 @@ inline f32 floor_f32(f32 value) {
     if (value < 0 && value != (f32)temp) {
         temp -= 1;
     }
-    return (f32)value;
+    return (f32)temp;
 }
 
-inline f32 f32_get_fraction(f32 value) {
+inline f32 get_fraction_f32(f32 value) {
     return value - floor_f32(value);
 }
