@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/array.h"
+#include "math/transform.h"
 #include <platform/platform.h>
 #include <platform/types.h>
 
@@ -40,7 +41,7 @@ enum RenderGroupEntryType {                   //
     RenderCommands_RenderEntryTriangle,       //
     RenderCommands_RenderEntryFilledTriangle, //
     RenderCommands_RenderEntryShadedTriangle, //
-    RenderCommands_RenderEntryPolygon         //
+    RenderCommands_RenderEntryTriMesh         //
 };
 
 struct RenderGroupEntryHeader {
@@ -132,7 +133,18 @@ struct RenderEntryShadedTriangle {
     vec4 color;
 };
 
-struct RenderEntryPolygon {
+struct TriMesh {
+    Array<vec4> vertices;
+    Array<ivec3> triangles;
+    Array<vec4> colors;
+};
+
+struct RenderEntryTriMesh {
+    TriMesh model;
+    Array<Transform> instances;
+};
+
+struct RenderEntryPolygonInstances {
     Array<vec3> vertices;
     Array<ivec3> triangles;
     Array<vec4> colors;

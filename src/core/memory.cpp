@@ -6,12 +6,25 @@
 
 #include "memory.h"
 
+auto initialize_memory_lib() -> void {
+    if (cpu_supports_avx512f()) {
+        // TODO: Implement AVX512
+        copy_memory = copy_memory_AVX2;
+    }
+    else if (cpu_supports_avx2()) {
+        copy_memory = copy_memory_AVX2;
+    }
+    else {
+        copy_memory = copy_memory_scalar;
+    }
+}
+
 void clear_memory(void* memory, u64 size) {
     assert(size % 4 == 0);
     memset(memory, 0, size);
 }
 
-auto copy_memory_slow(void* src, void* dest, u64 size) -> void {
+auto copy_memory_scalar(void* src, void* dest, u64 size) -> void {
     u8* s = (u8*)src;
     u8* d = (u8*)dest;
     for (u64 i = 0; i < size; i++) {
@@ -19,7 +32,7 @@ auto copy_memory_slow(void* src, void* dest, u64 size) -> void {
     }
 }
 
-auto copy_memory(void* src, void* dest, u64 size) -> void {
+auto copy_memory_AVX2(void* src, void* dest, u64 size) -> void {
     // AVX
     u8* s = (u8*)src;
     u8* d = (u8*)dest;
@@ -40,12 +53,11 @@ auto copy_memory(void* src, void* dest, u64 size) -> void {
     }
 }
 
-
 auto set_memory_u32(void* dest, u32 value, u64 count) -> void {
-  u32* dest_u32 = (u32*)dest;
-  for (u64 i = 0; i < count; i++) {
-    dest_u32[i] = value;
-  }
+    u32* dest_u32 = (u32*)dest;
+    for (u64 i = 0; i < count; i++) {
+        dest_u32[i] = value;
+    }
 }
 
 void DEBUG_print_memory_as_hex(void* memory, u64 size) {

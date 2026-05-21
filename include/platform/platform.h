@@ -60,11 +60,29 @@ typedef struct {
 
 #if COMPILER_MSVC
 #include <intrin.h>
+#define cpuid(info, leaf, subleaf) __cpuidex(info, leaf, subleaf)
 #elif COMPILER_LLVM
 #include <x86intrin.h>
+
+#include <cpuid.h>
+static inline void cpuid(int info[4], int leaf, int subleaf) {
+    __cpuid_count(leaf, subleaf, info[0], info[1], info[2], info[3]);
+}
 #else
-#error SEE/NEON is not availbe for this compiler.
+#error AVX/SSE/NEON is not availbe for this compiler.
 #endif
+
+inline int cpu_supports_avx2(void) {
+    int info[4];
+    cpuid(info, 7, 0);         // leaf 7, subleaf 0 — extended features
+    return (info[1] >> 5) & 1; // EBX bit 5
+}
+
+inline int cpu_supports_avx512f(void) {
+    int info[4];
+    cpuid(info, 7, 0);
+    return (info[1] >> 16) & 1; // EBX bit 16
+}
 
 enum PlatformFileType : u32 { PlatformFileType_AssetFile, PlatformFileType_Count };
 

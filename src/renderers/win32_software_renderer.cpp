@@ -21,6 +21,7 @@
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
+#include "core/lib.hpp"
 #include "platform/types.h"
 
 struct WindowDimension {
@@ -660,6 +661,7 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
 }
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
+    initialize_core_lib();
     log_info("Using software renderer.");
 
     // TODO: We should check for need of resizing on every draw call.
@@ -813,10 +815,11 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
                 entry->color, clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;
-        case RenderCommands_RenderEntryPolygon: {
-            auto entry = (RenderEntryPolygon*)data;
-            render_polygon_gambetta(                              //
-                entry->vertices, entry->triangles, entry->colors, //
+        case RenderCommands_RenderEntryTriMesh: {
+            auto entry = (RenderEntryTriMesh*)data;
+            render_polygon_gambetta(                                                //
+                entry->model.vertices, entry->model.triangles, entry->model.colors, //
+                entry->instances,                                                   //
                 clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;

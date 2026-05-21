@@ -1280,6 +1280,8 @@ DebugTable* global_debug_table = &debug_table_;
 #endif
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
+    initialize_core_lib();
+
     win32_check_ticks_frequency();
     ticks_per_second = win32_get_performance_counter_frequency();
     ticks_per_us = ticks_per_second / 1e6;

@@ -4,6 +4,8 @@
 #include <platform/platform.h>
 #include <platform/types.h>
 
+#include <core/lib.hpp>
+
 #include <math/mat3.h>
 #include <math/math.h>
 #include <math/transform.h>
@@ -460,47 +462,54 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (true) {
             TIMED_BLOCK("render_cube");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-            auto* polygon = PushRenderElement(&group, RenderEntryPolygon, 0);
-            f32 t = (f32)app_input->t;
-            // t = PI + 0.1;
-            polygon->vertices = Array<vec3>::create(8, *g_transient);
-            polygon->triangles = Array<ivec3>::create(12, *g_transient);
-            polygon->colors = Array<vec4>::create(12, *g_transient);
+            auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
+            TriMesh* model = &mesh->model;
+            model->vertices = Array<vec4>::create(8, *g_transient);
+            model->triangles = Array<ivec3>::create(12, *g_transient);
+            model->colors = Array<vec4>::create(12, *g_transient);
 
-            polygon->vertices[0] = vec3(1.0f, 1.0f, 1.0f);
-            polygon->vertices[1] = vec3(-1.0f, 1.0f, 1.0f);
-            polygon->vertices[2] = vec3(-1.0f, -1.0f, 1.0f);
-            polygon->vertices[3] = vec3(1.0f, -1.0f, 1.0f);
-            polygon->vertices[4] = vec3(1.0f, 1.0f, -1.0f);
-            polygon->vertices[5] = vec3(-1.0f, 1.0f, -1.0f);
-            polygon->vertices[6] = vec3(-1.0f, -1.0f, -1.0f);
-            polygon->vertices[7] = vec3(1.0f, -1.0f, -1.0f);
+            model->vertices[0] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+            model->vertices[1] = vec4(-1.0f, 1.0f, 1.0f, 1.0f);
+            model->vertices[2] = vec4(-1.0f, -1.0f, 1.0f, 1.0f);
+            model->vertices[3] = vec4(1.0f, -1.0f, 1.0f, 1.0f);
+            model->vertices[4] = vec4(1.0f, 1.0f, -1.0f, 1.0f);
+            model->vertices[5] = vec4(-1.0f, 1.0f, -1.0f, 1.0f);
+            model->vertices[6] = vec4(-1.0f, -1.0f, -1.0f, 1.0f);
+            model->vertices[7] = vec4(1.0f, -1.0f, -1.0f, 1.0f);
 
-            polygon->triangles[0] = ivec3(0, 1, 2);
-            polygon->triangles[1] = ivec3(0, 2, 3);
-            polygon->triangles[2] = ivec3(4, 0, 3);
-            polygon->triangles[3] = ivec3(4, 3, 7);
-            polygon->triangles[4] = ivec3(5, 4, 7);
-            polygon->triangles[5] = ivec3(5, 7, 6);
-            polygon->triangles[6] = ivec3(1, 5, 6);
-            polygon->triangles[7] = ivec3(1, 6, 2);
-            polygon->triangles[8] = ivec3(4, 5, 1);
-            polygon->triangles[9] = ivec3(4, 1, 0);
-            polygon->triangles[10] = ivec3(2, 6, 7);
-            polygon->triangles[11] = ivec3(2, 7, 3);
+            model->triangles[0] = ivec3(0, 1, 2);
+            model->triangles[1] = ivec3(0, 2, 3);
+            model->triangles[2] = ivec3(4, 0, 3);
+            model->triangles[3] = ivec3(4, 3, 7);
+            model->triangles[4] = ivec3(5, 4, 7);
+            model->triangles[5] = ivec3(5, 7, 6);
+            model->triangles[6] = ivec3(1, 5, 6);
+            model->triangles[7] = ivec3(1, 6, 2);
+            model->triangles[8] = ivec3(4, 5, 1);
+            model->triangles[9] = ivec3(4, 1, 0);
+            model->triangles[10] = ivec3(2, 6, 7);
+            model->triangles[11] = ivec3(2, 7, 3);
 
-            polygon->colors[0] = RED;
-            polygon->colors[1] = RED;
-            polygon->colors[2] = GREEN;
-            polygon->colors[3] = GREEN;
-            polygon->colors[4] = BLUE;
-            polygon->colors[5] = BLUE;
-            polygon->colors[6] = YELLOW;
-            polygon->colors[7] = YELLOW;
-            polygon->colors[8] = PURPLE;
-            polygon->colors[9] = PURPLE;
-            polygon->colors[10] = CYAN;
-            polygon->colors[11] = CYAN;
+            model->colors[0] = RED;
+            model->colors[1] = RED;
+            model->colors[2] = GREEN;
+            model->colors[3] = GREEN;
+            model->colors[4] = BLUE;
+            model->colors[5] = BLUE;
+            model->colors[6] = YELLOW;
+            model->colors[7] = YELLOW;
+            model->colors[8] = PURPLE;
+            model->colors[9] = PURPLE;
+            model->colors[10] = CYAN;
+            model->colors[11] = CYAN;
+
+            mesh->instances = Array<Transform>::create(2, *g_transient);
+
+            mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
+            mesh->instances[0].position = vec3(-1.5, 0, 7);
+
+            mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);
+            mesh->instances[1].position = vec3(1.5f, 1.0f, 7.0f);
         }
 
         renderer->render(Platform->work_queue, &group);
@@ -858,6 +867,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 }
 
 ENGINE_LOAD(load) {
+    initialize_core_lib();
+
     load(platform_api);
 
     assert(sizeof(EngineState) < Permanent_Memory_Block_Size);
