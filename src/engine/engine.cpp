@@ -27,6 +27,7 @@
 #include "globals.hpp"
 #include "gui/imgui.hpp"
 #include "hm_assert.h"
+#include "math/quat.h"
 #include "profiling.hpp"
 
 struct EnemyBehaviour {
@@ -505,11 +506,14 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             mesh->instances = Array<Transform>::create(2, *g_transient);
 
+            vec3 up = vec3(0.0, 1.0, 0.0);
             mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
             mesh->instances[0].position = vec3(-1.5, 0, 7);
+            mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
 
             mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);
             mesh->instances[1].position = vec3(1.5f, 1.0f, 7.0f);
+            mesh->instances[1].rotation = angle_axis(0, up);
         }
 
         renderer->render(Platform->work_queue, &group);
