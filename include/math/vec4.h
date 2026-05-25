@@ -2,6 +2,8 @@
 
 #include <platform/types.h>
 
+#include <math/math.h>
+
 template <typename T> struct TVec4 {
     union {
         struct {
@@ -55,6 +57,13 @@ inline vec4 operator*(f32 f, const vec4& v) {
 
 inline vec4 operator*(const vec4& l, const vec4& r) {
     return { l.x * r.x, l.y * r.y, l.z * r.z, l.w * r.w };
+}
+
+inline bool operator==(const vec4& l, const vec4& r) {
+    return is_equal_f32(l.x, r.x) //
+        && is_equal_f32(l.y, r.y) //
+        && is_equal_f32(l.z, r.z) //
+        && is_equal_f32(l.w, r.w);
 }
 
 inline auto lerp(const vec4& A, f32 t, const vec4& B) -> vec4 {

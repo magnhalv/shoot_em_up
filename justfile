@@ -24,9 +24,8 @@ build-assets:
   { time ./scripts/compile.bat asset_builder; }  > build_assets.log 2>&1
 
 [parallel]
-build-all: engine main software_renderer build-assets build-tests
+build-all: engine main software_renderer build-assets 
     ./scripts/check_errors.bat
-
 
 [working-directory: 'data']
 run: 
@@ -36,7 +35,7 @@ run:
 
 tests: 
     rm -f *.log
-    time just build-all
+    time ./scripts/compile.bat tests
     ./build/tests.exe
 
 

@@ -65,33 +65,6 @@ vec4 operator*(const vec4 &v, const mat4& m) {
     );
 }
 
-// What do I need this for?
-vec3 transform_vector(const mat4& m, const vec3& v) {
-    return vec3(
-            M4V4D(0, v.x, v.y, v.z, 0.0f),
-            M4V4D(1, v.x, v.y, v.z, 0.0f),
-            M4V4D(2, v.x, v.y, v.z, 0.0f)
-    );
-}
-
-vec3 transform_point(const mat4& m, const vec3& v) {
-    return vec3(
-            M4V4D(0, v.x, v.y, v.z, 1.0f),
-            M4V4D(1, v.x, v.y, v.z, 1.0f),
-            M4V4D(2, v.x, v.y, v.z, 1.0f)
-    );
-}
-
-vec3 transform_point(const mat4& m, const vec3& v, float& w) {
-    float _w = w;
-    w = M4V4D(3, v.x, v.y, v.z, _w);
-    return vec3(
-            M4V4D(0, v.x, v.y, v.z, _w),
-            M4V4D(1, v.x, v.y, v.z, _w),
-            M4V4D(2, v.x, v.y, v.z, _w)
-    );
-}
-
 #define M4SWAP(x, y) \
     {float t = x; x = y; y = t; }
 

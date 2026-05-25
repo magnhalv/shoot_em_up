@@ -1,16 +1,17 @@
-// TODO: Remove
-#include <cstdio>
-#include <cwchar>
-
-#include <intrin.h>
-#include <stdlib.h>
-#include <string>
+// Windows
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#undef NOMINMAX
+
+// More Windows
+#include <string>
 #include <winnt.h>
 #include <xaudio2.h>
 
 #include <platform/types.h>
 #include <platform/user_input.h>
+#include <platform/platform.h>
 
 #include <core/memory.h>
 #include <core/stack_array.hpp>
@@ -20,7 +21,6 @@
 #include <renderers/renderer.h>
 #include <renderers/win32_renderer.h>
 
-#include "platform/platform.h"
 #include "win32_main.hpp"
 
 #include <core/lib.cpp>

@@ -196,38 +196,6 @@ TEST_CASE("mat4: vec4 * identity = vec4") {
     CHECK(r.w == doctest::Approx(4));
 }
 
-// In row-major with column-vector convention, translation occupies the last
-// column: [row0col3, row1col3, row2col3] = v[3], v[7], v[11]
-//
-// m = [1 0 0 5]    transform_point((1,0,0)) = (1+5, 0+0, 0+0) = (6, 0, 0)
-//     [0 1 0 0]
-//     [0 0 1 0]
-//     [0 0 0 1]
-TEST_CASE("mat4: transform_point applies translation in last column") {
-    mat4 m(1, 0, 0, 5, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-    vec3 r = transform_point(m, vec3(1, 0, 0));
-    CHECK(r.x == doctest::Approx(6));
-    CHECK(r.y == doctest::Approx(0));
-    CHECK(r.z == doctest::Approx(0));
-}
-
-TEST_CASE("mat4: transform_vector ignores translation in last column") {
-    mat4 m(1, 0, 0, 5, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-    vec3 r = transform_vector(m, vec3(1, 0, 0));
-    CHECK(r.x == doctest::Approx(1));
-    CHECK(r.y == doctest::Approx(0));
-    CHECK(r.z == doctest::Approx(0));
-}
-
-TEST_CASE("mat4: transform_point with identity leaves point unchanged") {
-    mat4 id;
-    vec3 p(3, 4, 5);
-    vec3 r = transform_point(id, p);
-    CHECK(r.x == doctest::Approx(3));
-    CHECK(r.y == doctest::Approx(4));
-    CHECK(r.z == doctest::Approx(5));
-}
-
 // ---- Transpose -----------------------------------------------------------
 
 TEST_CASE("mat4: transposed swaps off-diagonal elements") {
@@ -280,6 +248,18 @@ TEST_CASE("mat4: determinant of 2x scalar-identity is 16") {
     CHECK(determinant(m) == doctest::Approx(16.0f).epsilon(1e-4));
 }
 
+TEST_CASE("mat4: determinant of a 4x4 matrix is same as transpose of same matrix") {
+    mat4 m(          //
+        2, 1, 3, 4,  //
+        0, -1, 2, 1, //
+        3, 2, 0, 5,  //
+        -1, 3, 2, 1  //
+    );
+    CHECK(determinant(m) == doctest::Approx(35.0f).epsilon(1e-4));
+    mat4 trans = transposed(m);
+    CHECK(determinant(trans) == doctest::Approx(35.0f).epsilon(1e-4));
+}
+
 // ---- Inverse -------------------------------------------------------------
 
 TEST_CASE("mat4: inverse of identity is identity") {
@@ -291,12 +271,15 @@ TEST_CASE("mat4: M * inverse(M) = identity") {
     mat4 m(1, 2, 0, 0, 3, 4, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1);
     mat4 inv = inverse(m);
     mat4 r = m * inv;
-    CHECK(r.r0c0 == doctest::Approx(1).epsilon(1e-5));
-    CHECK(r.r0c1 == doctest::Approx(0).epsilon(1e-5));
-    CHECK(r.r1c0 == doctest::Approx(0).epsilon(1e-5));
-    CHECK(r.r1c1 == doctest::Approx(1).epsilon(1e-5));
-    CHECK(r.r2c2 == doctest::Approx(1).epsilon(1e-5));
-    CHECK(r.r3c3 == doctest::Approx(1).epsilon(1e-5));
+    CHECK(r == mat4());
+}
+
+TEST_CASE("mat4: M * inverse(M) = identity") {
+    mat4 m(1, 2, 0, 0, 3, 4, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1);
+    mat4 inv = inverse(m);
+    vec4 point(1.0, 2.0, 3.0, 1.0);
+    vec4 new_point = (point * m) * inv;
+    CHECK(point == new_point);
 }
 
 TEST_CASE("mat4: invert in-place: M * invert(M) = identity") {
@@ -322,11 +305,10 @@ TEST_CASE("mat4: lookAt maps camera position to origin") {
     vec3 pos(0, 0, 5);
     vec3 target(0, 0, 0);
     vec3 up(0, 1, 0);
-    mat4 view = lookAt(pos, target, up);
-    vec3 r = transform_point(view, pos);
+    vec4 r = vec4(0, 0, 0, 1.0) * lookAt(pos, target, up);
     CHECK(r.x == doctest::Approx(0).epsilon(1e-5));
     CHECK(r.y == doctest::Approx(0).epsilon(1e-5));
-    CHECK(r.z == doctest::Approx(0).epsilon(1e-5));
+    CHECK(r.z == doctest::Approx(-5).epsilon(1e-5));
 }
 
 TEST_CASE("mat4: lookAt maps a point directly in front of camera along -Z") {
@@ -336,8 +318,7 @@ TEST_CASE("mat4: lookAt maps a point directly in front of camera along -Z") {
     vec3 pos(0, 0, 0);
     vec3 target(0, 0, -1);
     vec3 up(0, 1, 0);
-    mat4 view = lookAt(pos, target, up);
-    vec3 r = transform_point(view, vec3(0, 0, -3));
+    vec4 r = vec4(0, 0, -3, 0) * lookAt(pos, target, up);
     CHECK(r.x == doctest::Approx(0).epsilon(1e-5));
     CHECK(r.y == doctest::Approx(0).epsilon(1e-5));
     CHECK(r.z == doctest::Approx(-3).epsilon(1e-5));

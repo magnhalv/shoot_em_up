@@ -1,5 +1,12 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#define DOCTEST_CONFIG_IMPLEMENT
 #include "doctest.h"
+
+#include <core/lib.hpp>
+
+int main(int argc, char** argv) {
+    initialize_core_lib();
+    return doctest::Context(argc, argv).run();
+}
 
 #include "memory_arena_test.cpp"
 #include "structs/test_swap_back_list.cpp"

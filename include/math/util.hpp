@@ -69,7 +69,7 @@ auto inline intersects(Rectangle2f a, Rectangle2f b) -> bool {
 }
 
 auto inline square_root(f32 v) {
-    return sqrt(v);
+    return sqrtf(v);
 }
 
 auto inline signed_distance(vec2 a, vec2 b, vec2 p) -> f32 {

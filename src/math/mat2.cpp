@@ -87,10 +87,10 @@ void invert(mat2& m) {
 }
 
 auto mat2_rotate(f32 theta) -> mat2 {
-    return mat2(                //
-        cos(theta), sin(theta), //
-        -sin(theta), cos(theta) //
-    );                          //
+    return mat2(                  //
+        cosf(theta), sinf(theta), //
+        -sinf(theta), cosf(theta) //
+    );                            //
 }
 auto mat2_scale(vec2 scale) -> mat2 {
     return mat2(       //

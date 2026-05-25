@@ -2,8 +2,6 @@
 
 #include <platform/types.h>
 
-#include <cmath>
-
 namespace hm {
 
 constexpr f32 Epsilon = 0.000001f;
@@ -41,10 +39,14 @@ inline auto max(i32 a, i32 b) -> i32 {
 }
 
 inline auto f32_abs(f32 val) -> f32 {
-    return abs(val);
+    return val < 0.0f ? -val : val;
 }
 
 }; // namespace hm
+
+inline auto is_equal_f32(f32 a, f32 b) -> bool {
+    return hm::f32_abs(a - b) < hm::Epsilon;
+}
 
 inline auto swap_f32(f32& a, f32& b) -> void {
     f32 temp = a;
