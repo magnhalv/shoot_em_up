@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include <math/mat2.h>
+#include <math/mat2.hpp>
 
 #include <cmath>
 

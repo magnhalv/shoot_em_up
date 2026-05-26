@@ -2,13 +2,13 @@
 
 #include <cassert>
 
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
-#include "math/vec2.h"
-#include "math/vec3.h"
+#include "math/vec2.hpp"
+#include "math/vec3.hpp"
 
 template <typename T> struct List {
 

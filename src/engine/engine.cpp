@@ -1,33 +1,33 @@
 #include <cmath>
 #include <cstdio>
 
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
 #include <core/lib.hpp>
 
-#include <math/mat3.h>
-#include <math/math.h>
-#include <math/transform.h>
+#include <math/mat3.hpp>
+#include <math/math.hpp>
+#include <math/transform.hpp>
 #include <math/util.hpp>
-#include <math/vec2.h>
-#include <math/vec3.h>
+#include <math/vec2.hpp>
+#include <math/vec3.hpp>
 
 #include <core/hash.hpp>
-#include <core/logger.h>
+#include <core/logger.hpp>
 
-#include <renderers/renderer.h>
+#include <renderers/renderer.hpp>
 
-#include "assets.h"
+#include "assets.hpp"
 #include "audio.hpp"
-#include "core/memory_arena.h"
+#include "core/memory_arena.hpp"
 #include "core/string8.hpp"
-#include "engine.h"
-#include "gameplay.h"
+#include "engine.hpp"
+#include "gameplay.hpp"
 #include "globals.hpp"
 #include "gui/imgui.hpp"
-#include "hm_assert.h"
-#include "math/quat.h"
+#include "hm_assert.hpp"
+#include "math/quat.hpp"
 #include "profiling.hpp"
 
 struct EnemyBehaviour {

@@ -1,4 +1,4 @@
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
 #include <engine/globals.hpp>
 

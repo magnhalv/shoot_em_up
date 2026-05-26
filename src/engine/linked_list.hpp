@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
 template <typename T> struct LinkedListEntry {
     T* data = nullptr;

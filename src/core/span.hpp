@@ -1,6 +1,6 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
 template <typename T> struct Span {
 

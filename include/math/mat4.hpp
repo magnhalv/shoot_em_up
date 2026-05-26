@@ -2,10 +2,10 @@
 
 #include <stdio.h>
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include "vec3.h"
-#include "vec4.h"
+#include "vec3.hpp"
+#include "vec4.hpp"
 
 #define MAT4_EPSILON 0.000001f
 

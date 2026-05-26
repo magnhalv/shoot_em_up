@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include <math/vec3.h>
+#include <math/vec3.hpp>
 
 vec3 operator+(const vec3& l, const vec3& r) {
   return { l.x + r.x, l.y + r.y, l.z + r.z };

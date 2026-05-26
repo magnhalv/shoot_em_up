@@ -1,5 +1,5 @@
 #include <cmath>
-#include <math/vec2.h>
+#include <math/vec2.hpp>
 
 auto normalize(vec2& v) -> void {
   f32 lenSq = v.x * v.x + v.y * v.y;

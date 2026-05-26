@@ -1,9 +1,9 @@
 #pragma once
 
 #include <engine/profiling.hpp>
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
 struct TaskWithMemory {
     bool in_use;

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include <math/math.h>
+#include <math/math.hpp>
 
 template <typename T> struct TVec4 {
     union {

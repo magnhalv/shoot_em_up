@@ -1,4 +1,4 @@
-#include "array.h"
+#include "array.hpp"
 
 template struct Array<i32>;
 template struct Array<f32>;

@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include <math/mat3.h>
+#include <math/mat3.hpp>
 
 #include <cmath>
 

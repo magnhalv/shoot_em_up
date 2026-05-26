@@ -1,14 +1,14 @@
 #pragma once
 
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
 #include <core/list.hpp>
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 #include <core/stack_list.hpp>
-#include <engine/array.h>
+#include <engine/array.hpp>
 
-#include <math/vec2.h>
+#include <math/vec2.hpp>
 
 enum PrintDebugEventType {
     PrintDebugEventType_Nil = 0,

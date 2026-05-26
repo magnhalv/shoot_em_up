@@ -3,7 +3,7 @@
 #define NOMINMAX
 #include <windows.h>
 
-#include <renderers/renderer.h>
+#include <renderers/renderer.hpp>
 
 struct Win32RenderContext {
     HWND window;

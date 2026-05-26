@@ -1,7 +1,7 @@
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
-#include <core/memory_arena.h>
-#include <engine/engine.h>
+#include <core/memory_arena.hpp>
+#include <engine/engine.hpp>
 #include <engine/profiling.hpp>
 
 auto inline thread_id_to_idx(u32 thread_id) -> u32 {

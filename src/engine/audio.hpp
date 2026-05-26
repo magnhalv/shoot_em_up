@@ -1,12 +1,12 @@
 #pragma once
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
-#include <engine/array.h>
-#include <engine/assets.h>
+#include <engine/array.hpp>
+#include <engine/assets.hpp>
 #include <engine/globals.hpp>
-#include <engine/hugin_file_formats.h>
-#include <engine/structs/swap_back_list.h>
+#include <engine/hugin_file_formats.hpp>
+#include <engine/structs/swap_back_list.hpp>
 
 struct PlayingSound {
     AudioId id;

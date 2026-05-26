@@ -3,13 +3,13 @@
 #include <cassert>
 #include <cstdio>
 
-#include <core/memory_arena.h>
-#include <platform/types.h>
+#include <core/memory_arena.hpp>
+#include <platform/types.hpp>
 
-#include <math/vec2.h>
-#include <math/vec3.h>
+#include <math/vec2.hpp>
+#include <math/vec3.hpp>
 
-#include "hm_assert.h"
+#include "hm_assert.hpp"
 
 template <typename T> struct Array {
     static auto create(size_t count, MemoryArena& arena) -> Array<T> {

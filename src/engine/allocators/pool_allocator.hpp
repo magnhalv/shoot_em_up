@@ -1,6 +1,6 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 #include <cinttypes>
 
 const u8 GUARD_SIZE = sizeof(GUARD_PATTERN);

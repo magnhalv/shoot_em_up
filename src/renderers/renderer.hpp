@@ -1,17 +1,17 @@
 #pragma once
 
-#include "engine/array.h"
-#include "math/transform.h"
-#include <platform/platform.h>
-#include <platform/types.h>
+#include "engine/array.hpp"
+#include "math/transform.hpp"
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
-#include <math/vec2.h>
-#include <math/vec3.h>
-#include <math/vec4.h>
+#include <math/vec2.hpp>
+#include <math/vec3.hpp>
+#include <math/vec4.hpp>
 
 #include <core/list.hpp>
 
-#include <engine/hugin_file_formats.h>
+#include <engine/hugin_file_formats.hpp>
 
 // Move somewhere else
 //

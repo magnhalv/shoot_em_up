@@ -2,7 +2,7 @@
 
 #include <core/sort.hpp>
 
-#include "util.h"
+#include "util.hpp"
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "merge_sort: empty range leaves data untouched") {
     i32 list[1] = { 123 }; // untouched sentinel

@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include <math/mat3.h>
+#include <math/mat3.hpp>
 
 bool operator==(const mat3& a, const mat3& b) {
     for (int i = 0; i < 9; ++i) {

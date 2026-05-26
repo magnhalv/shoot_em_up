@@ -1,7 +1,7 @@
 #pragma once
 
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
 // Reverse of _MM_SHUFFLE_, as I find that more intuitive
 #define SHUFFLE_MASK(a, b, c, d) (((d) << 6) | ((c) << 4) | ((b) << 2) | (a))

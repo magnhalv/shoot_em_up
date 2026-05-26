@@ -1,10 +1,10 @@
 #include "doctest.h"
 
-#include <core/logger.h>
-#include <core/memory_arena.h>
-#include <core/memory.h>
+#include <core/logger.hpp>
+#include <core/memory_arena.hpp>
+#include <core/memory.hpp>
 
-#include "util.h"
+#include "util.hpp"
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "filling the arena") {
     // Two, because we have a sentinel at the beginning, also make space for padding byte;

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
 #include <core/list.hpp>
-#include <core/memory.h>
-#include <core/memory_arena.h>
+#include <core/memory.hpp>
+#include <core/memory_arena.hpp>
 #include <core/span.hpp>
 
 #include <third-party/stb_sprintf.hpp>

@@ -1,12 +1,12 @@
 #pragma once
 
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
-#include <engine/array.h>
-#include <engine/hugin_file_formats.h>
+#include <engine/array.hpp>
+#include <engine/hugin_file_formats.hpp>
 
 const u32 BitmapBytePerPixel = 4;
 const u32 BytesPerAudioSample = 2;

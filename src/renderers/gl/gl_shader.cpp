@@ -3,12 +3,12 @@
 
 #include <glad/gl.h>
 
-#include <core/logger.h>
+#include <core/logger.hpp>
 
-#include <engine/hm_assert.h>
-#include <platform/platform.h>
+#include <engine/hm_assert.hpp>
+#include <platform/platform.hpp>
 
-#include "gl_shader.h"
+#include "gl_shader.hpp"
 
 auto print_shader_source(const char* text) -> void {
     int line = 1;

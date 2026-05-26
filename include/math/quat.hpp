@@ -1,7 +1,7 @@
 #pragma once
 
-#include "mat4.h"
-#include "vec3.h"
+#include "mat4.hpp"
+#include "vec3.hpp"
 
 #define QUAT_EPSILON 0.000001f
 

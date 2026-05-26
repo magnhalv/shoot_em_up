@@ -2,9 +2,9 @@
 
 #define VEC3_EPSILON 0.000001f
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include "vec2.h"
+#include "vec2.hpp"
 
 struct vec3 {
     union {

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 #include "gl/gl.h"
-#include "logger.h"
+#include "logger.hpp"
 
 struct Framebuffer {
     u32 fbo;

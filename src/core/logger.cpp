@@ -1,6 +1,6 @@
 #include <cstdlib>
 
-#include "logger.h"
+#include "logger.hpp"
 
 char global_crash_message[512] = {};
 bool global_has_crashed = false;

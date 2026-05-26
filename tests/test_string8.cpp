@@ -2,7 +2,7 @@
 
 #include <core/string8.hpp>
 
-#include "util.h"
+#include "util.hpp"
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "string8: concat") {
     string8 a = "test";

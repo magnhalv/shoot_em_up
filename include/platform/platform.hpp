@@ -9,10 +9,10 @@
 // For exit(1)
 #include <stdlib.h>
 
-#include "types.h"
-#include "user_input.h"
+#include "types.hpp"
+#include "user_input.hpp"
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
 // const i32 CLIENT_WIDTH = 960;
 // const i32 CLIENT_HEIGHT = 540;

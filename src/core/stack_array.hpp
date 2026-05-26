@@ -2,8 +2,8 @@
 
 #include <cassert>
 
-#include <engine/array.h>
-#include <platform/types.h>
+#include <engine/array.hpp>
+#include <platform/types.hpp>
 
 template <typename T, u32 Capacity> struct StackArray {
     T& operator[](u32 index) {

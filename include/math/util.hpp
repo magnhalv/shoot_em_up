@@ -1,10 +1,10 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include "math/transform.h"
-#include <math/math.h>
-#include <math/vec2.h>
+#include "math/transform.hpp"
+#include <math/math.hpp>
+#include <math/vec2.hpp>
 
 struct Rectangle2f {
     f32 min_x;

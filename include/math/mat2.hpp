@@ -1,8 +1,8 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include <math/vec2.h>
+#include <math/vec2.hpp>
 
 struct mat2 {
     union {

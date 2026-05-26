@@ -1,7 +1,7 @@
 #pragma once
 
-#include "math/math.h"
-#include "math/vec4.h"
+#include "math/math.hpp"
+#include "math/vec4.hpp"
 
 /// @brief: Normalized color to u32
 auto inline pack_color_8x4(vec4 color) -> u32 {

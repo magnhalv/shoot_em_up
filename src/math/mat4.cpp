@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include <math/mat4.h>
+#include <math/mat4.hpp>
 
 // clang-format off
 

@@ -9,17 +9,17 @@
 #include <winnt.h>
 #include <xaudio2.h>
 
-#include <platform/types.h>
-#include <platform/user_input.h>
-#include <platform/platform.h>
+#include <platform/types.hpp>
+#include <platform/user_input.hpp>
+#include <platform/platform.hpp>
 
-#include <core/memory.h>
+#include <core/memory.hpp>
 #include <core/stack_array.hpp>
-#include <engine/engine.h>
+#include <engine/engine.hpp>
 #include <engine/profiling.hpp>
 
-#include <renderers/renderer.h>
-#include <renderers/win32_renderer.h>
+#include <renderers/renderer.hpp>
+#include <renderers/win32_renderer.hpp>
 
 #include "win32_main.hpp"
 

@@ -2,11 +2,11 @@
 
 #include <cassert>
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
-#include <engine/hm_assert.h>
+#include <engine/hm_assert.hpp>
 
 // Growable list with a given capacity, that provides
 // instant removal of elements, at the cost of not

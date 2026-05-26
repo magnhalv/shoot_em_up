@@ -1,19 +1,19 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
-#include <core/logger.h>
-#include <core/memory.h>
-#include <core/memory_arena.h>
+#include <core/logger.hpp>
+#include <core/memory.hpp>
+#include <core/memory_arena.hpp>
 
 #include <engine/globals.hpp>
 
-#include "assets.h"
-#include "engine/hm_assert.h"
-#include "engine/hugin_file_formats.h"
-#include "math/math.h"
-#include "platform/types.h"
+#include "assets.hpp"
+#include "engine/hm_assert.hpp"
+#include "engine/hugin_file_formats.hpp"
+#include "math/math.hpp"
+#include "platform/types.hpp"
 
 struct LoadAssetWork {
     PlatformFileHandle handle;

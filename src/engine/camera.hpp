@@ -1,13 +1,13 @@
 #pragma once
 
-#include <math/mat4.h>
-#include <math/trigonometry.h>
-#include <math/vec2.h>
-#include <math/vec3.h>
+#include <math/mat4.hpp>
+#include <math/trigonometry.hpp>
+#include <math/vec2.hpp>
+#include <math/vec3.hpp>
 
-#include <platform/platform.h>
-#include <platform/types.h>
-#include <platform/user_input.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
+#include <platform/user_input.hpp>
 
 struct Camera {
     f32 m_yaw;

@@ -1,18 +1,18 @@
 #pragma once
 
-#include <math/vec2.h>
-#include <platform/types.h>
-#include <platform/user_input.h>
+#include <math/vec2.hpp>
+#include <platform/types.hpp>
+#include <platform/user_input.hpp>
 
 #include <core/list.hpp>
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 #include <core/stack_list.hpp>
 #include <core/string8.hpp>
 #include <core/util.hpp>
 
-#include <engine/assets.h>
+#include <engine/assets.hpp>
 
-#include <renderers/renderer.h>
+#include <renderers/renderer.hpp>
 
 enum UI_Direction : u8 {
     UI_Direction_Up = 0,

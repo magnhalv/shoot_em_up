@@ -5,7 +5,7 @@
 
 #include "doctest.h"
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
 const size_t default_size = KiloBytes(1);
 

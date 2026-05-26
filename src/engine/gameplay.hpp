@@ -1,7 +1,7 @@
 #pragma once
 
-#include "math/transform.h"
-#include <math/vec3.h>
+#include "math/transform.hpp"
+#include <math/vec3.hpp>
 
 auto inline update_position(vec2 pos, vec2 speed, vec2 dim, f32 dt, f32 max_x, f32 max_y) -> vec2 {
   vec2  result = pos;

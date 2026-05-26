@@ -1,21 +1,21 @@
 #pragma once
 
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 
-#include <engine/assets.h>
-#include <engine/camera.h>
+#include <engine/assets.hpp>
+#include <engine/camera.hpp>
 #include <engine/globals.hpp>
 
-#include <math/mat4.h>
-#include <math/vec4.h>
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <math/mat4.hpp>
+#include <math/vec4.hpp>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
 #include <engine/audio.hpp>
 #include <engine/gui/imgui.hpp>
-#include <engine/structs/swap_back_list.h>
+#include <engine/structs/swap_back_list.hpp>
 
 struct EngineMemory {
     void* permanent = nullptr;

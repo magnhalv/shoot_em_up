@@ -1,6 +1,6 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
 #define VEC2_EPSILON 0.000001f
 

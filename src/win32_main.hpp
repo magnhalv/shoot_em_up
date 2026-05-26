@@ -5,7 +5,7 @@
 #include <windows.h>
 #undef NOMINMAX
 
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
 struct platform_work_queue_entry {
     platform_work_queue_callback* Callback;

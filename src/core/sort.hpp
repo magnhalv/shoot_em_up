@@ -1,10 +1,10 @@
 #pragma once
 
-#include <platform/platform.h>
-#include <platform/types.h>
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
-#include <core/memory.h>
-#include <core/memory_arena.h>
+#include <core/memory.hpp>
+#include <core/memory_arena.hpp>
 
 auto inline merge_sort_merge(i32* a, i32 start, i32 mid, i32 end, i32* b) {
     i32 a_idx = start;

@@ -1,15 +1,15 @@
-#include "core/memory.h"
-#include "math/math.h"
-#include <platform/platform.h>
-#include <platform/types.h>
+#include "core/memory.hpp"
+#include "math/math.hpp"
+#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
 #include <core/color.hpp>
-#include <core/memory_arena.h>
-#include <engine/array.h>
+#include <core/memory_arena.hpp>
+#include <engine/array.hpp>
 
 #include <math/util.hpp>
-#include <math/vec2.h>
-#include <math/vec4.h>
+#include <math/vec2.hpp>
+#include <math/vec4.hpp>
 
 struct FrameBuffer {
     void* memory;

@@ -1,15 +1,15 @@
-#include <platform/types.h>
+#include <platform/types.hpp>
 
 #include <cstdio>
 
-#include <core/memory.h>
+#include <core/memory.hpp>
 #include <core/util.hpp>
-#include <engine/hm_assert.h>
+#include <engine/hm_assert.hpp>
 
-#include <engine/assets.h>
-#include <engine/hugin_file_formats.h>
+#include <engine/assets.hpp>
+#include <engine/hugin_file_formats.hpp>
 
-#include <math/vec2.h>
+#include <math/vec2.hpp>
 
 #include <core/lib.cpp>
 #include <third-party/stb_image.cpp>

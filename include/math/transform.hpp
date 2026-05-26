@@ -1,9 +1,9 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include "quat.h"
-#include "vec3.h"
+#include "quat.hpp"
+#include "vec3.hpp"
 
 struct Transform {
   vec3 position;

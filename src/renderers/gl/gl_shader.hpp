@@ -1,10 +1,10 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
 #include <glad/gl.h>
-#include <math/mat4.h>
-#include <math/vec4.h>
+#include <math/mat4.hpp>
+#include <math/vec4.hpp>
 
 const i32 Shader_Path_Max_Length = 512;
 const u32 Max_Buffers = 3;

@@ -1,28 +1,28 @@
 #include <immintrin.h>
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
-#include <math/mat2.h>
-#include <math/mat3.h>
-#include <math/math.h>
+#include <math/mat2.hpp>
+#include <math/mat3.hpp>
+#include <math/math.hpp>
 #include <math/simd.hpp>
 #include <math/util.hpp>
 
-#include <core/logger.h>
-#include <core/memory.h>
-#include <core/memory_arena.h>
+#include <core/logger.hpp>
+#include <core/memory.hpp>
+#include <core/memory_arena.hpp>
 #include <core/sort.hpp>
 // TODO: Move to core
-#include <engine/hm_assert.h>
+#include <engine/hm_assert.hpp>
 #include <engine/profiling.hpp>
 
 #include <renderers/cpu_render_algorithms.hpp>
-#include <renderers/renderer.h>
-#include <renderers/win32_renderer.h>
+#include <renderers/renderer.hpp>
+#include <renderers/win32_renderer.hpp>
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
 #include "core/lib.hpp"
-#include "platform/types.h"
+#include "platform/types.hpp"
 
 struct WindowDimension {
     i32 width;

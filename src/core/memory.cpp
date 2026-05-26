@@ -2,9 +2,9 @@
 #include <cstdio>
 #include <cstring>
 
-#include <platform/platform.h>
+#include <platform/platform.hpp>
 
-#include "memory.h"
+#include "memory.hpp"
 
 auto initialize_memory_lib() -> void {
     if (cpu_supports_avx512f()) {

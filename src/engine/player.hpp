@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine.h"
+#include "engine.hpp"
 
 auto update_player(EngineState *state, EngineInput *app_input) {
     if (app_input->input.move_left.ended_down) {

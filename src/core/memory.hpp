@@ -1,7 +1,7 @@
 #pragma once
 
-#include <core/logger.h>
-#include <platform/types.h>
+#include <core/logger.hpp>
+#include <platform/types.hpp>
 
 auto initialize_memory_lib() -> void;
 

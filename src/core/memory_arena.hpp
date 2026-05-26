@@ -1,6 +1,6 @@
 #pragma once
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
 const u32 SENTINEL_PATTERN = 0xEFBEADDE; // DEADBEEF
 

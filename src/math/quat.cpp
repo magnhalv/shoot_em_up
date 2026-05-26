@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include <math/quat.h>
+#include <math/quat.hpp>
 
 void quat_print(const quat& q) {
     printf("w: %f, x: %f, y: %f, z: %f\n", q.w, q.x, q.y, q.z);

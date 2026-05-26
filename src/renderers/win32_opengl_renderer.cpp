@@ -3,13 +3,13 @@
 #include <glad/gl.h>
 #include <glad/wgl.h>
 
-#include <engine/hm_assert.h>
-#include <platform/platform.h>
+#include <engine/hm_assert.hpp>
+#include <platform/platform.hpp>
 
-#include "math/mat3.h"
+#include "math/mat3.hpp"
 
-#include <renderers/renderer.h>
-#include <renderers/win32_renderer.h>
+#include <renderers/renderer.hpp>
+#include <renderers/win32_renderer.hpp>
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"

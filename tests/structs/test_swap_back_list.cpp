@@ -1,6 +1,6 @@
-#include <engine/structs/swap_back_list.h>
+#include <engine/structs/swap_back_list.hpp>
 
-#include "../util.h"
+#include "../util.hpp"
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "Removing an element sets that index to the last element.") {
     SwapBackList<i32> list;

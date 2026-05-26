@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cmath>
-#include <platform/types.h>
+#include <platform/types.hpp>
 
 #include <core/hash.hpp>
 #include <math/util.hpp>

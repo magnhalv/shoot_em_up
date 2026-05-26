@@ -2,9 +2,9 @@
 
 #include <cassert>
 
-#include <platform/types.h>
+#include <platform/types.hpp>
 
-#include <core/memory_arena.h>
+#include <core/memory_arena.hpp>
 #include <core/span.hpp>
 
 template <typename T, u32 Capacity> struct StackList {

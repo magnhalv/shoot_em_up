@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include <math/transform.h>
+#include <math/transform.hpp>
 
 Transform combine(const Transform& a, const Transform& b) {
     Transform out;

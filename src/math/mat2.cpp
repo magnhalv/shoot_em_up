@@ -1,6 +1,6 @@
-#include <math/math.h>
+#include <math/math.hpp>
 
-#include <math/mat2.h>
+#include <math/mat2.hpp>
 
 bool operator==(const mat2& a, const mat2& b) {
     for (i32 i = 0; i < 4; i++) {
