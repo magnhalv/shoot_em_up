@@ -140,6 +140,7 @@ struct TriMesh {
 };
 
 struct RenderEntryTriMesh {
+    mat4 world_to_view;
     TriMesh model;
     Array<Transform> instances;
 };

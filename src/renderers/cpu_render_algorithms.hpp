@@ -496,17 +496,22 @@ auto inline project_vertex(vec4 v) -> vec2 {
     return viewport_to_canvas((v.x * d) / v.z, (v.y * d) / v.z);
 }
 
-auto inline render_polygon_gambetta( //
-    Array<vec4> vertices, Array<ivec3> triangles, Array<vec4> colors, Array<Transform> instances, Rectangle2i clip_rect,
-    FrameBuffer* buffer, MemoryArena& arena) -> void {
+auto inline render_polygon_gambetta(                                  //
+    Array<vec4> vertices, Array<ivec3> triangles, Array<vec4> colors, //
+    Array<Transform> instances,                                       //
+    const mat4& world_to_view,                                        //
+    Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena    //
+    ) -> void {
     Assert(triangles.count() == colors.count());
 
     for (const auto& instance : instances) {
         auto projected_vertices = Array<vec2>::create(vertices.count(), arena);
 
         mat4 M_to_W = instance.to_mat4();
+        mat4 M_to_C = M_to_W * world_to_view;
+        // mat4 W_to_C =  TODO
         for (u32 i = 0; i < vertices.count(); i++) {
-            projected_vertices[i] = project_vertex(vertices[i] * M_to_W);
+            projected_vertices[i] = project_vertex(vertices[i] * M_to_C);
         }
 
         for (u32 i = 0; i < triangles.count(); i++) {

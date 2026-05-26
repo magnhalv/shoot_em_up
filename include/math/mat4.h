@@ -66,6 +66,9 @@ struct mat4 {
     }
 }; // end mat4 struct
 
+auto inline mat4_identity() -> mat4 {
+    return mat4();
+}
 bool operator==(const mat4& a, const mat4& b);
 bool operator!=(const mat4& a, const mat4& b);
 mat4 operator*(const mat4& m, f32 f);

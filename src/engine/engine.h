@@ -5,6 +5,7 @@
 #include <core/memory_arena.h>
 
 #include <engine/assets.h>
+#include <engine/camera.h>
 #include <engine/globals.hpp>
 
 #include <math/mat4.h>
@@ -166,6 +167,8 @@ struct EngineState {
     f64 enemy_timer;
     SwapBackList<Entity> player_projectiles;
     SwapBackList<Entity> enemy_projectiles;
+
+    Camera camera;
 
     UI_Context* ui_context;
 };

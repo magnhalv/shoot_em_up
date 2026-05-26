@@ -182,11 +182,10 @@ mat4 create_ortho(float l, float r, float b, float t, float n, float f) {
 }
 
 mat4 lookAt(const vec3& position, const vec3& target, const vec3& up) {
-    // Remember, forward is negative z
-    vec3 f = normalized(target - position) * -1.0f;
+    vec3 f = normalized(target - position);
     vec3 r = cross(up, f); // Right handed
     if (r == vec3(0, 0, 0)) {
-        return mat4(); // Error
+        return mat4_identity(); // Error
     }
     normalize(r);
     vec3 u = normalized(cross(f, r)); // Right handed
@@ -198,7 +197,6 @@ mat4 lookAt(const vec3& position, const vec3& target, const vec3& up) {
     );
 
     return mat4(
-            // Transpose upper 3x3 matrix to invert it
             r.x, u.x, f.x, 0,
             r.y, u.y, f.y, 0,
             r.z, u.z, f.z, 0,

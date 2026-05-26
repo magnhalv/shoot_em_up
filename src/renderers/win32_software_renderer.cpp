@@ -820,6 +820,7 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
             render_polygon_gambetta(                                                //
                 entry->model.vertices, entry->model.triangles, entry->model.colors, //
                 entry->instances,                                                   //
+                entry->world_to_view,                                               //
                 clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;
