@@ -60,6 +60,7 @@ const u64 us_in_second = 1000000;
 const u64 ms_in_second = 1000;
 
 const f32 F32_MAX = FLT_MAX;
+const f32 F32_MIN = FLT_MIN;
 const f32 PI = 3.1415927f;
 
 #define F32_EPSILON 0.000001f
