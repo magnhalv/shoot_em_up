@@ -4,7 +4,7 @@
 #include <cstdarg>
 #include <cstdio>
 
-#include <platform/types.hpp>
+#include <platform/platform.hpp>
 
 extern char global_crash_message[512];
 extern bool global_has_crashed;
@@ -73,17 +73,3 @@ inline void assert_eq(i32 value1, i32 value2) {
         crash_and_burn("%d is not equal to %d. File: %s:%d", value1, value2, __FILE__, __LINE__);
     }
 }
-
-#define ASSERT_LEQ(value1, value2)                                                                                 \
-    do {                                                                                                           \
-        if (value1 > value2) {                                                                                     \
-            crash_and_burn("%d is not less than or equal to %d. File: %s:%d", value1, value2, __FILE__, __LINE__); \
-        }                                                                                                          \
-    } while (0);
-
-#define ASSERT_EQ(value1, value2)                                                                     \
-    do {                                                                                              \
-        if (value1 != value2) {                                                                       \
-            crash_and_burn("%d is not equal to %d. File: %s:%d", value1, value2, __FILE__, __LINE__); \
-        }                                                                                             \
-    } while (0);\

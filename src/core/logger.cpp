@@ -13,6 +13,13 @@ auto set_crash_jump(jmp_buf* jump) -> void {
 }
 
 void crash_and_burn(const char* msg, ...) {
+    if (Platform) {
+        Platform->print_stack_trace();
+    }
+    else {
+        log_error("No platform layer available. Can't print stack trace.\n");
+    }
+
     va_list args;
     va_start(args, msg);
 

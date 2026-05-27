@@ -1,5 +1,7 @@
 #pragma once
 
+#include <platform/types.hpp>
+
 #include "macros.hpp"
 
 #define DeferLoop_(begin, end, n) for (int CONCAT(_i_, n) = ((begin), 0); !CONCAT(_i_, n); CONCAT(_i_, n) += 1, (end))
@@ -16,3 +18,19 @@ template <typename F> struct scope_exit : F {
     auto CONCAT(scope_exit_, __COUNTER__) = ::scope_exit { \
         [&] __VA_ARGS__                                    \
     }
+
+auto inline count_digits(i32 n) -> i32 {
+    i32 count = 0;
+    if (n == 0) {
+        return 1;
+    }
+    if (n < 0) {
+        n = -n;
+    }
+    while (n > 0) {
+        count++;
+        n /= 10;
+    }
+
+    return count;
+}

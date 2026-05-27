@@ -1,4 +1,5 @@
 // Windows
+#include "core/util.hpp"
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -9,9 +10,9 @@
 #include <winnt.h>
 #include <xaudio2.h>
 
+#include <platform/platform.hpp>
 #include <platform/types.hpp>
 #include <platform/user_input.hpp>
-#include <platform/platform.hpp>
 
 #include <core/memory.hpp>
 #include <core/stack_array.hpp>
@@ -26,6 +27,7 @@
 #include <core/lib.cpp>
 
 // TEMP REMOVE
+#include <DbgHelp.h>
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "dbghelp.lib")
@@ -1222,6 +1224,48 @@ static void win32_make_queue(
     }
 }
 
+static void win32_print_stack_trace() {
+    void* stack[50];
+
+    HANDLE process = GetCurrentProcess();
+
+    SymInitialize(process, NULL, TRUE);
+
+    USHORT frames = CaptureStackBackTrace(1, 50, stack, NULL);
+
+    SYMBOL_INFO* symbol = (SYMBOL_INFO*)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char), 1);
+    symbol->MaxNameLen = 255;
+    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+
+    IMAGEHLP_LINE64 line;
+    line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+
+    printf("---- Stack trace begin ----\n");
+    for (unsigned int i = 0; i < frames; i++) {
+        DWORD64 addr = (DWORD64)(stack[i]);
+        DWORD displacement = 0;
+        if (SymFromAddr(process, addr, 0, symbol)) {
+            i32 space_count = 50 - symbol->NameLen - count_digits(i);
+            space_count = space_count < 0 ? 0 : space_count;
+            if (SymGetLineFromAddr64(process, addr, &displacement, &line)) {
+                space_count -= count_digits(line.LineNumber);
+                printf("  [%d]: %s:%lu %*s[Address: 0x%llX]\n", i, symbol->Name, line.LineNumber, space_count, "",
+                    symbol->Address);
+            }
+            else {
+                printf("  [%d]: %s  %*s[Address: 0x%llX]\n", i, symbol->Name, space_count, "", symbol->Address);
+            }
+        }
+        else {
+            printf("  [%d]: [Unknown Symbol] [Address: 0x%llX]\n", i, symbol->Address);
+        }
+    }
+    printf("---- Stack trace end ----\n");
+
+    free(symbol);
+    SymCleanup(process);
+}
+
 auto win32_create_window(HINSTANCE hInstance, PSTR szCmdLine) -> HWND {
 
     WNDCLASSEX wndclass;
@@ -1369,6 +1413,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     platform.add_work_queue_entry = &win32_add_entry;
     platform.complete_all_work = &win32_complete_all_work;
 #if HOMEMADE_DEBUG
+    platform.print_stack_trace = &win32_print_stack_trace;
     platform.debug_table = global_debug_table;
     platform.main_thread_id = get_thread_id();
 #endif
