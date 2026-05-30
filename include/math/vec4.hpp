@@ -3,6 +3,7 @@
 #include <platform/types.hpp>
 
 #include <math/math.hpp>
+#include <math/vec3.hpp>
 
 template <typename T> struct TVec4 {
     union {
@@ -27,6 +28,10 @@ template <typename T> struct TVec4 {
     inline TVec4<T>(T _x, T _y, T _z, T _w) : x(_x), y(_y), z(_z), w(_w) {
     }
     inline explicit TVec4<T>(T* fv) : x(fv[0]), y(fv[1]), z(fv[2]), w(fv[3]) {
+    }
+
+    inline auto xyz() -> vec3 {
+        return vec3(x, y, z);
     }
 };
 

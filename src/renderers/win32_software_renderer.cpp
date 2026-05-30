@@ -821,6 +821,7 @@ auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_
                 entry->model.vertices, entry->model.triangles, entry->model.colors, //
                 entry->instances,                                                   //
                 entry->world_to_view,                                               //
+                entry->view_to_clip,                                                //
                 clip_rect, &state.frame_buffer, transient);
             base_address += sizeof(*entry);
         } break;

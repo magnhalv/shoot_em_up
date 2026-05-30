@@ -69,6 +69,16 @@ struct mat4 {
 auto inline mat4_identity() -> mat4 {
     return mat4();
 }
+
+auto inline mat4_print(const mat4& m) -> void {
+    printf("[\n");
+    printf("  %f, %f, %f, %f\n", m.xx, m.xy, m.xz, m.xw);
+    printf("  %f, %f, %f, %f\n", m.yx, m.yy, m.yz, m.yw);
+    printf("  %f, %f, %f, %f\n", m.zx, m.zy, m.zz, m.zw);
+    printf("  %f, %f, %f, %f\n", m.tx, m.ty, m.tz, m.tw);
+    printf("]\n");
+}
+
 bool operator==(const mat4& a, const mat4& b);
 bool operator!=(const mat4& a, const mat4& b);
 mat4 operator*(const mat4& m, f32 f);
@@ -83,6 +93,7 @@ mat4 inverse(const mat4& m);
 void invert(mat4& m);
 mat4 frustum(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f);
 mat4 perspective(f32 fov_degrees, f32 aspect, f32 znear, f32 zfar);
+mat4 perspective2(float fov_degree, float aspect_ratio, float znear, float zfar);
 mat4 create_ortho(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f);
 mat4 lookAt(const vec3& position, const vec3& target, const vec3& up);
 

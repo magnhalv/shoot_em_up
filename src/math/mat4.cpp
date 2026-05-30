@@ -1,3 +1,4 @@
+#include "platform/platform.hpp"
 #include <cmath>
 
 #include <math/mat4.hpp>
@@ -142,7 +143,7 @@ void invert(mat4& m) {
 
     if (det == 0.0f) {
         printf("WARNING: Trying to invert a matrix with zero determinant\n");
-        m = mat4();
+        m = mat4_identity();
         return;
     }
 
@@ -157,59 +158,63 @@ mat4 frustum(float l, float r, float b, float t, float n, float f) {
     return mat4(
             (2.0f * n) / (r - l), 0, 0, 0,
             0, (2.0f * n) / (t - b), 0, 0,
-            (r + l) / (r - l), (t + b) / (t - b), (-(f + n)) / (f - n), -1,
+            (r + l) / (r - l), (t + b) / (t - b), ((f + n)) / (f - n), 1,
             0, 0, (-2 * f * n) / (f - n), 0
     );
 }
 
-mat4 perspective(float fov, float aspect, float znear, float zfar) {
-    float ymax = znear * tanf(fov * 3.14159265359f / 360.0f);
-    float xmax = ymax * aspect;
+// mat4 perspective(float fov, float aspect, float znear, float zfar) {
+//     float ymax = znear * tanf(fov * 3.14159265359f / 360.0f);
+//     float xmax = ymax * aspect;
+//
+//     return frustum(-xmax, xmax, -ymax, ymax, znear, zfar);
+// }
 
-    return frustum(-xmax, xmax, -ymax, ymax, znear, zfar);
+mat4 perspective(float vertical_fov_degree, float aspect_ratio, float znear, float zfar) {
+    f32 fov_radians = vertical_fov_degree * (PI / 180.0f);
+
+    f32 zoom_y = 1.0f/tanf(fov_radians/2);
+    f32 zoom_x =  zoom_y / aspect_ratio;
+
+    f32 n = znear;
+    f32 f = zfar;
+
+    return mat4(
+        // clang-format off
+            zoom_x,      0,                      0, 0,
+                 0, zoom_y,                      0, 0,
+                 0,      0,      (f + n) / (f - n), 1,
+                 0,      0, (-2 * f * n) / (f - n), 0
+
+        // clang-format on
+    );
 }
 
 mat4 create_ortho(float l, float r, float b, float t, float n, float f) {
     if (l == r || t == b || n == f) {
         return mat4(); // Error
     }
-    return mat4(
-            2.0f / (r - l), 0, 0, 0,
-            0, 2.0f / (t - b), 0, 0,
-            0, 0, -2.0f / (f - n), 0,
-            -((r + l) / (r - l)), -((t + b) / (t - b)), -((f + n) / (f - n)), 1
+    return mat4(                                                            //
+        2.0f / (r - l), 0, 0, 0,                                            //
+        0, 2.0f / (t - b), 0, 0,                                            //
+        0, 0, -2.0f / (f - n), 0,                                           //
+        -((r + l) / (r - l)), -((t + b) / (t - b)), -((f + n) / (f - n)), 1 //
     );
 }
 
 mat4 lookAt(const vec3& position, const vec3& target, const vec3& up) {
-    vec3 f = normalized(target - position);
-    vec3 r = cross(up, f); // Right handed
+    vec3 f = normalized(target - position); // forward
+    vec3 r = normalized(cross(up, f));      // Right
     if (r == vec3(0, 0, 0)) {
         return mat4_identity(); // Error
     }
-    normalize(r);
-    vec3 u = normalized(cross(f, r)); // Right handed
+    vec3 t = vec3(-dot(r, position), -dot(up, position), -dot(f, position));
 
-    vec3 t = vec3(
-            -dot(r, position),
-            -dot(u, position),
-            -dot(f, position)
-    );
-
-    return mat4(
-            r.x, u.x, f.x, 0,
-            r.y, u.y, f.y, 0,
-            r.z, u.z, f.z, 0,
-            t.x, t.y, t.z, 1
-    );
+    return mat4(r.x, r.y, r.z, 0, up.x, up.y, up.z, 0, f.x, f.y, f.z, 0, t.x, t.y, t.z, 1);
 }
 
 auto identity() -> mat4 {
     return mat4(
-            // Transpose upper 3x3 matrix to invert it
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0
-    );
+        // Transpose upper 3x3 matrix to invert it
+        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 }

@@ -27,6 +27,7 @@
 #include "globals.hpp"
 #include "gui/imgui.hpp"
 #include "hm_assert.hpp"
+#include "math/mat4.hpp"
 #include "math/quat.hpp"
 #include "profiling.hpp"
 
@@ -167,6 +168,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     const i32 client_width = app_input->client_width;
     const i32 client_height = app_input->client_height;
+    const f32 aspect_ratio = (f32)client_width / (f32)client_height;
 
     const vec2 screen_center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
 
@@ -520,6 +522,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->instances[1].rotation = angle_axis(0, up);
 
             mesh->world_to_view = camera_get_view(state->camera);
+            mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
         }
 
         renderer->render(Platform->work_queue, &group);

@@ -482,24 +482,29 @@ auto inline render_shaded_triangle_gambetta(vec2 P0, vec2 P1, vec2 P2, f32 h0, f
     render_line_gambetta_intensity_internal(P2, P0, h2, h0, color_l1, clip_rect, buffer, arena);
 }
 
+// auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
+//     const f32 Vw = 4.0f;
+//     const f32 Vh = Vw * ((f32)INTERNAL_HEIGHT / (f32)INTERNAL_WIDTH); // ≈ 12.08
+//     const f32 x_new = ((x / Vw) + 0.5f) * INTERNAL_WIDTH;
+//     const f32 y_new = ((y / Vh) + 0.5f) * INTERNAL_HEIGHT;
+//     return { x_new, y_new };
+// }
+//
 auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
-
-    const f32 Vw = 4.0f;
-    const f32 Vh = Vw * ((f32)INTERNAL_HEIGHT / (f32)INTERNAL_WIDTH); // ≈ 12.08
-    const f32 x_new = ((x / Vw) + 0.5f) * INTERNAL_WIDTH;
-    const f32 y_new = ((y / Vh) + 0.5f) * INTERNAL_HEIGHT;
-    return { x_new, y_new };
+    const f32 new_x = (x * 0.5f + 0.5f) * INTERNAL_WIDTH;
+    const f32 new_y = (y * 0.5f + 0.5f) * INTERNAL_HEIGHT;
+    return { new_x, new_y };
 }
 
 auto inline project_vertex(vec4 v) -> vec2 {
-    const f32 d = 5.0f;
-    return viewport_to_canvas((v.x * d) / v.z, (v.y * d) / v.z);
+    return viewport_to_canvas(v.x / v.w, v.y / v.w);
 }
 
 auto inline render_polygon_gambetta(                                  //
     Array<vec4> vertices, Array<ivec3> triangles, Array<vec4> colors, //
     Array<Transform> instances,                                       //
     const mat4& world_to_view,                                        //
+    const mat4& view_to_clip,                                         //
     Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena    //
     ) -> void {
     Assert(triangles.count() == colors.count());
@@ -509,9 +514,10 @@ auto inline render_polygon_gambetta(                                  //
 
         mat4 M_to_W = instance.to_mat4();
         mat4 M_to_C = M_to_W * world_to_view;
+        mat4 M_to_Clip = M_to_C * view_to_clip;
         // mat4 W_to_C =  TODO
         for (u32 i = 0; i < vertices.count(); i++) {
-            projected_vertices[i] = project_vertex(vertices[i] * M_to_C);
+            projected_vertices[i] = project_vertex(vertices[i] * M_to_Clip);
         }
 
         for (u32 i = 0; i < triangles.count(); i++) {

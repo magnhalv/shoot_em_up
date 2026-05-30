@@ -38,12 +38,94 @@ auto inline AABB_set_points(AABB& bbox, const Array<vec4>& points) -> void {
 }
 
 auto inline AABB_transform(AABB& bbox, mat4 M) -> AABB {
-    AABB b = bbox;
 
     // Translation basis
-    vec4 max = M.w_basis;
-    vec4 min = M.w_basis;
+    vec3 max = M.w_basis.xyz();
+    vec3 min = M.w_basis.xyz();
 
     if (M.r0c0 > 0.0f) {
+        min.x += M.r0c0 * bbox.min.x;
+        max.x += M.r0c0 * bbox.max.x;
     }
+    else {
+        min.x += M.r0c0 * bbox.max.x;
+        max.x += M.r0c0 * bbox.min.x;
+    }
+
+    if (M.r0c1 > 0.0f) {
+        min.x += M.r0c1 * bbox.min.x;
+        max.x += M.r0c1 * bbox.max.x;
+    }
+    else {
+        min.x += M.r0c1 * bbox.max.x;
+        max.x += M.r0c1 * bbox.min.x;
+    }
+
+    if (M.r0c2 > 0.0f) {
+        min.x += M.r0c2 * bbox.min.x;
+        max.x += M.r0c2 * bbox.max.x;
+    }
+    else {
+        min.x += M.r0c2 * bbox.max.x;
+        max.x += M.r0c2 * bbox.min.x;
+    }
+
+    if (M.r1c0 > 0.0f) {
+        min.x += M.r1c0 * bbox.min.x;
+        max.x += M.r1c0 * bbox.max.x;
+    }
+    else {
+        min.x += M.r1c0 * bbox.max.x;
+        max.x += M.r1c0 * bbox.min.x;
+    }
+
+    if (M.r1c1 > 0.0f) {
+        min.x += M.r1c1 * bbox.min.x;
+        max.x += M.r1c1 * bbox.max.x;
+    }
+    else {
+        min.x += M.r1c1 * bbox.max.x;
+        max.x += M.r1c1 * bbox.min.x;
+    }
+
+    if (M.r1c2 > 0.0f) {
+        min.x += M.r1c2 * bbox.min.x;
+        max.x += M.r1c2 * bbox.max.x;
+    }
+    else {
+        min.x += M.r1c2 * bbox.max.x;
+        max.x += M.r1c2 * bbox.min.x;
+    }
+
+    if (M.r2c0 > 0.0f) {
+        min.x += M.r2c0 * bbox.min.x;
+        max.x += M.r2c0 * bbox.max.x;
+    }
+    else {
+        min.x += M.r2c0 * bbox.max.x;
+        max.x += M.r2c0 * bbox.min.x;
+    }
+
+    if (M.r2c1 > 0.0f) {
+        min.x += M.r2c1 * bbox.min.x;
+        max.x += M.r2c1 * bbox.max.x;
+    }
+    else {
+        min.x += M.r2c1 * bbox.max.x;
+        max.x += M.r2c1 * bbox.min.x;
+    }
+
+    if (M.r2c2 > 0.0f) {
+        min.x += M.r2c2 * bbox.min.x;
+        max.x += M.r2c2 * bbox.max.x;
+    }
+    else {
+        min.x += M.r2c2 * bbox.max.x;
+        max.x += M.r2c2 * bbox.min.x;
+    }
+
+    AABB result;
+    result.min = min;
+    result.max = max;
+    return result;
 }
