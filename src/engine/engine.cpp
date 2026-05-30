@@ -466,7 +466,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             triangle->color = global_color_palette[0];
         }
 
-        if (true) {
+        if (false) {
             TIMED_BLOCK("render_cube");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
@@ -475,10 +475,13 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             model->triangles = Array<ivec3>::create(12, *g_transient);
             model->colors = Array<vec4>::create(12, *g_transient);
 
+            // front
             model->vertices[0] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
             model->vertices[1] = vec4(-1.0f, 1.0f, 1.0f, 1.0f);
             model->vertices[2] = vec4(-1.0f, -1.0f, 1.0f, 1.0f);
             model->vertices[3] = vec4(1.0f, -1.0f, 1.0f, 1.0f);
+
+            // back
             model->vertices[4] = vec4(1.0f, 1.0f, -1.0f, 1.0f);
             model->vertices[5] = vec4(-1.0f, 1.0f, -1.0f, 1.0f);
             model->vertices[6] = vec4(-1.0f, -1.0f, -1.0f, 1.0f);
@@ -514,11 +517,47 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             const vec3 up(0.0f, 1.0f, 0.0f);
             mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[0].position = vec3(-1.5, 0, 7);
+            mesh->instances[0].position = vec3(-1.5, 0, 4);
             mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
 
             mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[1].position = vec3(1.5f, 1.0f, 7.0f);
+            mesh->instances[1].position = vec3(1.5f, 1.0f, 4.0f);
+            mesh->instances[1].rotation = angle_axis(0, up);
+
+            mesh->world_to_view = camera_get_view(state->camera);
+            mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
+        }
+        if (true) {
+            TIMED_BLOCK("render_rectangle");
+            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
+            TriMesh* model = &mesh->model;
+            model->vertices = Array<vec4>::create(4, *g_transient);
+            model->triangles = Array<ivec3>::create(2, *g_transient);
+            model->colors = Array<vec4>::create(2, *g_transient);
+
+            // front
+            model->vertices[0] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+            model->vertices[1] = vec4(1.0f, -1.0f, 1.0f, 1.0f);
+            model->vertices[2] = vec4(-1.0f, -1.0f, 1.0f, 1.0f);
+            model->vertices[3] = vec4(-1.0f, 1.0f, 1.0f, 1.0f);
+
+            model->triangles[0] = ivec3(0, 1, 2);
+            model->triangles[1] = ivec3(0, 2, 3);
+
+            model->colors[0] = RED;
+            model->colors[1] = RED;
+
+            mesh->instances = Array<Transform>::create(2, *g_transient);
+
+            const vec3 up(0.0f, 1.0f, 0.0f);
+            mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
+            mesh->instances[0].position = vec3(-1.5, 0, 4);
+            //mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
+            mesh->instances[0].rotation = angle_axis(0, up);
+
+            mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);
+            mesh->instances[1].position = vec3(1.5f, 1.0f, 4.0f);
             mesh->instances[1].rotation = angle_axis(0, up);
 
             mesh->world_to_view = camera_get_view(state->camera);

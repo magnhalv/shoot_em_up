@@ -12,6 +12,13 @@
 
 template <typename T> struct List {
 
+    static auto create(size_t max_count, MemoryArena& arena) -> List<T> {
+        List result = {};
+        result.m_max_count = (i32)max_count; // TODO
+        result.m_data = allocate<T>(arena, max_count);
+        return result;
+    }
+
     List() : m_count(0), m_data(nullptr), m_max_count(0) {
     }
 

@@ -1,3 +1,4 @@
+#include "core/list.hpp"
 #include "core/memory.hpp"
 #include "math/math.hpp"
 #include <platform/platform.hpp>
@@ -482,14 +483,6 @@ auto inline render_shaded_triangle_gambetta(vec2 P0, vec2 P1, vec2 P2, f32 h0, f
     render_line_gambetta_intensity_internal(P2, P0, h2, h0, color_l1, clip_rect, buffer, arena);
 }
 
-// auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
-//     const f32 Vw = 4.0f;
-//     const f32 Vh = Vw * ((f32)INTERNAL_HEIGHT / (f32)INTERNAL_WIDTH); // ≈ 12.08
-//     const f32 x_new = ((x / Vw) + 0.5f) * INTERNAL_WIDTH;
-//     const f32 y_new = ((y / Vh) + 0.5f) * INTERNAL_HEIGHT;
-//     return { x_new, y_new };
-// }
-//
 auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
     const f32 new_x = (x * 0.5f + 0.5f) * INTERNAL_WIDTH;
     const f32 new_y = (y * 0.5f + 0.5f) * INTERNAL_HEIGHT;
@@ -498,6 +491,38 @@ auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
 
 auto inline project_vertex(vec4 v) -> vec2 {
     return viewport_to_canvas(v.x / v.w, v.y / v.w);
+}
+
+auto inline is_inside_view(vec4 p) -> bool {
+    return in_range(-p.w, p.x, p.w) && in_range(-p.w, p.y, p.w) && in_range(-p.w, p.z, p.w);
+}
+
+auto inline signed_distance(f32 v, f32 w) {
+}
+
+auto inline clip_triangle(Array<vec4>& vertices, ivec3 indices, List<vec4>& clipped_triangles) {
+    // Left plane
+    i32 i0 = indices.x;
+    i32 i1 = indices.y;
+    i32 i2 = indices.z;
+    f32 d0 = vertices[i0].v[0] + vertices[i0].w;
+    f32 d1 = vertices[i1].v[0] + vertices[i1].w;
+    f32 d2 = vertices[i2].v[0] + vertices[i2].w;
+
+    i32 out_count = 0;
+    if (d0 < 0) {
+        out_count++;
+    }
+    if (d1 < 0) {
+        out_count++;
+    }
+    if (d2 < 0) {
+        out_count++;
+    }
+
+    if (out_count > 0) {
+        printf("OUT: %d\n", out_count);
+    }
 }
 
 auto inline render_polygon_gambetta(                                  //
@@ -510,14 +535,24 @@ auto inline render_polygon_gambetta(                                  //
     Assert(triangles.count() == colors.count());
 
     for (const auto& instance : instances) {
+        auto clip_space_vertices = Array<vec4>::create(vertices.count(), arena);
         auto projected_vertices = Array<vec2>::create(vertices.count(), arena);
+
+        auto clipped_vertices = List<vec4>::create(vertices.count() * 2, arena);
 
         mat4 M_to_W = instance.to_mat4();
         mat4 M_to_C = M_to_W * world_to_view;
         mat4 M_to_Clip = M_to_C * view_to_clip;
-        // mat4 W_to_C =  TODO
         for (u32 i = 0; i < vertices.count(); i++) {
-            projected_vertices[i] = project_vertex(vertices[i] * M_to_Clip);
+            clip_space_vertices[i] = vertices[i] * M_to_Clip;
+        }
+
+        for (auto& t : triangles) {
+            clip_triangle(clip_space_vertices, t, clipped_vertices);
+        }
+
+        for (u32 i = 0; i < vertices.count(); i++) {
+            projected_vertices[i] = project_vertex(clip_space_vertices[i]);
         }
 
         for (u32 i = 0; i < triangles.count(); i++) {
@@ -529,4 +564,5 @@ auto inline render_polygon_gambetta(                                  //
                 colors[i], clip_rect, buffer, arena);
         }
     }
+    printf("--------------------\n");
 }

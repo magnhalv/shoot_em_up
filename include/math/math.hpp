@@ -78,8 +78,13 @@ auto inline in_range(i32 min, i32 value, i32 max) -> bool {
     return value >= min && value < max;
 }
 
+auto inline in_range(f32 min, f32 value, f32 max) -> bool {
+    return value >= min && value < max;
+}
+
 inline i32 round_f32_to_i32(f32 real) {
-    return (i32)(real + 0.5f);
+    // consider: return _mm_cvt_ss2si(_mm_set_ss(real));
+    return (i32)(real + (real >= 0.0f ? 0.5f : -0.5f));
 }
 
 inline f32 floor_f32(f32 value) {
