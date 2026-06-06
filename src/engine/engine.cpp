@@ -552,12 +552,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             const vec3 up(0.0f, 1.0f, 0.0f);
             mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[0].position = vec3(-1.5, 0, 4);
+            mesh->instances[0].position = vec3(-1.5, 0, 2.0f);
             //mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
             mesh->instances[0].rotation = angle_axis(0, up);
 
             mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[1].position = vec3(1.5f, 1.0f, 4.0f);
+            mesh->instances[1].position = vec3(1.5f, 1.0f, 2.0f);
             mesh->instances[1].rotation = angle_axis(0, up);
 
             mesh->world_to_view = camera_get_view(state->camera);

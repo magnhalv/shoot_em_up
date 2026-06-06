@@ -4,12 +4,11 @@
 #include <cstdio>
 
 #include <core/memory_arena.hpp>
+#include <platform/platform.hpp>
 #include <platform/types.hpp>
 
 #include <math/vec2.hpp>
 #include <math/vec3.hpp>
-
-#include "hm_assert.hpp"
 
 template <typename T> struct Array {
     static auto create(size_t count, MemoryArena& arena) -> Array<T> {
@@ -37,7 +36,7 @@ template <typename T> struct Array {
     }
 
     T& operator[](size_t index) {
-        HM_ASSERT(index < m_count);
+        Assert(index < m_count);
         return m_data[index];
     }
 

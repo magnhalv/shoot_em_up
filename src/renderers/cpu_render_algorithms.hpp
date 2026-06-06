@@ -484,8 +484,8 @@ auto inline render_shaded_triangle_gambetta(vec2 P0, vec2 P1, vec2 P2, f32 h0, f
 }
 
 auto inline viewport_to_canvas(f32 x, f32 y) -> vec2 {
-    const f32 new_x = (x * 0.5f + 0.5f) * INTERNAL_WIDTH;
-    const f32 new_y = (y * 0.5f + 0.5f) * INTERNAL_HEIGHT;
+    const f32 new_x = (x * 0.5f + 0.5f) * (INTERNAL_WIDTH - 1);
+    const f32 new_y = (y * 0.5f + 0.5f) * (INTERNAL_HEIGHT - 1);
     return { new_x, new_y };
 }
 
@@ -497,32 +497,232 @@ auto inline is_inside_view(vec4 p) -> bool {
     return in_range(-p.w, p.x, p.w) && in_range(-p.w, p.y, p.w) && in_range(-p.w, p.z, p.w);
 }
 
-auto inline signed_distance(f32 v, f32 w) {
+auto inline clip_triangle_against_plane(vec4 v1, vec4 v2, vec4 v3, List<vec4>& clipped_triangles, i32 plane, i32 side) {
+    const i32 Edge_Count = 3;
+    f32 ds[3] = {
+        v1.x + (side * v1.w),
+        v2.x + (side * v2.w),
+        v3.x + (side * v3.w),
+    };
+    vec4 v[3] = { v1, v2, v3 };
+
+    i32 out_count = 0;
+    i32 in_count = 0;
+    i32 out_idx[Edge_Count] = { -1, -1, -1 };
+    i32 in_idx[Edge_Count] = { -1, -1, -1 };
+    for (auto i = 0; i < 3; i++) {
+        if ((side * ds[i]) < 0) {
+            out_idx[out_count++] = i;
+        }
+        else {
+            in_idx[in_count++] = i;
+        }
+    }
+
+    if (out_count == 0) {
+        clipped_triangles.push(v1);
+        clipped_triangles.push(v2);
+        clipped_triangles.push(v3);
+    }
+    else if (out_count == 1) {
+        i32 a_idx = out_idx[0];
+        i32 b_idx = (a_idx + 1) % Edge_Count;
+        i32 c_idx = (a_idx + 2) % Edge_Count;
+        vec4 a = v[a_idx];
+        vec4 b = v[b_idx];
+        vec4 c = v[c_idx];
+
+        // ab
+        vec4 ab = {};
+        {
+            f32 d_a = a.x + (side * a.w);
+            f32 d_b = b.x + (side * b.w);
+            f32 t = -(d_a) / (d_b - d_a);
+            ab = lerp(a, t, b);
+        }
+        vec4 ac = {};
+        {
+            f32 d_a = a.x + (side * a.w);
+            f32 d_c = c.x + (side * c.w);
+            f32 t = -(d_a) / (d_c - d_a);
+            ac = lerp(a, t, c);
+        }
+
+        // ab -> b -> c;
+        clipped_triangles.push(ab);
+        clipped_triangles.push(b);
+        clipped_triangles.push(c);
+        // ac -> ab -> c;
+        clipped_triangles.push(ac);
+        clipped_triangles.push(ab);
+        clipped_triangles.push(c);
+    }
+    else if (out_count == 2) {
+        i32 a_idx = in_idx[0];
+        i32 b_idx = (a_idx + 1) % Edge_Count;
+        i32 c_idx = (a_idx + 2) % Edge_Count;
+
+        vec4 a = v[a_idx];
+        vec4 b = v[b_idx];
+        vec4 c = v[c_idx];
+
+        clipped_triangles.push(a);
+        // b'
+        {
+            f32 d_a = a.x + (side * a.w);
+            f32 d_b = b.x + (side * b.w);
+            f32 t = -(d_a) / (d_b - d_a);
+            vec4 b_new = lerp(a, t, b);
+            clipped_triangles.push(b_new);
+        }
+        {
+            f32 d_a = a.x + (side * a.w);
+            f32 d_c = c.x + (side * c.w);
+            f32 t = -(d_a) / (d_c - d_a);
+            vec4 c_new = lerp(a, t, c);
+            clipped_triangles.push(c_new);
+        }
+
+        // c'
+    }
+    else if (out_count == 3) {
+    }
 }
 
 auto inline clip_triangle(Array<vec4>& vertices, ivec3 indices, List<vec4>& clipped_triangles) {
     // Left plane
-    i32 i0 = indices.x;
-    i32 i1 = indices.y;
-    i32 i2 = indices.z;
-    f32 d0 = vertices[i0].v[0] + vertices[i0].w;
-    f32 d1 = vertices[i1].v[0] + vertices[i1].w;
-    f32 d2 = vertices[i2].v[0] + vertices[i2].w;
+    const i32 Edge_Count = 3;
+    i32 idx[Edge_Count] = {
+        indices.x,
+        indices.y,
+        indices.z,
+    };
 
-    i32 out_count = 0;
-    if (d0 < 0) {
-        out_count++;
-    }
-    if (d1 < 0) {
-        out_count++;
-    }
-    if (d2 < 0) {
-        out_count++;
-    }
+    const vec4& v1 = vertices[idx[0]];
+    const vec4& v2 = vertices[idx[1]];
+    const vec4& v3 = vertices[idx[2]];
 
-    if (out_count > 0) {
-        printf("OUT: %d\n", out_count);
-    }
+    // X
+    clip_triangle_against_plane(v1, v2, v3, clipped_triangles, 0, 1);
+    clip_triangle_against_plane(v1, v2, v3, clipped_triangles, 0, -1);
+
+    // Y
+    // clip_triangle_against_plane(v1, v2, v3, clipped_triangles, 1, 1);
+    // clip_triangle_against_plane(v1, v2, v3, clipped_triangles, 1, -1);
+    //
+    // // Z
+    // clip_triangle_against_plane(v1, v2, v3, clipped_triangles, 2, 1);
+    // clip_triangle_against_plane(v1, v2, v3, clipped_triangles, 2, -1);
+
+    //  Left pane
+    //  {
+    //      f32 ds[3] = {
+    //          v1.x + v1.w,
+    //          v2.x + v2.w,
+    //          v3.x + v3.w,
+    //      };
+    //
+    //      i32 out_count = 0;
+    //      i32 in_count = 0;
+    //      i32 out_idx[Edge_Count] = { -1, -1, -1 };
+    //      i32 in_idx[Edge_Count] = { -1, -1, -1 };
+    //      for (auto i = 0; i < 3; i++) {
+    //          if (ds[i] < 0) {
+    //              out_idx[out_count++] = i;
+    //          }
+    //          else {
+    //              in_idx[in_count++] = i;
+    //          }
+    //      }
+    //
+    //      if (out_count == 0) {
+    //          clipped_triangles.push(v1);
+    //          clipped_triangles.push(v2);
+    //          clipped_triangles.push(v3);
+    //      }
+    //      else if (out_count == 1) {
+    //          i32 a_idx = out_idx[0];
+    //          i32 b_idx = (a_idx + 1) % Edge_Count;
+    //          i32 c_idx = (a_idx + 2) % Edge_Count;
+    //          vec4 a = vertices[idx[a_idx]];
+    //          vec4 b = vertices[idx[b_idx]];
+    //          vec4 c = vertices[idx[c_idx]];
+    //
+    //          // ab
+    //          vec4 ab = {};
+    //          {
+    //              f32 d_a = a.x + a.w;
+    //              f32 d_b = b.x + b.w;
+    //              f32 t = -(d_a) / (d_b - d_a);
+    //              ab = lerp(a, t, b);
+    //          }
+    //          vec4 ac = {};
+    //          {
+    //              f32 d_a = a.x + a.w;
+    //              f32 d_c = c.x + c.w;
+    //              f32 t = -(d_a) / (d_c - d_a);
+    //              ac = lerp(a, t, c);
+    //          }
+    //
+    //          // ab -> b -> c;
+    //          clipped_triangles.push(ab);
+    //          clipped_triangles.push(b);
+    //          clipped_triangles.push(c);
+    //          // ac -> ab -> c;
+    //          clipped_triangles.push(ac);
+    //          clipped_triangles.push(ab);
+    //          clipped_triangles.push(c);
+    //      }
+    //      else if (out_count == 2) {
+    //          i32 a_idx = in_idx[0];
+    //          i32 b_idx = (a_idx + 1) % Edge_Count;
+    //          i32 c_idx = (a_idx + 2) % Edge_Count;
+    //
+    //          vec4 a = vertices[idx[a_idx]];
+    //          vec4 b = vertices[idx[b_idx]];
+    //          vec4 c = vertices[idx[c_idx]];
+    //
+    //          clipped_triangles.push(a);
+    //          // b'
+    //          {
+    //              f32 d_a = a.x + a.w;
+    //              f32 d_b = b.x + b.w;
+    //              f32 t = -(d_a) / (d_b - d_a);
+    //              vec4 b_new = lerp(a, t, b);
+    //              clipped_triangles.push(b_new);
+    //          }
+    //          {
+    //              f32 d_a = a.x + a.w;
+    //              f32 d_c = c.x + c.w;
+    //              f32 t = -(d_a) / (d_c - d_a);
+    //              vec4 c_new = lerp(a, t, c);
+    //              clipped_triangles.push(c_new);
+    //          }
+    //
+    //          // c'
+    //      }
+    //      else if (out_count == 3) {
+    //      }
+    //  }
+    //  Right plane
+    // {
+    //     f32 ds[3] = {
+    //         vertices[idx[0]].v[0] + (-1 * vertices[idx[0]].w),
+    //         vertices[idx[1]].v[0] + (-1 * vertices[idx[1]].w),
+    //         vertices[idx[2]].v[0] + (-1 * vertices[idx[2]].w),
+    //     };
+    //
+    //     i32 out_count = 0;
+    //     for (auto i = 0; i < 3; i++) {
+    //         if ((-1 * ds[i]) < 0) {
+    //             out_count++;
+    //         }
+    //     }
+    //
+    //     if (out_count > 0) {
+    //         printf("OUT: %d\n", out_count);
+    //     }
+    // }
 }
 
 auto inline render_polygon_gambetta(                                  //
@@ -536,9 +736,8 @@ auto inline render_polygon_gambetta(                                  //
 
     for (const auto& instance : instances) {
         auto clip_space_vertices = Array<vec4>::create(vertices.count(), arena);
-        auto projected_vertices = Array<vec2>::create(vertices.count(), arena);
 
-        auto clipped_vertices = List<vec4>::create(vertices.count() * 2, arena);
+        auto clipped_vertices = List<vec4>::create(vertices.count() * 4, arena);
 
         mat4 M_to_W = instance.to_mat4();
         mat4 M_to_C = M_to_W * world_to_view;
@@ -551,17 +750,31 @@ auto inline render_polygon_gambetta(                                  //
             clip_triangle(clip_space_vertices, t, clipped_vertices);
         }
 
-        for (u32 i = 0; i < vertices.count(); i++) {
-            projected_vertices[i] = project_vertex(clip_space_vertices[i]);
+        auto projected_vertices = Array<vec2>::create(clipped_vertices.count(), arena);
+        for (i32 i = 0; i < clipped_vertices.count(); i++) {
+            projected_vertices[i] = project_vertex(clipped_vertices[i]);
         }
 
-        for (u32 i = 0; i < triangles.count(); i++) {
-            const auto& t = triangles[i];
+        // for (u32 i = 0; i < vertices.count(); i++) {
+        //     projected_vertices[i] = project_vertex(clip_space_vertices[i]);
+        // }
+
+        // for (u32 i = 0; i < triangles.count(); i++) {
+        //     const auto& t = triangles[i];
+        //     render_triangle_writeframe_gambetta( //
+        //         projected_vertices[t.x],         //
+        //         projected_vertices[t.y],         //
+        //         projected_vertices[t.z],         //
+        //         colors[i], clip_rect, buffer, arena);
+        // }
+
+        Assert(projected_vertices.count() % 3 == 0);
+        for (u32 i = 0; i < projected_vertices.count(); i += 3) {
+            const vec2& a = projected_vertices[i];
+            const vec2& b = projected_vertices[i + 1];
+            const vec2& c = projected_vertices[i + 2];
             render_triangle_writeframe_gambetta( //
-                projected_vertices[t.x],         //
-                projected_vertices[t.y],         //
-                projected_vertices[t.z],         //
-                colors[i], clip_rect, buffer, arena);
+                a, b, c, colors[i % 3], clip_rect, buffer, arena);
         }
     }
     printf("--------------------\n");
