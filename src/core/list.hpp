@@ -6,6 +6,7 @@
 #include <platform/types.hpp>
 
 #include <core/memory_arena.hpp>
+#include <engine/array.hpp>
 
 #include "math/vec2.hpp"
 #include "math/vec3.hpp"
@@ -40,12 +41,20 @@ template <typename T> struct List {
         return m_data[index];
     }
 
+    auto to_array() -> Array<T> {
+        return Array<T>(m_data, m_count);
+    }
+
     auto data() const -> T* {
         return m_data;
     }
 
     auto count() const -> i32 {
         return m_count;
+    }
+
+    auto max_count() const -> i32 {
+        return m_max_count;
     }
 
     auto clear() -> void {

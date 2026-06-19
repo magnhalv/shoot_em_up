@@ -1,6 +1,7 @@
-#include "core/list.hpp"
-#include "core/memory.hpp"
 #include "math/math.hpp"
+#include <core/list.hpp>
+#include <core/memory.hpp>
+#include <core/util.hpp>
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
 
@@ -589,7 +590,198 @@ auto inline clip_triangle_against_plane(vec4 v1, vec4 v2, vec4 v3, List<vec4>& c
     }
 }
 
-auto inline clip_triangle(Array<vec4>& vertices, ivec3 indices, List<vec4>& clipped_triangles) {
+// For each plane
+//   For each triangle
+//     Add vertices and indices
+
+enum PlaneIdx : i8 {
+    PlaneIdx_X = 0,
+    PlaneIdx_Y = 1,
+    PlaneIdx_Z = 2,
+};
+
+enum PlaneDirection : i8 {
+    PlaneDirection_Forward = 1,
+    PlaneDirection_Backwards = -1,
+};
+
+auto inline clip_triangle_against_plane2(                 //
+    Array<vec4> in_vertices, Array<ivec3> in_indices,     //
+    List<vec4>& out_vertices, List<ivec3>& out_indices,   //
+    PlaneIdx plane_index, PlaneDirection plane_direction, //
+    MemoryArena& arena) {
+    Assert(plane_index >= 0 && plane_index < 4);
+    Assert(plane_direction == 1 || plane_direction == -1);
+
+    Array<i32> index_map = Array<i32>::create(in_vertices.count(), arena);
+    fill_inc(index_map);
+
+    f32 dir = (f32)plane_direction;
+    for (auto triangle_indices : in_indices) {
+        vec4 v0 = in_vertices[index_map[triangle_indices.x]];
+        vec4 v1 = in_vertices[index_map[triangle_indices.y]];
+        vec4 v2 = in_vertices[index_map[triangle_indices.z]];
+
+        const i32 Edge_Count = 3;
+        f32 ds[3] = {
+            v0.v[plane_index] + (dir * v0.w),
+            v1.v[plane_index] + (dir * v1.w),
+            v2.v[plane_index] + (dir * v2.w),
+        };
+        vec4 v[3] = { v0, v1, v2 };
+
+        i32 out_count = 0;
+        i32 in_count = 0;
+        i32 out_idx[Edge_Count] = { -1, -1, -1 };
+        i32 in_idx[Edge_Count] = { -1, -1, -1 };
+        for (auto i = 0; i < 3; i++) {
+            if ((dir * ds[i]) < 0) {
+                out_idx[out_count++] = i;
+            }
+            else {
+                in_idx[in_count++] = i;
+            }
+        }
+
+        if (out_count == 0) {
+            // TODO: We create more vertexes than neccessary here.
+            i32 start_idx = out_vertices.count();
+            ivec3 indices = { start_idx, start_idx + 1, start_idx + 2 };
+            out_indices.push(indices);
+            out_vertices.push(v0);
+            out_vertices.push(v1);
+            out_vertices.push(v2);
+        }
+        else if (out_count == 1) {
+            i32 a_idx = out_idx[0];
+            i32 b_idx = (a_idx + 1) % Edge_Count;
+            i32 c_idx = (a_idx + 2) % Edge_Count;
+            vec4 a = v[a_idx];
+            vec4 b = v[b_idx];
+            vec4 c = v[c_idx];
+
+            // ab
+            vec4 ab = {};
+            {
+                f32 d_a = a.v[plane_index] + (dir * a.w);
+                f32 d_b = b.v[plane_index] + (dir * b.w);
+                f32 t = -(d_a) / (d_b - d_a);
+                ab = lerp(a, t, b);
+            }
+            vec4 ac = {};
+            {
+                f32 d_a = a.v[plane_index] + (dir * a.w);
+                f32 d_c = c.v[plane_index] + (dir * c.w);
+                f32 t = -(d_a) / (d_c - d_a);
+                ac = lerp(a, t, c);
+            }
+
+            i32 start_idx = out_vertices.count();
+            out_vertices.push(ab);
+            out_vertices.push(b);
+            out_vertices.push(c);
+            out_vertices.push(ac);
+
+            ivec3 ab_b_c_indices = {
+                start_idx,     //
+                start_idx + 1, //
+                start_idx + 2  //
+            };
+            ivec3 ac_ab_c_indices = {
+                start_idx + 3, //
+                start_idx + 0, //
+                start_idx + 2  //
+            };
+            // ab -> b -> c;
+            out_indices.push(ab_b_c_indices);
+            // // ac -> ab -> c;
+            out_indices.push(ac_ab_c_indices);
+        }
+        else if (out_count == 2) {
+            i32 a_idx = in_idx[0];
+            i32 b_idx = (a_idx + 1) % Edge_Count;
+            i32 c_idx = (a_idx + 2) % Edge_Count;
+
+            vec4 a = v[a_idx];
+            vec4 b = v[b_idx];
+            vec4 c = v[c_idx];
+
+            vec4 b_new;
+            // b'
+            {
+                f32 d_a = a.v[plane_index] + (dir * a.w);
+                f32 d_b = b.v[plane_index] + (dir * b.w);
+                f32 t = -(d_a) / (d_b - d_a);
+                b_new = lerp(a, t, b);
+            }
+            vec4 c_new;
+            {
+                f32 d_a = a.v[plane_index] + (dir * a.w);
+                f32 d_c = c.v[plane_index] + (dir * c.w);
+                f32 t = -(d_a) / (d_c - d_a);
+                c_new = lerp(a, t, c);
+            }
+
+            i32 start_idx = out_vertices.count();
+            out_vertices.push(a);
+            out_vertices.push(b_new);
+            out_vertices.push(c_new);
+
+            ivec3 a_bNew_cNew_indices = {
+                start_idx,     //
+                start_idx + 1, //
+                start_idx + 2  //
+            };
+            out_indices.push(a_bNew_cNew_indices);
+        }
+        else if (out_count == 3) {
+        }
+    }
+}
+
+auto inline clip_triangles_against_all_planes(          //
+    Array<vec4> in_vertices, Array<ivec3> in_indices,   //
+    List<vec4>& out_vertices, List<ivec3>& out_indices, //
+    MemoryArena& arena) {
+
+    auto temp_vertices = List<vec4>::create(out_vertices.max_count(), arena);
+    auto temp_indices = List<ivec3>::create(out_indices.max_count(), arena);
+
+    {
+        clip_triangle_against_plane2(           //
+            in_vertices, in_indices,            //
+            temp_vertices, temp_indices,        //
+            PlaneIdx_X, PlaneDirection_Forward, //
+            arena                               //
+        );
+        clip_triangle_against_plane2(                          //
+            temp_vertices.to_array(), temp_indices.to_array(), //
+            out_vertices, out_indices,                         //
+            PlaneIdx_X, PlaneDirection_Backwards,              //
+            arena                                              //
+        );
+    }
+
+    {
+        clip_triangle_against_plane2(                        //
+            out_vertices.to_array(), out_indices.to_array(), //
+            temp_vertices, temp_indices,                     //
+            PlaneIdx_Y, PlaneDirection_Forward,              //
+            arena                                            //
+        );
+        clip_triangle_against_plane2(                          //
+            temp_vertices.to_array(), temp_indices.to_array(), //
+            out_vertices, out_indices,                         //
+            PlaneIdx_Y, PlaneDirection_Backwards,              //
+            arena                                              //
+        );
+    }
+
+    temp_vertices.clear();
+    temp_indices.clear();
+}
+
+auto inline clip_triangle(Array<vec4> vertices, ivec3 indices, List<vec4>& clipped_triangles) {
     // Left plane
     const i32 Edge_Count = 3;
     i32 idx[Edge_Count] = {
@@ -725,19 +917,17 @@ auto inline clip_triangle(Array<vec4>& vertices, ivec3 indices, List<vec4>& clip
     // }
 }
 
-auto inline render_polygon_gambetta(                                  //
-    Array<vec4> vertices, Array<ivec3> triangles, Array<vec4> colors, //
-    Array<Transform> instances,                                       //
-    const mat4& world_to_view,                                        //
-    const mat4& view_to_clip,                                         //
-    Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena    //
+auto inline render_polygon_gambetta(                                //
+    Array<vec4> vertices, Array<ivec3> indices, Array<vec4> colors, //
+    Array<Transform> instances,                                     //
+    const mat4& world_to_view,                                      //
+    const mat4& view_to_clip,                                       //
+    Rectangle2i clip_rect, FrameBuffer* buffer, MemoryArena& arena  //
     ) -> void {
-    Assert(triangles.count() == colors.count());
+    Assert(indices.count() == colors.count());
 
     for (const auto& instance : instances) {
         auto clip_space_vertices = Array<vec4>::create(vertices.count(), arena);
-
-        auto clipped_vertices = List<vec4>::create(vertices.count() * 4, arena);
 
         mat4 M_to_W = instance.to_mat4();
         mat4 M_to_C = M_to_W * world_to_view;
@@ -746,9 +936,9 @@ auto inline render_polygon_gambetta(                                  //
             clip_space_vertices[i] = vertices[i] * M_to_Clip;
         }
 
-        for (auto& t : triangles) {
-            clip_triangle(clip_space_vertices, t, clipped_vertices);
-        }
+        auto clipped_vertices = List<vec4>::create(vertices.count() * 10, arena);
+        auto clipped_indices = List<ivec3>::create(indices.count() * 10, arena);
+        clip_triangles_against_all_planes(clip_space_vertices, indices, clipped_vertices, clipped_indices, arena);
 
         auto projected_vertices = Array<vec2>::create(clipped_vertices.count(), arena);
         for (i32 i = 0; i < clipped_vertices.count(); i++) {
@@ -768,14 +958,13 @@ auto inline render_polygon_gambetta(                                  //
         //         colors[i], clip_rect, buffer, arena);
         // }
 
-        Assert(projected_vertices.count() % 3 == 0);
-        for (u32 i = 0; i < projected_vertices.count(); i += 3) {
-            const vec2& a = projected_vertices[i];
-            const vec2& b = projected_vertices[i + 1];
-            const vec2& c = projected_vertices[i + 2];
+        for (i32 i = 0; i < clipped_indices.count(); i++) {
+            ivec3 index = clipped_indices[i];
+            vec2 a = projected_vertices[index.x];
+            vec2 b = projected_vertices[index.y];
+            vec2 c = projected_vertices[index.z];
             render_triangle_writeframe_gambetta( //
-                a, b, c, colors[i % 3], clip_rect, buffer, arena);
+                a, b, c, colors[i % colors.count()], clip_rect, buffer, arena);
         }
     }
-    printf("--------------------\n");
 }

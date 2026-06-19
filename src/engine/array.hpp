@@ -99,8 +99,8 @@ template <typename T> auto inline concat(Array<T>& arr1, Array<T>& arr2, MemoryA
     return result;
 }
 
-template <typename T> auto inline span(Array<T>& arr, size_t start, size_t end = -1) -> Array<T> {
-    if (end == -1) {
+template <typename T> auto inline span(Array<T>& arr, size_t start, size_t end = 0) -> Array<T> {
+    if (end == 0) {
         end = arr.count();
     }
     assert(start >= 0 && (start < end || (end == 0 && start == 0)));

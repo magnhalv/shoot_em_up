@@ -2,6 +2,7 @@
 
 #include <platform/types.hpp>
 
+#include "engine/array.hpp"
 #include "macros.hpp"
 
 #define DeferLoop_(begin, end, n) for (int CONCAT(_i_, n) = ((begin), 0); !CONCAT(_i_, n); CONCAT(_i_, n) += 1, (end))
@@ -33,4 +34,10 @@ auto inline count_digits(i32 n) -> i32 {
     }
 
     return count;
+}
+
+auto inline fill_inc(Array<i32>& arr, i32 start = 0) {
+    for (size_t i = 0; i < arr.count(); i++) {
+        arr[i] = start + (i32)i;
+    }
 }
