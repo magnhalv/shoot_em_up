@@ -5,11 +5,10 @@
 
 /// @brief: Normalized color to u32
 auto inline pack_color_8x4(vec4 color) -> u32 {
-    u32 c = 
-        (round_f32_to_i32(color.a * 255.0f) << 24)  //
-        | (round_f32_to_i32(color.r * 255.0f) << 16) //
-        | (round_f32_to_i32(color.g * 255.0f) << 8)  //
-        | (round_f32_to_i32(color.b * 255.0f)); //
+    u32 c = (round_f32_to_i32(color.a * 255.0f) << 24) //
+        | (round_f32_to_i32(color.r * 255.0f) << 16)   //
+        | (round_f32_to_i32(color.g * 255.0f) << 8)    //
+        | (round_f32_to_i32(color.b * 255.0f));        //
 
     return c;
 }
@@ -94,7 +93,6 @@ inline vec4 srgb_to_linear1(vec4 color) {
     return result;
 }
 
-
 inline auto unpack4x8_srgb255_to_linear1(u32 packed) -> vec4 {
     u8 r = (packed >> 16) & 0xFF;
     u8 g = (packed >> 8) & 0xFF;
@@ -124,3 +122,46 @@ inline auto linear1_to_packed8x4_srgb255(vec4 color) -> u32 {
 
     return result;
 }
+
+global_variable const i32 Global_Color_Palette_Count = 32;
+global_variable vec4 global_color_palette[Global_Color_Palette_Count] = {
+    vec4(0.902f, 0.098f, 0.294f, 1.0f), // vivid red
+    vec4(0.235f, 0.706f, 0.294f, 1.0f), // green
+    vec4(1.000f, 0.882f, 0.098f, 1.0f), // yellow
+    vec4(0.000f, 0.510f, 0.784f, 1.0f), // blue
+    vec4(0.961f, 0.510f, 0.188f, 1.0f), // orange
+    vec4(0.569f, 0.118f, 0.706f, 1.0f), // purple
+    vec4(0.275f, 0.941f, 0.941f, 1.0f), // cyan
+    vec4(0.941f, 0.196f, 0.902f, 1.0f), // magenta
+    vec4(0.824f, 0.961f, 0.235f, 1.0f), // lime
+    vec4(0.980f, 0.745f, 0.831f, 1.0f), // pink
+    vec4(0.000f, 0.502f, 0.502f, 1.0f), // teal
+    vec4(0.863f, 0.745f, 1.000f, 1.0f), // lavender
+    vec4(0.667f, 0.431f, 0.157f, 1.0f), // brown
+    vec4(1.000f, 0.980f, 0.784f, 1.0f), // beige
+    vec4(0.502f, 0.000f, 0.000f, 1.0f), // maroon
+    vec4(0.667f, 1.000f, 0.765f, 1.0f), // mint
+
+    vec4(0.502f, 0.502f, 0.000f, 1.0f), // olive
+    vec4(1.000f, 0.843f, 0.706f, 1.0f), // apricot
+    vec4(0.000f, 0.000f, 0.502f, 1.0f), // navy
+    vec4(1.000f, 0.882f, 0.706f, 1.0f), // peach
+    vec4(0.000f, 1.000f, 0.000f, 1.0f), // bright green
+    vec4(1.000f, 0.627f, 0.478f, 1.0f), // salmon
+    vec4(0.000f, 1.000f, 1.000f, 1.0f), // aqua
+    vec4(0.729f, 0.333f, 0.827f, 1.0f), // medium purple
+    vec4(1.000f, 0.388f, 0.278f, 1.0f), // tomato
+    vec4(0.604f, 0.804f, 0.196f, 1.0f), // yellow green
+    vec4(0.282f, 0.239f, 0.545f, 1.0f), // slate blue
+    vec4(1.000f, 0.549f, 0.000f, 1.0f), // dark orange
+    vec4(0.251f, 0.878f, 0.816f, 1.0f), // turquoise
+    vec4(0.780f, 0.082f, 0.522f, 1.0f), // medium violet red
+    vec4(0.529f, 0.808f, 0.922f, 1.0f), // sky blue
+    vec4(1.000f, 1.000f, 1.000f, 1.0f), // white
+};
+global_variable const vec4 RED = vec4(1.0, 0.0, 0.0, 1.0);
+global_variable const vec4 GREEN = vec4(0.0, 1.0, 0.0, 1.0);
+global_variable const vec4 BLUE = vec4(0.0, 0.0, 1.0, 1.0);
+global_variable const vec4 YELLOW = vec4(1.0, 1.0, 0.0, 1.0);
+global_variable const vec4 PURPLE = vec4(0.5, 0.0, 0.5, 1.0);
+global_variable const vec4 CYAN = vec4(0.0, 1.0, 1.0, 1.0);

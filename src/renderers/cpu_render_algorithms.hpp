@@ -13,6 +13,8 @@
 #include <math/vec2.hpp>
 #include <math/vec4.hpp>
 
+#include "engine/engine.hpp"
+
 struct FrameBuffer {
     void* memory;
     i32 memory_size;
@@ -598,6 +600,7 @@ enum PlaneIdx : i8 {
     PlaneIdx_X = 0,
     PlaneIdx_Y = 1,
     PlaneIdx_Z = 2,
+    PlaneIdx_Count = 3,
 };
 
 enum PlaneDirection : i8 {
@@ -610,7 +613,7 @@ auto inline clip_triangle_against_plane2(                 //
     List<vec4>& out_vertices, List<ivec3>& out_indices,   //
     PlaneIdx plane_index, PlaneDirection plane_direction, //
     MemoryArena& arena) {
-    Assert(plane_index >= 0 && plane_index < 4);
+    Assert(plane_index >= 0 && plane_index < PlaneIdx_Count);
     Assert(plane_direction == 1 || plane_direction == -1);
 
     Array<i32> index_map = Array<i32>::create(in_vertices.count(), arena);
@@ -754,6 +757,8 @@ auto inline clip_triangles_against_all_planes(          //
             PlaneIdx_X, PlaneDirection_Forward, //
             arena                               //
         );
+        out_vertices.clear();
+        out_indices.clear();
         clip_triangle_against_plane2(                          //
             temp_vertices.to_array(), temp_indices.to_array(), //
             out_vertices, out_indices,                         //
@@ -763,12 +768,17 @@ auto inline clip_triangles_against_all_planes(          //
     }
 
     {
+
+        temp_vertices.clear();
+        temp_indices.clear();
         clip_triangle_against_plane2(                        //
             out_vertices.to_array(), out_indices.to_array(), //
             temp_vertices, temp_indices,                     //
             PlaneIdx_Y, PlaneDirection_Forward,              //
             arena                                            //
         );
+        out_vertices.clear();
+        out_indices.clear();
         clip_triangle_against_plane2(                          //
             temp_vertices.to_array(), temp_indices.to_array(), //
             out_vertices, out_indices,                         //
@@ -964,7 +974,7 @@ auto inline render_polygon_gambetta(                                //
             vec2 b = projected_vertices[index.y];
             vec2 c = projected_vertices[index.z];
             render_triangle_writeframe_gambetta( //
-                a, b, c, colors[i % colors.count()], clip_rect, buffer, arena);
+                a, b, c, global_color_palette[i % Global_Color_Palette_Count], clip_rect, buffer, arena);
         }
     }
 }

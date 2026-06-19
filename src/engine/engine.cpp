@@ -13,6 +13,7 @@
 #include <math/vec2.hpp>
 #include <math/vec3.hpp>
 
+#include <core/color.hpp>
 #include <core/hash.hpp>
 #include <core/logger.hpp>
 
@@ -553,7 +554,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             const vec3 up(0.0f, 1.0f, 0.0f);
             mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
             mesh->instances[0].position = vec3(-1.5, 0, 2.0f);
-            //mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
+            // mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
             mesh->instances[0].rotation = angle_axis(0, up);
 
             mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);

@@ -733,42 +733,6 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
     }
 }
 
-global_variable vec4 global_color_palette[32] = {
-    vec4(0.902f, 0.098f, 0.294f, 1.0f), // vivid red
-    vec4(0.235f, 0.706f, 0.294f, 1.0f), // green
-    vec4(1.000f, 0.882f, 0.098f, 1.0f), // yellow
-    vec4(0.000f, 0.510f, 0.784f, 1.0f), // blue
-    vec4(0.961f, 0.510f, 0.188f, 1.0f), // orange
-    vec4(0.569f, 0.118f, 0.706f, 1.0f), // purple
-    vec4(0.275f, 0.941f, 0.941f, 1.0f), // cyan
-    vec4(0.941f, 0.196f, 0.902f, 1.0f), // magenta
-    vec4(0.824f, 0.961f, 0.235f, 1.0f), // lime
-    vec4(0.980f, 0.745f, 0.831f, 1.0f), // pink
-    vec4(0.000f, 0.502f, 0.502f, 1.0f), // teal
-    vec4(0.863f, 0.745f, 1.000f, 1.0f), // lavender
-    vec4(0.667f, 0.431f, 0.157f, 1.0f), // brown
-    vec4(1.000f, 0.980f, 0.784f, 1.0f), // beige
-    vec4(0.502f, 0.000f, 0.000f, 1.0f), // maroon
-    vec4(0.667f, 1.000f, 0.765f, 1.0f), // mint
-
-    vec4(0.502f, 0.502f, 0.000f, 1.0f), // olive
-    vec4(1.000f, 0.843f, 0.706f, 1.0f), // apricot
-    vec4(0.000f, 0.000f, 0.502f, 1.0f), // navy
-    vec4(1.000f, 0.882f, 0.706f, 1.0f), // peach
-    vec4(0.000f, 1.000f, 0.000f, 1.0f), // bright green
-    vec4(1.000f, 0.627f, 0.478f, 1.0f), // salmon
-    vec4(0.000f, 1.000f, 1.000f, 1.0f), // aqua
-    vec4(0.729f, 0.333f, 0.827f, 1.0f), // medium purple
-    vec4(1.000f, 0.388f, 0.278f, 1.0f), // tomato
-    vec4(0.604f, 0.804f, 0.196f, 1.0f), // yellow green
-    vec4(0.282f, 0.239f, 0.545f, 1.0f), // slate blue
-    vec4(1.000f, 0.549f, 0.000f, 1.0f), // dark orange
-    vec4(0.251f, 0.878f, 0.816f, 1.0f), // turquoise
-    vec4(0.780f, 0.082f, 0.522f, 1.0f), // medium violet red
-    vec4(0.529f, 0.808f, 0.922f, 1.0f), // sky blue
-    vec4(1.000f, 1.000f, 1.000f, 1.0f), // white
-};
-
 auto execute_render_commands(i32 job_id, RenderCommands* commands, i32* command_render_order, Rectangle2i clip_rect,
     MemoryArena& transient) -> void {
     for (i32 i = 0; i < commands->sort_keys.count(); i++) {
