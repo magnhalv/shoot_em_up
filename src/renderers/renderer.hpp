@@ -32,16 +32,17 @@ struct RenderEntityBasis {
     vec2 offset;
 };
 
-enum RenderGroupEntryType {                   //
-    RenderCommands_RenderEntryClear,          //
-    RenderCommands_RenderEntryBitmap,         //
-    RenderCommands_RenderEntryLine,           //
-    RenderCommands_RenderEntryCircle,         //
-    RenderCommands_RenderEntryFilledCircle,   //
-    RenderCommands_RenderEntryTriangle,       //
-    RenderCommands_RenderEntryFilledTriangle, //
-    RenderCommands_RenderEntryShadedTriangle, //
-    RenderCommands_RenderEntryTriMesh         //
+enum RenderGroupEntryType {                      //
+    RenderCommands_RenderEntryClear,             //
+    RenderCommands_RenderEntryClearCheckPattern, //
+    RenderCommands_RenderEntryBitmap,            //
+    RenderCommands_RenderEntryLine,              //
+    RenderCommands_RenderEntryCircle,            //
+    RenderCommands_RenderEntryFilledCircle,      //
+    RenderCommands_RenderEntryTriangle,          //
+    RenderCommands_RenderEntryFilledTriangle,    //
+    RenderCommands_RenderEntryShadedTriangle,    //
+    RenderCommands_RenderEntryTriMesh            //
 };
 
 struct RenderGroupEntryHeader {
@@ -50,6 +51,11 @@ struct RenderGroupEntryHeader {
 
 struct RenderEntryClear {
     vec4 color; // r,g,b,a
+};
+
+struct RenderEntryClearCheckPattern {
+    vec4 color1; // r,g,b,a
+    vec4 color2; // r,g,b,a
 };
 
 struct RenderEntryQuadrilateral {
@@ -152,10 +158,11 @@ struct RenderEntryPolygonInstances {
     Array<vec4> colors;
 };
 
-struct RenderCommands {
-    f32 meters_to_pixels;
-    i32 screen_width;
-    i32 screen_height;
+struct RenderGroup {
+    i32 offset_x;
+    i32 offset_y;
+    i32 width;
+    i32 height;
 
     List<u64> sort_entries_offset;
     List<i32> sort_keys;
@@ -165,9 +172,46 @@ struct RenderCommands {
     u8* push_buffer;
 };
 
+// INTERNAL
+struct FrameBuffer {
+    void* memory;
+    i32 memory_size;
+    i32 width;
+    i32 height;
+    i32 bytes_per_pixel;
+    i32 pitch;
+
+    auto inline set_pixel(i32 x, i32 y, u32 color) -> void {
+        Assert(x >= 0 && x < width);
+        Assert(y >= 0 && y < height);
+        Assert(sizeof(color) == sizeof(u32));
+        u32* dest = (u32*)((u8*)memory + (y * pitch) + (x * bytes_per_pixel));
+        *dest = color;
+    }
+
+    auto inline get_pixel(i32 x, i32 y) -> u32* {
+        Assert(x >= 0 && x < width);
+        Assert(y >= 0 && y < height);
+        return (u32*)((u8*)memory + (y * pitch) + (x * bytes_per_pixel));
+    }
+};
+
+auto inline framebuffer_init(i32 width, i32 height, MemoryArena& arena) -> FrameBuffer {
+    FrameBuffer buffer;
+    buffer.width = width;
+    buffer.height = height;
+    buffer.bytes_per_pixel = BYTES_PER_PIXEL;
+    buffer.memory_size = buffer.bytes_per_pixel * (buffer.width * buffer.height);
+    buffer.memory = (void*)allocate<u8>(arena, buffer.memory_size);
+    buffer.pitch = buffer.width * buffer.bytes_per_pixel;
+    return buffer;
+}
+
+// INTERNAL END
+
 #define PushRenderElement(group, type, sort_key) \
     (type*)push_render_element_(group, sizeof(type), RenderCommands_##type, sort_key)
-auto inline push_render_element_(RenderCommands* render_group, u32 size, RenderGroupEntryType type, i32 sort_key) {
+auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type, i32 sort_key) {
     void* result = 0;
 
     size += sizeof(RenderGroupEntryHeader);
@@ -198,7 +242,7 @@ typedef RENDERER_INIT(renderer_init_fn);
 #define RENDERER_ADD_TEXTURE(name) bool name(i32 texture_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 
-#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, RenderCommands* commands)
+#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, RenderGroup* group)
 typedef RENDERER_RENDER(renderer_render_fn);
 
 #define RENDERER_BEGIN_FRAME(name) void name(void* context)
