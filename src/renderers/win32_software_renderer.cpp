@@ -190,7 +190,7 @@ static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i c
     //     clip_rect,                //
     //     color.r, color.g, color.b //
     // );
-    draw_chess_map(state.frame_buffer, clip_rect);
+    draw_chess_map(buffer, clip_rect);
 }
 
 static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
@@ -738,7 +738,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
     Rectangle2i clip_rect,                                   //
     MemoryArena& transient) -> void {
 
-    FrameBuffer buffer = framebuffer_init(group->width, group->height, transient);
+    FrameBuffer framebuffer = framebuffer_init(group->dim.x / group->pixel_size.x, group->dim.y / group->pixel_size.y, transient);
 
     for (i32 i = 0; i < group->sort_keys.count(); i++) {
         u64 base_address = group->sort_entries_offset[command_render_order[i]];
@@ -749,38 +749,38 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         switch (header->type) {
         case RenderCommands_RenderEntryClear: {
             RenderEntryClear* entry = (RenderEntryClear*)data;
-            clear(group->width, group->height, entry->color, clip_rect, buffer);
+            clear(framebuffer.width, framebuffer.height, entry->color, clip_rect, framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryLine: {
             RenderEntryLine* entry = (RenderEntryLine*)data;
-            render_line_gambetta(entry->start, entry->end, entry->color, clip_rect, buffer, transient);
+            render_line_gambetta(entry->start, entry->end, entry->color, clip_rect, framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryCircle: {
             auto entry = (RenderEntryCircle*)data;
-            render_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, buffer);
+            render_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledCircle: {
             auto entry = (RenderEntryFilledCircle*)data;
-            render_filled_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, buffer);
+            render_filled_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriangle: {
             auto entry = (RenderEntryTriangle*)data;
-            render_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, buffer, transient);
+            render_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledTriangle: {
             auto entry = (RenderEntryFilledTriangle*)data;
-            render_filled_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, buffer, transient);
+            render_filled_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryShadedTriangle: {
             auto entry = (RenderEntryShadedTriangle*)data;
             render_shaded_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->h0, entry->h1, entry->h2,
-                entry->color, clip_rect, buffer, transient);
+                entry->color, clip_rect, framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriMesh: {
@@ -790,27 +790,53 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
                 entry->instances,                                                   //
                 entry->world_to_view,                                               //
                 entry->view_to_clip,                                                //
-                clip_rect, buffer, transient);
+                clip_rect, framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(entry->quad, entry->offset,              //
-                entry->scale, entry->rotation, entry->color,     //
-                entry->texture_id, entry->uv_min, entry->uv_max, //
-                group->width, group->height, &clip_rect,         //
-                entry->border_thickness, entry->border_color     //
+            draw_bitmap(entry->quad, entry->offset,                //
+                entry->scale, entry->rotation, entry->color,       //
+                entry->texture_id, entry->uv_min, entry->uv_max,   //
+                framebuffer.width, framebuffer.height, &clip_rect, //
+                entry->border_thickness, entry->border_color       //
             );
             base_address += sizeof(*entry);
         } break;
         default: InvalidCodePath;
         }
     }
+
+    {
+        OffscreenBuffer global_buffer = state.global_offscreen_buffer;
+        Assert(global_buffer.bytes_per_pixel == framebuffer.bytes_per_pixel);
+        u32 pixel_size_x = group->pixel_size.x;
+        u32 pixel_size_y = group->pixel_size.y;
+
+        i32 start_x = group->offset.x;
+        i32 start_y = group->offset.y;
+        i32 end_x = start_x + group->dim.x;
+        i32 end_y = start_y + group->dim.y;
+
+        Assert(end_x < global_buffer.width);
+        Assert(end_y < global_buffer.height);
+
+        for (i32 y = start_y; y < end_y; y++) {
+            u32* dest = (u32*)global_buffer.memory + (y * global_buffer.width);
+
+            u32 frame_buffer_y = y / pixel_size_y;
+            u32* src = (u32*)framebuffer.memory + (frame_buffer_y * framebuffer.width);
+            for (i32 x = start_x; x < end_x; x++) {
+                u32 frame_buffer_x = x / pixel_size_x;
+                *dest++ = *(src + frame_buffer_x);
+            }
+        }
+    }
 }
 
 struct RenderTileJob {
     i32 id;
-    RenderGroup* commands;
+    RenderGroup* group;
     i32* command_render_order;
     Rectangle2i clip_rect;
 };
@@ -819,21 +845,23 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
     RenderTileJob* job = (RenderTileJob*)data;
 
     Assert(job);
-    Assert(job->commands);
+    Assert(job->group);
     BEGIN_BLOCK("Execute render commands");
 
-    execute_render_commands(job->id, job->commands, job->command_render_order, job->clip_rect, *transient);
+    execute_render_commands(job->id, job->group, job->command_render_order, job->clip_rect, *transient);
     END_BLOCK();
-    MemoryBarrier();
+    MemoryBarrier(); // TODO: remove?
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
-    i32 const tile_count_x = 4;
-    i32 const tile_count_y = 4;
+    i32 const tile_count_x = 1;
+    i32 const tile_count_y = 1;
 
-    i32 tile_width = group->width / tile_count_x;
-    i32 tile_height = group->height / tile_count_y;
+    i32 width = group->dim.x / group->pixel_size.x;
+    i32 height = group->dim.y / group->pixel_size.y;
+    i32 tile_width = width / tile_count_x;
+    i32 tile_height = height / tile_count_y;
 
     const i32 sse_width = 8;
     tile_width = ((tile_width + (sse_width - 1)) / sse_width) * sse_width;
@@ -848,21 +876,21 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
             RenderTileJob* job = render_tile_jobs + job_count++;
 
             Rectangle2i rect = {};
-            rect.min_x = (x * tile_width) + group->offset_x;
+            rect.min_x = (x * tile_width);
             rect.max_x = rect.min_x + tile_width;
             if (x == tile_count_x - 1) {
-                rect.max_x = group->width + group->offset_x;
+                rect.max_x = width;
             }
 
-            rect.min_y = (y * tile_height) + group->offset_y;
+            rect.min_y = (y * tile_height) + group->offset.y;
             rect.max_y = rect.min_y + tile_height;
             if (y == tile_count_y - 1) {
-                rect.max_y = group->height + group->offset_y;
+                rect.max_y = height;
             }
 
             job->id = job_count;
             job->clip_rect = rect;
-            job->commands = group;
+            job->group = group;
             job->command_render_order = command_render_order;
 
             Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
@@ -883,18 +911,18 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     i32 width = state.global_offscreen_buffer.width;
     i32 height = state.global_offscreen_buffer.height;
 
-    Assert(state.global_offscreen_buffer.bytes_per_pixel == state.frame_buffer.bytes_per_pixel);
-    u32 scale = state.global_offscreen_buffer.width / state.frame_buffer.width;
-    for (i32 y = 0; y < state.global_offscreen_buffer.height; y++) {
-        u32* dest = (u32*)state.global_offscreen_buffer.memory + (y * state.global_offscreen_buffer.width);
-
-        u32 frame_buffer_y = y / scale;
-        u32* src = (u32*)state.frame_buffer.memory + (frame_buffer_y * state.frame_buffer.width);
-        for (i32 x = 0; x < state.global_offscreen_buffer.width; x++) {
-            u32 frame_buffer_x = x / scale;
-            *dest++ = *(src + frame_buffer_x);
-        }
-    }
+    // Assert(state.global_offscreen_buffer.bytes_per_pixel == state.frame_buffer.bytes_per_pixel);
+    // u32 scale = state.global_offscreen_buffer.width / state.frame_buffer.width;
+    // for (i32 y = 0; y < state.global_offscreen_buffer.height; y++) {
+    //     u32* dest = (u32*)state.global_offscreen_buffer.memory + (y * state.global_offscreen_buffer.width);
+    //
+    //     u32 frame_buffer_y = y / scale;
+    //     u32* src = (u32*)state.frame_buffer.memory + (frame_buffer_y * state.frame_buffer.width);
+    //     for (i32 x = 0; x < state.global_offscreen_buffer.width; x++) {
+    //         u32 frame_buffer_x = x / scale;
+    //         *dest++ = *(src + frame_buffer_x);
+    //     }
+    // }
     u32 result = StretchDIBits(               //
         device_context,                       //
         0, 0,                                 //

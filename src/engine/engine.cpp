@@ -381,10 +381,11 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
         group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-        group.offset_x = 50;
-        group.offset_y = 50;
-        group.width = app_input->client_width - 50;
-        group.height = app_input->client_height - 50;
+        group.offset.x = 0;
+        group.offset.y = 0;
+        group.dim.x = app_input->client_width;
+        group.dim.y = app_input->client_height;
+        group.pixel_size = { 1, 1 };
         group.sort_keys.init(g_transient, 1024);
         group.sort_entries_offset.init(g_transient, 1024);
 
@@ -575,8 +576,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
         group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-        group.width = app_input->client_width;
-        group.height = app_input->client_height;
+        group.dim = { app_input->client_width, app_input->client_height };
         group.sort_keys.init(g_transient, 1024);
         group.sort_entries_offset.init(g_transient, 1024);
 
@@ -907,11 +907,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             ui_render_group.push_buffer_size = 0;
             ui_render_group.max_push_buffer_size = MegaBytes(10);
             ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
-            ui_render_group.width = client_width;
-            ui_render_group.height = client_height;
+            ui_render_group.dim = { client_width, client_height };
+            ui_render_group.pixel_size = { 1, 1 };
             ui_render_group.sort_keys.init(g_transient, 2048);
             ui_render_group.sort_entries_offset.init(g_transient, 2048);
-            ui_render_group.height = client_height;
             UI_Generate_Render_Commands(&ui_render_group);
 
             BEGIN_BLOCK("gui_render");

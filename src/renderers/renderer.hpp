@@ -159,10 +159,9 @@ struct RenderEntryPolygonInstances {
 };
 
 struct RenderGroup {
-    i32 offset_x;
-    i32 offset_y;
-    i32 width;
-    i32 height;
+    ivec2 offset;
+    ivec2 dim;
+    ivec2 pixel_size;
 
     List<u64> sort_entries_offset;
     List<i32> sort_keys;
