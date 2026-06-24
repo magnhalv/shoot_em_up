@@ -195,7 +195,7 @@ struct FrameBuffer {
     }
 };
 
-auto inline framebuffer_init(i32 width, i32 height, MemoryArena& arena) -> FrameBuffer {
+auto inline framebuffer_create(i32 width, i32 height, MemoryArena& arena) -> FrameBuffer {
     FrameBuffer buffer;
     buffer.width = width;
     buffer.height = height;
@@ -233,6 +233,10 @@ auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGrou
 
 const i32 MaxTextureId = 1024;
 
+struct FrameBufferHandle {
+    i32 value;
+};
+
 #define RENDERER_API __cdecl
 
 #define RENDERER_INIT(name) void name(void* context, PlatformApi* platform_api, MemoryBlock* memory)
@@ -241,7 +245,13 @@ typedef RENDERER_INIT(renderer_init_fn);
 #define RENDERER_ADD_TEXTURE(name) bool name(i32 texture_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 
-#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, RenderGroup* group)
+#define RENDERER_CREATE_FRAMEBUFFER(name) FrameBufferHandle name(i32 width, i32 height, i32 bytes_per_pixel)
+typedef RENDERER_CREATE_FRAMEBUFFER(renderer_create_framebuffer_fn);
+
+#define RENDERER_APPLY_FRAMEBUFFER(name) void name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)
+typedef RENDERER_APPLY_FRAMEBUFFER(renderer_apply_framebuffer_fn);
+
+#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, RenderGroup* group, FrameBufferHandle handle)
 typedef RENDERER_RENDER(renderer_render_fn);
 
 #define RENDERER_BEGIN_FRAME(name) void name(void* context)

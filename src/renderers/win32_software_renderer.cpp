@@ -29,14 +29,9 @@ struct WindowDimension {
     i32 height;
 };
 
-struct OffscreenBuffer {
+struct Win32RenderInfo {
     BITMAPINFO Info;
-    void* memory;
-    i32 memory_size;
-    i32 width;
-    i32 height;
-    i32 bytes_per_pixel;
-    i32 pitch;
+    FrameBuffer buffer;
 };
 
 struct Win32Texture {
@@ -51,8 +46,7 @@ struct Win32Texture {
 
 // TODO: This should probably go to an arena
 struct SWRendererState {
-    OffscreenBuffer global_offscreen_buffer;
-    FrameBuffer frame_buffer;
+    Win32RenderInfo platform_render_info;
     MemoryArena permanent;
     MemoryArena transient;
 
@@ -72,30 +66,30 @@ static WindowDimension get_window_dimension(HWND window) {
     return result;
 }
 
-static void resize_dib_section(OffscreenBuffer* buffer, int width, int height) {
+static void resize_dib_section(Win32RenderInfo* info, int width, int height) {
     // TODO: Bulletproof this
     // Maybe don't free first, free after, then free first if that fails. I.e. if VirtualAlloc fails.
-    if (buffer->memory) {
-        VirtualFree(buffer->memory, 0, MEM_RELEASE);
+    if (info->buffer.memory) {
+        VirtualFree(info->buffer.memory, 0, MEM_RELEASE);
     }
 
-    buffer->width = width;
-    buffer->height = height;
+    info->buffer.width = width;
+    info->buffer.height = height;
 
-    buffer->Info.bmiHeader.biSize = sizeof(buffer->Info.bmiHeader);
-    buffer->Info.bmiHeader.biWidth = buffer->width;
-    buffer->Info.bmiHeader.biHeight = buffer->height;
-    buffer->Info.bmiHeader.biPlanes = 1;
-    buffer->Info.bmiHeader.biBitCount = BYTES_PER_PIXEL * 8;
-    buffer->Info.bmiHeader.biCompression = BI_RGB;
+    info->Info.bmiHeader.biSize = sizeof(info->Info.bmiHeader);
+    info->Info.bmiHeader.biWidth = info->buffer.width;
+    info->Info.bmiHeader.biHeight = info->buffer.height;
+    info->Info.bmiHeader.biPlanes = 1;
+    info->Info.bmiHeader.biBitCount = BYTES_PER_PIXEL * 8;
+    info->Info.bmiHeader.biCompression = BI_RGB;
 
-    buffer->bytes_per_pixel = 4;
-    buffer->memory_size = buffer->bytes_per_pixel * (buffer->width * buffer->height);
-    buffer->memory = VirtualAlloc(0, buffer->memory_size, MEM_COMMIT, PAGE_READWRITE);
-    buffer->pitch = buffer->width * buffer->bytes_per_pixel;
+    info->buffer.bytes_per_pixel = 4;
+    info->buffer.memory_size = info->buffer.bytes_per_pixel * (info->buffer.width * info->buffer.height);
+    info->buffer.memory = VirtualAlloc(0, info->buffer.memory_size, MEM_COMMIT, PAGE_READWRITE);
+    info->buffer.pitch = info->buffer.width * info->buffer.bytes_per_pixel;
 
     // Should always be 64KB aligned from virtual alloc
-    Assert(is_aligned(buffer->memory, 65536));
+    Assert(is_aligned(info->buffer.memory, 65536));
 }
 
 static void resize_frame_buffer(FrameBuffer* buffer, int width, int height) {
@@ -213,8 +207,9 @@ auto color_channel_f32_to_u8(f32 channel) {
     return result;
 }
 
-static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id, ivec2 uv_min,
-    ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, f32 border_thickness, vec4 border_color) {
+static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
+    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, f32 border_thickness,
+    vec4 border_color, FrameBuffer* buffer) {
     f32 model_width = (quad.br.x - quad.bl.x);
     f32 model_height = (quad.tr.y - quad.br.y);
 
@@ -321,7 +316,6 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
         f32 u = texel_u_row;
         f32 v = texel_v_row;
         for (int x = min_x; x < max_x; x++) {
-            FrameBuffer* buffer = &state.frame_buffer;
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
@@ -406,7 +400,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 }
 
 static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect) {
+    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, FrameBuffer* buffer) {
 
     f32 model_width = (quad.br.x - quad.bl.x);
     f32 model_height = (quad.tr.y - quad.br.y);
@@ -495,7 +489,6 @@ static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 ro
         }
         const u32 Lane_Width = 8;
         for (int x = min_x; x < max_x; x += Lane_Width) {
-            FrameBuffer* buffer = &state.frame_buffer;
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
@@ -667,10 +660,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     // TODO: We should check for need of resizing on every draw call.
 
     // resize_dib_section(&state.global_offscreen_buffer, 48, 58);
-    resize_dib_section(&state.global_offscreen_buffer, CLIENT_WIDTH, CLIENT_HEIGHT);
-    log_info(" Output resolution: %d x %d", CLIENT_WIDTH, CLIENT_HEIGHT);
-    resize_frame_buffer(&state.frame_buffer, INTERNAL_WIDTH, INTERNAL_HEIGHT);
-    log_info(" Internal resolution: %d x %d", INTERNAL_WIDTH, INTERNAL_HEIGHT);
+    resize_dib_section(&state.platform_render_info, CLIENT_WIDTH, CLIENT_HEIGHT);
+    log_info("Resolution: %d x %d", CLIENT_WIDTH, CLIENT_HEIGHT);
 
     HM_ASSERT(memory != nullptr);
     HM_ASSERT(memory->data != nullptr);
@@ -738,7 +729,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
     Rectangle2i clip_rect,                                   //
     MemoryArena& transient) -> void {
 
-    FrameBuffer framebuffer = framebuffer_init(group->dim.x / group->pixel_size.x, group->dim.y / group->pixel_size.y, transient);
+    FrameBuffer framebuffer = framebuffer_create(group->dim.x / group->pixel_size.x, group->dim.y / group->pixel_size.y, transient);
 
     for (i32 i = 0; i < group->sort_keys.count(); i++) {
         u64 base_address = group->sort_entries_offset[command_render_order[i]];
@@ -799,8 +790,8 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
                 entry->scale, entry->rotation, entry->color,       //
                 entry->texture_id, entry->uv_min, entry->uv_max,   //
                 framebuffer.width, framebuffer.height, &clip_rect, //
-                entry->border_thickness, entry->border_color       //
-            );
+                entry->border_thickness, entry->border_color,      //
+                &framebuffer);
             base_address += sizeof(*entry);
         } break;
         default: InvalidCodePath;
@@ -808,26 +799,26 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
     }
 
     {
-        OffscreenBuffer global_buffer = state.global_offscreen_buffer;
-        Assert(global_buffer.bytes_per_pixel == framebuffer.bytes_per_pixel);
+        Win32RenderInfo render_info = state.platform_render_info;
+        Assert(render_info.buffer.bytes_per_pixel == framebuffer.bytes_per_pixel);
         u32 pixel_size_x = group->pixel_size.x;
         u32 pixel_size_y = group->pixel_size.y;
 
         i32 start_x = group->offset.x;
+        i32 end_x = group->offset.x + group->dim.x;
         i32 start_y = group->offset.y;
-        i32 end_x = start_x + group->dim.x;
-        i32 end_y = start_y + group->dim.y;
+        i32 end_y = group->offset.y + group->dim.y;
 
-        Assert(end_x < global_buffer.width);
-        Assert(end_y < global_buffer.height);
+        Assert(end_x <= render_info.buffer.width);
+        Assert(end_y <= render_info.buffer.height);
 
         for (i32 y = start_y; y < end_y; y++) {
-            u32* dest = (u32*)global_buffer.memory + (y * global_buffer.width);
+            u32* dest = render_info.buffer.get_pixel(start_x, y);
 
-            u32 frame_buffer_y = y / pixel_size_y;
-            u32* src = (u32*)framebuffer.memory + (frame_buffer_y * framebuffer.width);
+            u32 frame_buffer_y = (y - start_y) / pixel_size_y;
+            u32* src = framebuffer.get_pixel(0, frame_buffer_y);
             for (i32 x = start_x; x < end_x; x++) {
-                u32 frame_buffer_x = x / pixel_size_x;
+                u32 frame_buffer_x = (x - start_x) / pixel_size_x;
                 *dest++ = *(src + frame_buffer_x);
             }
         }
@@ -882,7 +873,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
                 rect.max_x = width;
             }
 
-            rect.min_y = (y * tile_height) + group->offset.y;
+            rect.min_y = (y * tile_height);
             rect.max_y = rect.min_y + tile_height;
             if (y == tile_count_y - 1) {
                 rect.max_y = height;
@@ -908,8 +899,8 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     Win32RenderContext* win32_context = (Win32RenderContext*)context;
     HDC device_context = GetDC(win32_context->window);
 
-    i32 width = state.global_offscreen_buffer.width;
-    i32 height = state.global_offscreen_buffer.height;
+    i32 width = state.platform_render_info.buffer.width;
+    i32 height = state.platform_render_info.buffer.height;
 
     // Assert(state.global_offscreen_buffer.bytes_per_pixel == state.frame_buffer.bytes_per_pixel);
     // u32 scale = state.global_offscreen_buffer.width / state.frame_buffer.width;
@@ -923,14 +914,14 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     //         *dest++ = *(src + frame_buffer_x);
     //     }
     // }
-    u32 result = StretchDIBits(               //
-        device_context,                       //
-        0, 0,                                 //
-        width, height, 0, 0,                  //
-        width, height,                        //
-        state.global_offscreen_buffer.memory, //
-        &state.global_offscreen_buffer.Info,  //
-        DIB_RGB_COLORS, SRCCOPY               //
+    u32 result = StretchDIBits(                   //
+        device_context,                           //
+        0, 0,                                     //
+        width, height, 0, 0,                      //
+        width, height,                            //
+        state.platform_render_info.buffer.memory, //
+        &state.platform_render_info.Info,         //
+        DIB_RGB_COLORS, SRCCOPY                   //
     );
     if (result == 0 || result == GDI_ERROR) {
         log_error("StretchDIBits failed\n");

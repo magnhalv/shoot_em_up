@@ -383,9 +383,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
         group.offset.x = 0;
         group.offset.y = 0;
-        group.dim.x = app_input->client_width;
-        group.dim.y = app_input->client_height;
-        group.pixel_size = { 1, 1 };
+        group.dim.x = app_input->client_width/2;
+        group.dim.y = app_input->client_height/2;
+        group.pixel_size = { 8, 8 };
         group.sort_keys.init(g_transient, 1024);
         group.sort_entries_offset.init(g_transient, 1024);
 

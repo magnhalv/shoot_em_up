@@ -20,16 +20,16 @@ auto inline c_string_length(const char* str) -> Size {
 }
 
 struct string8 {
-    const char* data;
     Size size;
+    const char* data;
 
-    string8() : data{ nullptr }, size{ 0 } {
+    string8() : size{ 0 }, data{ nullptr } {
     }
 
-    string8(const char* s) : data{ s }, size{ c_string_length(s) } {
+    string8(const char* s) : size{ c_string_length(s) }, data{ s } {
     }
 
-    string8(const char* s, Size length) : data{ s }, size{ length } {
+    string8(const char* s, Size length) : size{ length }, data{ s } {
     }
 
     // TODO

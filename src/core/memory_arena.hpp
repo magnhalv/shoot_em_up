@@ -54,5 +54,6 @@ template <typename T> auto inline allocate(MemoryArena* arena, u64 count = 1) ->
 extern MemoryArena* g_transient; // This one is erased every frame.
 
 void set_transient_arena(MemoryArena* arena);
+auto debug_arena() -> MemoryArena;
 void clear_transient();
 void unset_transient_arena();

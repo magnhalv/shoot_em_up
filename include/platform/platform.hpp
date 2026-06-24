@@ -14,13 +14,8 @@
 
 #include <core/memory_arena.hpp>
 
-// const i32 CLIENT_WIDTH = 960;
-// const i32 CLIENT_HEIGHT = 540;
-const i32 FRAME_SCALE = 8;
-const i32 CLIENT_WIDTH = 2 * 58 * FRAME_SCALE;
-const i32 CLIENT_HEIGHT = 2 * 48 * FRAME_SCALE;
-const i32 INTERNAL_WIDTH = CLIENT_WIDTH / FRAME_SCALE;
-const i32 INTERNAL_HEIGHT = CLIENT_HEIGHT / FRAME_SCALE;
+const i32 CLIENT_WIDTH = 928;
+const i32 CLIENT_HEIGHT = 768;
 const i32 BYTES_PER_PIXEL = 4;
 
 const u32 WORKER_THREAD_COUNT = 1;
@@ -202,12 +197,12 @@ global_variable PlatformApi* Platform = nullptr;
     } break
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
-const u64 Transient_Memory_Block_Size = MegaBytes(20);
+const u64 Transient_Memory_Block_Size = MegaBytes(64);
 const u64 Debug_Memory_Block_Size = MegaBytes(20);
-const u64 Thread_Memory_Block_Size = MegaBytes(1);
+const u64 Thread_Memory_Block_Size = MegaBytes(64);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Debug_Memory_Block_Size;
 const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);
-const u64 Renderer_Transient_Memory_Size = MegaBytes(10);
+const u64 Renderer_Transient_Memory_Size = MegaBytes(64);
 const u64 Renderer_Total_Memory_Size = Renderer_Permanent_Memory_Size + Renderer_Transient_Memory_Size;
 
 inline u32 safe_truncate_u64(u64 value) {

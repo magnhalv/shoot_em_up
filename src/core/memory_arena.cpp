@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cinttypes>
+#include <cstdlib>
 #include <cstring>
 
 #include <core/logger.hpp>
@@ -7,12 +8,21 @@
 
 #include <engine/hm_assert.hpp>
 
+#include "core/util.hpp"
 #include "memory_arena.hpp"
+#include "platform/types.hpp"
 
 MemoryArena* g_transient = nullptr;
 
 internal auto is_power_of_two(u32 value) -> bool {
     return value && ((value & (value - 1)) == 0);
+}
+
+auto debug_arena() -> MemoryArena {
+    const u64 bytes = MegaBytes(1);
+    MemoryArena arena = {};
+    arena.init(calloc(sizeof(u8), bytes), bytes);
+    return arena;
 }
 
 auto MemoryArena::allocate(u64 request_size, ArenaPushParams params) -> void* {
@@ -33,7 +43,10 @@ auto MemoryArena::allocate(u64 request_size, ArenaPushParams params) -> void* {
     u64 total_size = block_size + sizeof(MemorySentinel);
 
     if (m_capacity < m_size + total_size) {
-        crash_and_burn("Failed to allocate %" PRIu64 " bytes. Only %" PRIu64 " remaining.", total_size, m_capacity - m_size);
+        MemoryArena local_debug_arena = debug_arena();
+        string8 total_size_formatted = format_bytes(total_size, local_debug_arena);
+        string8 remaning_formatted = format_bytes(m_capacity - m_size, local_debug_arena);
+        crash_and_burn("Failed to allocate %s. Only %s remaining.", total_size_formatted.data, remaning_formatted.data);
     }
 
     memset(m_memory + m_size, 0, total_size);
