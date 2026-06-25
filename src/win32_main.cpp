@@ -401,7 +401,7 @@ void win32_print_last_error() {
     size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&buffer, 0, NULL);
 
-    printf("  winapi: %s\n", buffer);
+    printf("  error: %s\n", buffer);
 
     LocalFree(buffer);
 }
@@ -603,7 +603,7 @@ bool win32_is_directory(LPCWSTR path) {
     return ftyp & FILE_ATTRIBUTE_DIRECTORY;
 }
 
-void win32_load_dll(EngineDll* functions) {
+void win32_load_engine_dll(EngineDll* functions) {
     if (functions->handle != nullptr) {
         if (!FreeLibrary(functions->handle)) {
             DWORD error = GetLastError();
@@ -701,40 +701,39 @@ struct RendererDll {
     RendererApi api;
 };
 
-void win32_load_renderer_dll(RendererDll* dll, RendererType type) {
-    if (dll->handle != nullptr) {
-        if (!FreeLibrary(dll->handle)) {
-            DWORD error = GetLastError();
-            printf("Failed to unload .dll. Error code: %lu. Exiting...\n", error);
-            exit(1);
-        }
-        *dll = { 0 };
-    }
+struct win32_loaded_dll {
+    LPCWSTR filename;
+    LPCWSTR pdb_filename;
+    LPCWSTR path;
+    LPCWSTR copy_path;
+    LPCWSTR pdb_path;
 
-    LPCWSTR renderer_dll_path = nullptr;
-    LPCWSTR renderer_dll_copy_path = nullptr;
-    LPCWSTR renderer_pdb_path = nullptr;
+    i32 function_count;
+    const char** function_names;
+    void** functions;
 
-    if (type == RendererType_Software) {
-        renderer_dll_path = SoftwareRendererDllPath;
-        renderer_dll_copy_path = SoftwareRendererDllCopyPath;
-        renderer_pdb_path = SoftwareRendererPdbPath;
-    }
-    else if (type == RendererType_OpenGL) {
-        renderer_dll_path = OpenGlRendererDllPath;
-        renderer_dll_copy_path = OpenGlRendererDllCopyPath;
-        renderer_pdb_path = OpenGlRendererPdbPath;
-    }
-    else {
-        InvalidCodePath;
-    }
+    HMODULE handle;
+    bool is_valid;
+    FILETIME last_loaded_dll_write_time = { 0, 0 };
+};
 
-    if (!win32_is_directory(renderer_dll_copy_path)) {
-        if (!CreateDirectoryW(renderer_dll_copy_path, nullptr)) {
-            DWORD error = GetLastError();
-            wprintf(L"[ERROR] Failed to create directory %ls.\n", renderer_dll_copy_path);
+auto win32_unload_dll(win32_loaded_dll* dll) {
+    dll->is_valid = false;
+    if (dll->handle) {
+        FreeLibrary(dll->handle);
+        dll->handle = 0;
+    }
+}
+
+void win32_load_dll(win32_loaded_dll* dll) {
+    win32_unload_dll(dll);
+
+    if (!win32_is_directory(dll->copy_path)) {
+        if (!CreateDirectoryW(dll->copy_path, nullptr)) {
+            wprintf(L"[ERROR] Failed to create directory %ls.\n", dll->copy_path);
             win32_print_last_error();
-            exit(1);
+            win32_unload_dll(dll);
+            return;
         }
     }
 
@@ -745,83 +744,53 @@ void win32_load_renderer_dll(RendererDll* dll, RendererType type) {
         curr_time.wHour, curr_time.wMinute, curr_time.wSecond);
 
     wchar_t dir_path[128];
-    swprintf(dir_path, 128, L"%ls%ls", renderer_dll_copy_path, timestamp);
+    swprintf(dir_path, 128, L"%ls%ls", dll->copy_path, timestamp);
 
     if (!CreateDirectoryW(dir_path, nullptr)) {
-        wprintf(L"[ERROR] Failed to create directory %ls.\n", dir_path);
+        wprintf(L"[ERROR] Failed to create directory %ls:\n", dir_path);
         win32_print_last_error();
-        exit(1);
+        win32_unload_dll(dll);
+        return;
     }
 
     wchar_t dll_to_load_path[128];
-    swprintf(dll_to_load_path, 128, L"%ls\\%ls", dir_path, L"opengl_renderer.dll");
-    while (!CopyFileW(renderer_dll_path, dll_to_load_path, FALSE)) {
+    swprintf(dll_to_load_path, 128, L"%ls\\%ls", dir_path, dll->filename);
+    if (!CopyFileW(dll->path, dll_to_load_path, FALSE)) {
         DWORD error = GetLastError();
-        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", renderer_dll_path, dll_to_load_path, error);
-        exit(1);
+        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", dll->path, dll_to_load_path, error);
+        win32_unload_dll(dll);
+        return;
     }
 
     wchar_t pdb_to_load_path[128];
-    swprintf(pdb_to_load_path, 128, L"%ls\\%ls", dir_path, L"opengl_renderer.pdb");
-    if (!CopyFileW(renderer_pdb_path, pdb_to_load_path, FALSE)) {
+    swprintf(pdb_to_load_path, 128, L"%ls\\%ls", dir_path, dll->pdb_filename);
+    if (!CopyFileW(dll->pdb_path, pdb_to_load_path, FALSE)) {
         DWORD error = GetLastError();
-        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", renderer_pdb_path, pdb_to_load_path, error);
-        dll->is_valid = false;
+        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", dll->pdb_path, pdb_to_load_path, error);
+        win32_unload_dll(dll);
+        return;
     }
 
     dll->handle = LoadLibraryW(dll_to_load_path);
-    if (dll->handle == nullptr) {
-        DWORD error = GetLastError();
-        wprintf(L"Unable to load %ls. Error: %lu\n", dll_to_load_path, error);
-        dll->is_valid = false;
+    if (dll->handle) {
+        dll->is_valid = true;
+        for (i32 i = 0; i < dll->function_count; i++) {
+            void* function = (void*)GetProcAddress(dll->handle, dll->function_names[i]);
+            if (function) {
+                dll->functions[i] = function;
+            }
+            else {
+                printf("Unable to load '%s' function from %ls\n", dll->function_names[i], dll->filename);
+                win32_unload_dll(dll);
+                return;
+            }
+        }
     }
     else {
-        dll->api.init = (renderer_init_fn*)GetProcAddress(dll->handle, "win32_renderer_init");
-        if (dll->api.init == nullptr) {
-            dll->is_valid = false;
-            printf("Unable to load 'win32_render_init' function in opengl_renderer.dll\n");
-            FreeLibrary(dll->handle);
-        }
-
-        dll->api.add_texture = (renderer_add_texture_fn*)GetProcAddress(dll->handle, "win32_renderer_add_texture");
-        if (dll->api.add_texture == nullptr) {
-            dll->is_valid = false;
-            printf("Unable to load 'win32_renderer_add_texture' function in opengl_renderer.dll\n");
-            FreeLibrary(dll->handle);
-        }
-
-        dll->api.render = (renderer_render_fn*)GetProcAddress(dll->handle, "win32_renderer_render");
-        if (dll->api.render == nullptr) {
-            dll->is_valid = false;
-            printf("Unable to load 'win32_renderer_render' function in opengl_renderer.dll\n");
-            FreeLibrary(dll->handle);
-        }
-
-        dll->api.begin_frame = (renderer_begin_frame_fn*)GetProcAddress(dll->handle, "win32_renderer_begin_frame");
-        if (dll->api.begin_frame == nullptr) {
-            dll->is_valid = false;
-            printf("Unable to load 'win32_renderer_begin_frame' function in opengl_renderer.dll\n");
-            FreeLibrary(dll->handle);
-        }
-
-        dll->api.end_frame = (renderer_end_frame_fn*)GetProcAddress(dll->handle, "win32_renderer_end_frame");
-        if (dll->api.end_frame == nullptr) {
-            dll->is_valid = false;
-            printf("Unable to load 'win32_renderer_end_frame' function in opengl_renderer.dll\n");
-            FreeLibrary(dll->handle);
-        }
-
-        dll->api.delete_context = (renderer_delete_context_fn*)GetProcAddress(dll->handle, "win32_renderer_delete_context");
-        if (dll->api.delete_context == nullptr) {
-            dll->is_valid = false;
-            printf("Unable to load 'win32_renderer_delete_context' function in opengl_renderer.dll\n");
-            FreeLibrary(dll->handle);
-        }
-    }
-
-    WIN32_FILE_ATTRIBUTE_DATA file_info;
-    if (GetFileAttributesExW(renderer_dll_path, GetFileExInfoStandard, &file_info)) {
-        dll->last_loaded_dll_write_time = file_info.ftLastWriteTime;
+        DWORD error = GetLastError();
+        wprintf(L"Unable to load %ls. Error: %lu\n", dll_to_load_path, error);
+        win32_unload_dll(dll);
+        return;
     }
     dll->is_valid = true;
 }
@@ -1324,6 +1293,7 @@ DebugTable* global_debug_table = &debug_table_;
 #endif
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) {
+    printf("WINAPI WinMain\n");
     initialize_core_lib();
 
     win32_check_ticks_frequency();
@@ -1419,12 +1389,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 #endif
 
     // INIT RENDERER //
-    RendererDll renderer_dll = {};
-    RendererType renderer_type = RendererType_Software;
-    win32_load_renderer_dll(&renderer_dll, renderer_type);
+    RendererApi renderer_api = {};
+    win32_loaded_dll renderer_dll = {};
+    renderer_dll.filename = LR"(win32_software_renderer.dll)";
+    renderer_dll.path = SoftwareRendererDllPath;
+    renderer_dll.pdb_path = SoftwareRendererPdbPath;
+    renderer_dll.copy_path = SoftwareRendererDllCopyPath;
+    renderer_dll.function_names = win32_renderer_exports;
+    renderer_dll.function_count = ArrayCount(win32_renderer_exports);
+    renderer_dll.functions = (void**)&renderer_api;
+    win32_load_dll(&renderer_dll);
+
     Win32RenderContext render_context = {};
     render_context.window = window;
-    renderer_dll.api.init(&render_context, &platform, &renderer_memory);
+
+    if (renderer_dll.is_valid) {
+        renderer_api.init(&render_context, &platform, &renderer_memory);
+    }
 
     Audio audio = {};
     win32_init_audio(audio);
@@ -1434,7 +1415,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     Recording recording = {};
     Playback playback = {};
 
-    win32_load_dll(&engine_dll);
+    win32_load_engine_dll(&engine_dll);
     engine_dll.load(&platform, &engine_memory);
 
     const f32 target_fps = 60;
@@ -1486,7 +1467,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
             if (win32_should_reload_dll(&engine_dll)) {
                 printf("Hot reloading dll...\n");
-                win32_load_dll(&engine_dll);
+                win32_load_engine_dll(&engine_dll);
                 engine_dll.load(&platform, &engine_memory);
             }
 
@@ -1498,7 +1479,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                 global_is_reloading_renderer = true;
 
                 ZeroSize(Renderer_Total_Memory_Size, renderer_memory.data);
-                renderer_type = renderer_type == RendererType_Software ? RendererType_OpenGL : RendererType_Software;
+                // renderer_type = renderer_type == RendererType_Software ? RendererType_OpenGL : RendererType_Software;
 
                 // NOTE: We destroy and recreate he window, since OpenGL will
                 // permanently set the pixel format of the window to a software incompatible format.
@@ -1508,8 +1489,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                 UpdateWindow(window);
 
                 render_context.window = window;
-                win32_load_renderer_dll(&renderer_dll, renderer_type);
-                renderer_dll.api.init(&render_context, &platform, &renderer_memory);
+                win32_unload_dll(&renderer_dll);
+                win32_load_dll(&renderer_dll);
+                if (renderer_dll.is_valid) {
+                    renderer_api.init(&render_context, &platform, &renderer_memory);
+                }
 
                 global_is_reloading_renderer = false;
             }
@@ -1573,14 +1557,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         }
 
         if (!is_freeze_mode) {
-            renderer_dll.api.begin_frame(&render_context);
+            renderer_api.begin_frame(&render_context);
 
             RECT client_rect;
             GetClientRect(window, &client_rect);
             engine_input.client_width = CLIENT_WIDTH;
             engine_input.client_height = CLIENT_HEIGHT;
 
-            engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_dll.api);
+            engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_api);
 
             if (audio.is_initialized) {
                 // BEGIN_BLOCK("audio");
@@ -1601,7 +1585,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
             {
                 TIMED_BLOCK("rendere_end_frame");
-                renderer_dll.api.end_frame(&render_context);
+                renderer_api.end_frame(&render_context);
             }
         }
 

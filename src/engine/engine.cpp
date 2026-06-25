@@ -146,6 +146,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         state->camera = camera_init(90.0f, 0.0f, vec3());
 
+        state->frame_buffer_handle = renderer->create_framebuffer( //
+            app_input->client_width,                               //
+            app_input->client_height,                              //
+            BYTES_PER_PIXEL                                        //
+        );
+
         state->is_initialized = true;
     }
 
@@ -381,11 +387,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
         group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-        group.offset.x = 0;
-        group.offset.y = 0;
-        group.dim.x = app_input->client_width/2;
-        group.dim.y = app_input->client_height/2;
-        group.pixel_size = { 8, 8 };
         group.sort_keys.init(g_transient, 1024);
         group.sort_entries_offset.init(g_transient, 1024);
 
@@ -568,7 +569,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
         }
 
-        renderer->render(Platform->work_queue, &group);
+        renderer->render(Platform->work_queue, &group, state->frame_buffer_handle);
+        // Here I can inspect framebuffer
+        renderer->apply_framebuffer(state->frame_buffer_handle, 0, 0);
     }
     if (false) {
         // TIMED_BLOCK("render_game");
@@ -576,7 +579,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
         group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
-        group.dim = { app_input->client_width, app_input->client_height };
         group.sort_keys.init(g_transient, 1024);
         group.sort_entries_offset.init(g_transient, 1024);
 
@@ -695,7 +697,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         BEGIN_BLOCK("game_render");
-        renderer->render(Platform->work_queue, &group);
+        renderer->render(Platform->work_queue, &group, state->frame_buffer_handle);
         END_BLOCK();
     }
 
@@ -907,14 +909,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             ui_render_group.push_buffer_size = 0;
             ui_render_group.max_push_buffer_size = MegaBytes(10);
             ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
-            ui_render_group.dim = { client_width, client_height };
-            ui_render_group.pixel_size = { 1, 1 };
             ui_render_group.sort_keys.init(g_transient, 2048);
             ui_render_group.sort_entries_offset.init(g_transient, 2048);
             UI_Generate_Render_Commands(&ui_render_group);
 
             BEGIN_BLOCK("gui_render");
-            renderer->render(Platform->work_queue, &ui_render_group);
+            renderer->render(Platform->work_queue, &ui_render_group, state->frame_buffer_handle);
             END_BLOCK();
         }
     }

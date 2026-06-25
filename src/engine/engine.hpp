@@ -168,6 +168,8 @@ struct EngineState {
     SwapBackList<Entity> player_projectiles;
     SwapBackList<Entity> enemy_projectiles;
 
+    FrameBufferHandle frame_buffer_handle;
+
     Camera camera;
 
     UI_Context* ui_context;

@@ -729,7 +729,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
     Rectangle2i clip_rect,                                   //
     MemoryArena& transient) -> void {
 
-    FrameBuffer framebuffer = framebuffer_create(group->dim.x / group->pixel_size.x, group->dim.y / group->pixel_size.y, transient);
+    FrameBuffer framebuffer = {};
 
     for (i32 i = 0; i < group->sort_keys.count(); i++) {
         u64 base_address = group->sort_entries_offset[command_render_order[i]];
@@ -797,32 +797,6 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         default: InvalidCodePath;
         }
     }
-
-    {
-        Win32RenderInfo render_info = state.platform_render_info;
-        Assert(render_info.buffer.bytes_per_pixel == framebuffer.bytes_per_pixel);
-        u32 pixel_size_x = group->pixel_size.x;
-        u32 pixel_size_y = group->pixel_size.y;
-
-        i32 start_x = group->offset.x;
-        i32 end_x = group->offset.x + group->dim.x;
-        i32 start_y = group->offset.y;
-        i32 end_y = group->offset.y + group->dim.y;
-
-        Assert(end_x <= render_info.buffer.width);
-        Assert(end_y <= render_info.buffer.height);
-
-        for (i32 y = start_y; y < end_y; y++) {
-            u32* dest = render_info.buffer.get_pixel(start_x, y);
-
-            u32 frame_buffer_y = (y - start_y) / pixel_size_y;
-            u32* src = framebuffer.get_pixel(0, frame_buffer_y);
-            for (i32 x = start_x; x < end_x; x++) {
-                u32 frame_buffer_x = (x - start_x) / pixel_size_x;
-                *dest++ = *(src + frame_buffer_x);
-            }
-        }
-    }
 }
 
 struct RenderTileJob {
@@ -849,8 +823,9 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
     i32 const tile_count_x = 1;
     i32 const tile_count_y = 1;
 
-    i32 width = group->dim.x / group->pixel_size.x;
-    i32 height = group->dim.y / group->pixel_size.y;
+    // TODO: get frame buffer
+    i32 width = 0;
+    i32 height = 0;
     i32 tile_width = width / tile_count_x;
     i32 tile_height = height / tile_count_y;
 
@@ -928,6 +903,44 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     }
 
     ReleaseDC(win32_context->window, device_context);
+}
+
+extern "C" __declspec(dllexport) RENDERER_CREATE_FRAMEBUFFER(win32_renderer_create_framebuffer) {
+    return {};
+}
+
+extern "C" __declspec(dllexport) RENDERER_APPLY_FRAMEBUFFER(win32_renderer_apply_framebuffer) {
+    // {
+    //     Win32RenderInfo render_info = state.platform_render_info;
+    //     Assert(render_info.buffer.bytes_per_pixel == framebuffer.bytes_per_pixel);
+    //     u32 pixel_size_x = group->pixel_size.x;
+    //     u32 pixel_size_y = group->pixel_size.y;
+    //
+    //     i32 start_x = group->offset.x;
+    //     i32 end_x = group->offset.x + group->dim.x;
+    //     i32 start_y = group->offset.y;
+    //     i32 end_y = group->offset.y + group->dim.y;
+    //
+    //     Assert(end_x <= render_info.buffer.width);
+    //     Assert(end_y <= render_info.buffer.height);
+    //
+    //     for (i32 y = start_y; y < end_y; y++) {
+    //         u32* dest = render_info.buffer.get_pixel(start_x, y);
+    //
+    //         u32 frame_buffer_y = (y - start_y) / pixel_size_y;
+    //         u32* src = framebuffer.get_pixel(0, frame_buffer_y);
+    //         for (i32 x = start_x; x < end_x; x++) {
+    //             u32 frame_buffer_x = (x - start_x) / pixel_size_x;
+    //             *dest++ = *(src + frame_buffer_x);
+    //         }
+    //     }
+    // }
+}
+
+extern "C" __declspec(dllexport) RENDERER_GET_COLOR(win32_renderer_get_color) {
+    printf("lolda\n");
+    Color result = {};
+    return result;
 }
 
 // TODO: I need this to handle redraw calls from windows, e.g. if you move the window, or move a window above it

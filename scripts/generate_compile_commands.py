@@ -41,7 +41,7 @@ def main():
         "/nologo", "/utf-8", "/Od", "/MTd",
         "/fp:fast", "/fp:except-", "/GR-", "/EHa-",
         "/Z7", "/Oi", "/WX", "/W4",
-        "/wd4201", "/wd4100", "/wd4189", "/wd4505", "/wd4127",
+        "/wd4201", "/wd4100", "/wd4189", "/wd4505", "/wd4127", "/wd4190",
         "/D_CRT_SECURE_NO_WARNINGS", "/FC",
         "/std:c++20", "/arch:AVX2", "/Zc:preprocessor",
         "/DHOMEMADE_DEBUG=1", "/DHOMEMADE_SLOW=1", "/DHOMEMADE_WIN32=1",
@@ -62,13 +62,16 @@ def main():
         includes = base_includes
         if "opengl" in cpp_file.name.lower():
             includes = base_includes + [glad_include]
-        entries.append(make_entry(cpp_file, build_dir, common_flags + includes))
+        entries.append(make_entry(
+            cpp_file, build_dir, common_flags + includes))
 
     for cpp_file in tests_dir.rglob("*.cpp"):
-        entries.append(make_entry(cpp_file, build_dir, test_flags + base_includes))
+        entries.append(make_entry(cpp_file, build_dir,
+                       test_flags + base_includes))
 
     for c_file in glad_src.glob("*.c"):
-        entries.append(make_entry(c_file, build_dir, common_flags + base_includes + [glad_include]))
+        entries.append(make_entry(c_file, build_dir,
+                       common_flags + base_includes + [glad_include]))
 
     out = repo / "compile_commands.json"
     with open(out, "w") as f:

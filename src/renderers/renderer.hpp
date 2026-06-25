@@ -159,10 +159,6 @@ struct RenderEntryPolygonInstances {
 };
 
 struct RenderGroup {
-    ivec2 offset;
-    ivec2 dim;
-    ivec2 pixel_size;
-
     List<u64> sort_entries_offset;
     List<i32> sort_keys;
 
@@ -234,7 +230,15 @@ auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGrou
 const i32 MaxTextureId = 1024;
 
 struct FrameBufferHandle {
-    i32 value;
+    i32 v;
+};
+
+struct PackedColor {
+    u32 v;
+};
+
+struct Color {
+    vec4 v;
 };
 
 #define RENDERER_API __cdecl
@@ -244,12 +248,6 @@ typedef RENDERER_INIT(renderer_init_fn);
 
 #define RENDERER_ADD_TEXTURE(name) bool name(i32 texture_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
-
-#define RENDERER_CREATE_FRAMEBUFFER(name) FrameBufferHandle name(i32 width, i32 height, i32 bytes_per_pixel)
-typedef RENDERER_CREATE_FRAMEBUFFER(renderer_create_framebuffer_fn);
-
-#define RENDERER_APPLY_FRAMEBUFFER(name) void name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)
-typedef RENDERER_APPLY_FRAMEBUFFER(renderer_apply_framebuffer_fn);
 
 #define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, RenderGroup* group, FrameBufferHandle handle)
 typedef RENDERER_RENDER(renderer_render_fn);
@@ -263,6 +261,17 @@ typedef RENDERER_END_FRAME(renderer_end_frame_fn);
 #define RENDERER_DELETE_CONTEXT(name) void name(void* context)
 typedef RENDERER_DELETE_CONTEXT(renderer_delete_context_fn);
 
+// Framebuffer
+#define RENDERER_CREATE_FRAMEBUFFER(name) FrameBufferHandle name(i32 width, i32 height, i32 bytes_per_pixel)
+typedef RENDERER_CREATE_FRAMEBUFFER(renderer_create_framebuffer_fn);
+
+#define RENDERER_APPLY_FRAMEBUFFER(name) void name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)
+typedef RENDERER_APPLY_FRAMEBUFFER(renderer_apply_framebuffer_fn);
+
+#define RENDERER_GET_COLOR(name) Color name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)
+typedef RENDERER_GET_COLOR(renderer_get_color_fn);
+// Framebuffer end
+
 struct RendererApi {
     renderer_init_fn* init;
     renderer_add_texture_fn* add_texture;
@@ -270,4 +279,8 @@ struct RendererApi {
     renderer_begin_frame_fn* begin_frame;
     renderer_end_frame_fn* end_frame;
     renderer_delete_context_fn* delete_context;
+
+    renderer_create_framebuffer_fn* create_framebuffer;
+    renderer_apply_framebuffer_fn* apply_framebuffer;
+    renderer_get_color_fn* get_color;
 };
