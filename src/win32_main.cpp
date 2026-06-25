@@ -269,16 +269,6 @@ auto win32_add_sound_samples_to_queue(Audio& audio, SoundBuffer& src_buffer) -> 
     return true;
 }
 
-struct EngineDll {
-    HMODULE handle = nullptr;
-
-    update_and_render_fn* update_and_render = nullptr;
-    load_fn* load = nullptr;
-    get_sound_samples_fn* get_sound_samples = nullptr;
-    debug_frame_end_fn* debug_frame_end = nullptr;
-    FILETIME last_loaded_dll_write_time = { 0, 0 };
-};
-
 u64 win32_file_time_to_u64(const FILETIME& ft) {
     ULARGE_INTEGER uli;
     uli.LowPart = ft.dwLowDateTime;
@@ -578,18 +568,18 @@ bool win32_delete_directory_tree(const wchar_t* path) {
     return true;
 }
 
-bool win32_should_reload_dll(EngineDll* app_functions) {
-    if (app_functions->update_and_render == nullptr) {
+bool win32_should_reload_dll(win32_loaded_dll* dll) {
+    if (!dll->is_valid) {
         return true;
     }
 
     WIN32_FILE_ATTRIBUTE_DATA file_info;
-    if (GetFileAttributesExW(EngineDllPath, GetFileExInfoStandard, &file_info)) {
-        auto result = CompareFileTime(&file_info.ftLastWriteTime, &app_functions->last_loaded_dll_write_time);
+    if (GetFileAttributesExW(dll->path, GetFileExInfoStandard, &file_info)) {
+        auto result = CompareFileTime(&file_info.ftLastWriteTime, &dll->last_loaded_dll_write_time);
         return result > 0;
     }
     else {
-        wprintf(L"Unable to open read time of '%ls'.\n", EngineDllPath);
+        wprintf(L"Unable to open read time of '%ls'.\n", dll->path);
         return false;
     }
 }
@@ -603,118 +593,12 @@ bool win32_is_directory(LPCWSTR path) {
     return ftyp & FILE_ATTRIBUTE_DIRECTORY;
 }
 
-void win32_load_engine_dll(EngineDll* functions) {
-    if (functions->handle != nullptr) {
-        if (!FreeLibrary(functions->handle)) {
-            DWORD error = GetLastError();
-            printf("Failed to unload .dll. Error code: %lu. Exiting...\n", error);
-            exit(1);
-        }
-        functions->handle = nullptr;
-    }
-
-    if (!win32_is_directory(EngineDllCopyPath)) {
-        if (!CreateDirectoryW(EngineDllCopyPath, nullptr)) {
-            DWORD error = GetLastError();
-            wprintf(L"[ERROR] Failed to create directory %s.\n", EngineDllCopyPath);
-            win32_print_last_error();
-            exit(1);
-        }
-    }
-
-    SYSTEMTIME curr_time;
-    GetSystemTime(&curr_time);
-    wchar_t timestamp[20];
-    swprintf(timestamp, 20, L"%04d%02d%02d%02d%02d%02d", curr_time.wYear, curr_time.wMonth, curr_time.wDay,
-        curr_time.wHour, curr_time.wMinute, curr_time.wSecond);
-
-    wchar_t dir_path[128];
-    swprintf(dir_path, 128, L"%ls%ls", EngineDllCopyPath, timestamp);
-
-    if (!CreateDirectoryW(dir_path, nullptr)) {
-        wprintf(L"[ERROR] Failed to create directory %ls.\n", dir_path);
-        win32_print_last_error();
-        exit(1);
-    }
-
-    wchar_t dll_to_load_path[128];
-    swprintf(dll_to_load_path, 128, L"%ls\\%ls", dir_path, L"engine_dyn.dll");
-    while (!CopyFileW(EngineDllPath, dll_to_load_path, FALSE)) {
-        DWORD error = GetLastError();
-        wprintf(L"Failed to copy %s to %s. Error code: %lu\n", EngineDllPath, dll_to_load_path, error);
-        // exit(1);
-        // TODO: Make this more airtight
-    }
-
-    wchar_t pdb_to_load_path[128];
-    swprintf(pdb_to_load_path, 128, L"%ls\\%ls", dir_path, L"engine_dyn.pdb");
-    if (!CopyFileW(EnginePdbPath, pdb_to_load_path, FALSE)) {
-        DWORD error = GetLastError();
-        wprintf(L"Failed to copy %ls to %ls. Error code: %lu\n", EnginePdbPath, pdb_to_load_path, error);
-        exit(1);
-    }
-
-    functions->handle = LoadLibraryW(dll_to_load_path);
-    if (functions->handle == nullptr) {
-        DWORD error = GetLastError();
-        wprintf(L"Unable to load %ls. Error: %lu\n", dll_to_load_path, error);
-        functions->update_and_render = nullptr;
-        return;
-    }
-
-    functions->update_and_render = (update_and_render_fn*)GetProcAddress(functions->handle, "update_and_render");
-    if (functions->update_and_render == nullptr) {
-        printf("Unable to load 'update_and_render' function in engine_dyn.dll\n");
-        // TODO: Why do I free the handle here?
-        FreeLibrary(functions->handle);
-    }
-
-    functions->load = (load_fn*)GetProcAddress(functions->handle, "load");
-    if (functions->load == nullptr) {
-        printf("Unable to load 'load' function in engine_dyn.dll\n");
-        FreeLibrary(functions->handle);
-    }
-
-    functions->get_sound_samples = (get_sound_samples_fn*)GetProcAddress(functions->handle, "get_sound_samples");
-    if (functions->get_sound_samples == nullptr) {
-        printf("Unable to load 'get_sound_samples' function in engine_dyn.dll\n");
-        FreeLibrary(functions->handle);
-    }
-
-    functions->debug_frame_end = (debug_frame_end_fn*)GetProcAddress(functions->handle, "debug_frame_end");
-    if (functions->debug_frame_end == nullptr) {
-        printf("Unable to load 'debug_frame_end' function in engine_dyn.dll\n");
-        FreeLibrary(functions->handle);
-    }
-
-    WIN32_FILE_ATTRIBUTE_DATA file_info;
-    if (GetFileAttributesExW(EngineDllPath, GetFileExInfoStandard, &file_info)) {
-        functions->last_loaded_dll_write_time = file_info.ftLastWriteTime;
-    }
-}
-
 struct RendererDll {
     HMODULE handle;
     bool is_valid;
     FILETIME last_loaded_dll_write_time = { 0, 0 };
 
     RendererApi api;
-};
-
-struct win32_loaded_dll {
-    LPCWSTR filename;
-    LPCWSTR pdb_filename;
-    LPCWSTR path;
-    LPCWSTR copy_path;
-    LPCWSTR pdb_path;
-
-    i32 function_count;
-    const char** function_names;
-    void** functions;
-
-    HMODULE handle;
-    bool is_valid;
-    FILETIME last_loaded_dll_write_time = { 0, 0 };
 };
 
 auto win32_unload_dll(win32_loaded_dll* dll) {
@@ -793,6 +677,10 @@ void win32_load_dll(win32_loaded_dll* dll) {
         return;
     }
     dll->is_valid = true;
+    WIN32_FILE_ATTRIBUTE_DATA file_info;
+    if (GetFileAttributesExW(EngineDllPath, GetFileExInfoStandard, &file_info)) {
+        dll->last_loaded_dll_write_time = file_info.ftLastWriteTime;
+    }
 }
 
 ////////////// INPUT ///////////////////////
@@ -1361,7 +1249,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     EngineInput engine_input = {};
     engine_input.performance_counter_frequency = ticks_per_second;
-    EngineDll engine_dll = {};
+    EngineApi engine_api = {};
+    win32_loaded_dll engine_dll = {};
+    engine_dll.filename = L"engine_dyn.dll";
+    engine_dll.pdb_filename = L"engine_dyn.pdb";
+    engine_dll.path = EngineDllPath;
+    engine_dll.pdb_path = EnginePdbPath;
+    engine_dll.copy_path = EngineDllCopyPath;
+    engine_dll.function_names = engine_exports;
+    engine_dll.function_count = ArrayCount(engine_exports);
+    engine_dll.functions = (void**)&engine_api;
 
     UserInput inputs[2] = {};
     u32 curr_input_idx = 0;
@@ -1415,8 +1312,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     Recording recording = {};
     Playback playback = {};
 
-    win32_load_engine_dll(&engine_dll);
-    engine_dll.load(&platform, &engine_memory);
+    win32_load_dll(&engine_dll);
+    engine_api.load(&platform, &engine_memory);
 
     const f32 target_fps = 60;
     const f32 ticks_per_frame = ticks_per_second / target_fps;
@@ -1467,8 +1364,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
             if (win32_should_reload_dll(&engine_dll)) {
                 printf("Hot reloading dll...\n");
-                win32_load_engine_dll(&engine_dll);
-                engine_dll.load(&platform, &engine_memory);
+                win32_load_dll(&engine_dll);
+                engine_api.load(&platform, &engine_memory);
             }
 
             // DEBUG INPUT HANDLING
@@ -1564,7 +1461,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_input.client_width = CLIENT_WIDTH;
             engine_input.client_height = CLIENT_HEIGHT;
 
-            engine_dll.update_and_render(&engine_memory, &engine_input, &renderer_api);
+            engine_api.update_and_render(&engine_memory, &engine_input, &renderer_api);
 
             if (audio.is_initialized) {
                 // BEGIN_BLOCK("audio");
@@ -1575,7 +1472,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                     const auto num_samples_to_add =
                         static_cast<i32>(static_cast<i32>(audio.samples_per_second * seconds_per_frame));
                     if (num_samples_to_add > 0) {
-                        auto sound_buffer = engine_dll.get_sound_samples(&engine_memory, num_samples_to_add);
+                        auto sound_buffer = engine_api.get_sound_samples(&engine_memory, num_samples_to_add);
                         win32_add_sound_samples_to_queue(audio, sound_buffer);
                     }
                     audio.sourceVoice->GetState(&state);
@@ -1621,8 +1518,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         END_BLOCK();
 
         seconds_used_this_frame = ((f32)(ticks_used_this_frame) / ticks_per_second);
-        if (engine_dll.debug_frame_end) {
-            engine_dll.debug_frame_end(  //
+        if (engine_api.debug_frame_end) {
+            engine_api.debug_frame_end(  //
                 frame_start_rdtsc_clock, //
                 __rdtsc(),
                 seconds_used_this_frame * 1000, //

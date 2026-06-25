@@ -32,3 +32,19 @@ struct Win32ThreadContext {
     PlatformWorkQueue* queue;
     MemoryArena arena;
 };
+
+struct win32_loaded_dll {
+    LPCWSTR filename;
+    LPCWSTR pdb_filename;
+    LPCWSTR path;
+    LPCWSTR copy_path;
+    LPCWSTR pdb_path;
+
+    i32 function_count;
+    const char** function_names;
+    void** functions;
+
+    HMODULE handle;
+    bool is_valid;
+    FILETIME last_loaded_dll_write_time = { 0, 0 };
+};

@@ -61,6 +61,20 @@ typedef ENGINE_GET_SOUND_SAMPLES(get_sound_samples_fn);
         f32 frame_duration_before_sleep_ms, EngineMemory* engine_memory, EngineInput* engine_input)
 typedef DEBUG_FRAME_END(debug_frame_end_fn);
 
+struct EngineApi {
+    update_and_render_fn* update_and_render;
+    load_fn*              load;
+    get_sound_samples_fn* get_sound_samples;
+    debug_frame_end_fn*   debug_frame_end;
+};
+
+static const char* engine_exports[] = {
+    "update_and_render",
+    "load",
+    "get_sound_samples",
+    "debug_frame_end",
+};
+
 /// Processed mouse input
 struct Pointer {
     f32 x = 0;
