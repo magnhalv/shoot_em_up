@@ -11,6 +11,7 @@
 #include <core/memory.hpp>
 #include <core/memory_arena.hpp>
 #include <core/sort.hpp>
+#include <engine/structs/swap_back_list.hpp>
 // TODO: Move to core
 #include <engine/hm_assert.hpp>
 #include <engine/profiling.hpp>
@@ -31,7 +32,7 @@ struct WindowDimension {
 
 struct Win32RenderInfo {
     BITMAPINFO Info;
-    FrameBuffer buffer;
+    Framebuffer buffer;
 };
 
 struct Win32Texture {
@@ -47,6 +48,7 @@ struct Win32Texture {
 // TODO: This should probably go to an arena
 struct SWRendererState {
     Win32RenderInfo platform_render_info;
+    StackSwapBackList<Framebuffer, 5> framebuffers;
     MemoryArena permanent;
     MemoryArena transient;
 
@@ -66,33 +68,7 @@ static WindowDimension get_window_dimension(HWND window) {
     return result;
 }
 
-static void resize_dib_section(Win32RenderInfo* info, int width, int height) {
-    // TODO: Bulletproof this
-    // Maybe don't free first, free after, then free first if that fails. I.e. if VirtualAlloc fails.
-    if (info->buffer.memory) {
-        VirtualFree(info->buffer.memory, 0, MEM_RELEASE);
-    }
-
-    info->buffer.width = width;
-    info->buffer.height = height;
-
-    info->Info.bmiHeader.biSize = sizeof(info->Info.bmiHeader);
-    info->Info.bmiHeader.biWidth = info->buffer.width;
-    info->Info.bmiHeader.biHeight = info->buffer.height;
-    info->Info.bmiHeader.biPlanes = 1;
-    info->Info.bmiHeader.biBitCount = BYTES_PER_PIXEL * 8;
-    info->Info.bmiHeader.biCompression = BI_RGB;
-
-    info->buffer.bytes_per_pixel = 4;
-    info->buffer.memory_size = info->buffer.bytes_per_pixel * (info->buffer.width * info->buffer.height);
-    info->buffer.memory = VirtualAlloc(0, info->buffer.memory_size, MEM_COMMIT, PAGE_READWRITE);
-    info->buffer.pitch = info->buffer.width * info->buffer.bytes_per_pixel;
-
-    // Should always be 64KB aligned from virtual alloc
-    Assert(is_aligned(info->buffer.memory, 65536));
-}
-
-static void resize_frame_buffer(FrameBuffer* buffer, int width, int height) {
+internal void resize_frame_buffer(Framebuffer* buffer, int width, int height) {
     // TODO: Bulletproof this
     // Maybe don't free first, free after, then free first if that fails. I.e. if VirtualAlloc fails.
     if (buffer->memory) {
@@ -107,6 +83,15 @@ static void resize_frame_buffer(FrameBuffer* buffer, int width, int height) {
     buffer->pitch = buffer->width * buffer->bytes_per_pixel;
     // Should always be 64KB aligned from virtual alloc
     Assert(is_aligned(buffer->memory, KiloBytes(64)));
+}
+static void resize_dib_section(Win32RenderInfo* info, int width, int height) {
+    resize_frame_buffer(&info->buffer, width, height);
+    info->Info.bmiHeader.biSize = sizeof(info->Info.bmiHeader);
+    info->Info.bmiHeader.biWidth = info->buffer.width;
+    info->Info.bmiHeader.biHeight = info->buffer.height;
+    info->Info.bmiHeader.biPlanes = 1;
+    info->Info.bmiHeader.biBitCount = BYTES_PER_PIXEL * 8;
+    info->Info.bmiHeader.biCompression = BI_RGB;
 }
 
 auto square(f32 v) -> f32 {
@@ -143,7 +128,7 @@ inline auto srgb_to_linear1_2(vec4 color) -> color_v8 {
     return result;
 }
 
-static void draw_rectangle(FrameBuffer* buffer, Rectangle2i rect, f32 r, f32 g, f32 b) {
+static void draw_rectangle(Framebuffer* buffer, Rectangle2i rect, f32 r, f32 g, f32 b) {
     u32 color = (round_f32_to_i32(r * 255.0f) << 16) | (round_f32_to_i32(g * 255.0f) << 8) | (round_f32_to_i32(b * 255.0f));
 
     u32 min_x = hm::max(rect.min_x, 0);
@@ -160,7 +145,7 @@ static void draw_rectangle(FrameBuffer* buffer, Rectangle2i rect, f32 r, f32 g, 
     }
 }
 
-static void draw_chess_map(FrameBuffer& buffer, Rectangle2i rect) {
+static void draw_chess_map(Framebuffer& buffer, Rectangle2i rect) {
     u32 color1 = 0xFFAAAAAA;
     u32 color2 = 0xFFEBEBEB;
 
@@ -178,7 +163,7 @@ static void draw_chess_map(FrameBuffer& buffer, Rectangle2i rect) {
     }
 }
 
-static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i clip_rect, FrameBuffer& buffer) {
+static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer) {
     // draw_rectangle(               //
     //     &state.frame_buffer,      //
     //     clip_rect,                //
@@ -209,7 +194,7 @@ auto color_channel_f32_to_u8(f32 channel) {
 
 static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
     ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, f32 border_thickness,
-    vec4 border_color, FrameBuffer* buffer) {
+    vec4 border_color, Framebuffer* buffer) {
     f32 model_width = (quad.br.x - quad.bl.x);
     f32 model_height = (quad.tr.y - quad.br.y);
 
@@ -400,7 +385,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
 }
 
 static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, FrameBuffer* buffer) {
+    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, Framebuffer* buffer) {
 
     f32 model_width = (quad.br.x - quad.bl.x);
     f32 model_height = (quad.tr.y - quad.br.y);
@@ -727,9 +712,7 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
 auto execute_render_commands(i32 job_id, RenderGroup* group, //
     i32* command_render_order,                               //
     Rectangle2i clip_rect,                                   //
-    MemoryArena& transient) -> void {
-
-    FrameBuffer framebuffer = {};
+    Framebuffer* framebuffer, MemoryArena& transient) -> void {
 
     for (i32 i = 0; i < group->sort_keys.count(); i++) {
         u64 base_address = group->sort_entries_offset[command_render_order[i]];
@@ -740,38 +723,38 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         switch (header->type) {
         case RenderCommands_RenderEntryClear: {
             RenderEntryClear* entry = (RenderEntryClear*)data;
-            clear(framebuffer.width, framebuffer.height, entry->color, clip_rect, framebuffer);
+            clear(framebuffer->width, framebuffer->height, entry->color, clip_rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryLine: {
             RenderEntryLine* entry = (RenderEntryLine*)data;
-            render_line_gambetta(entry->start, entry->end, entry->color, clip_rect, framebuffer, transient);
+            render_line_gambetta(entry->start, entry->end, entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryCircle: {
             auto entry = (RenderEntryCircle*)data;
-            render_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, framebuffer);
+            render_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledCircle: {
             auto entry = (RenderEntryFilledCircle*)data;
-            render_filled_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, framebuffer);
+            render_filled_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriangle: {
             auto entry = (RenderEntryTriangle*)data;
-            render_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, framebuffer, transient);
+            render_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledTriangle: {
             auto entry = (RenderEntryFilledTriangle*)data;
-            render_filled_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, framebuffer, transient);
+            render_filled_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryShadedTriangle: {
             auto entry = (RenderEntryShadedTriangle*)data;
             render_shaded_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->h0, entry->h1, entry->h2,
-                entry->color, clip_rect, framebuffer, transient);
+                entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriMesh: {
@@ -781,17 +764,17 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
                 entry->instances,                                                   //
                 entry->world_to_view,                                               //
                 entry->view_to_clip,                                                //
-                clip_rect, framebuffer, transient);
+                clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(entry->quad, entry->offset,                //
-                entry->scale, entry->rotation, entry->color,       //
-                entry->texture_id, entry->uv_min, entry->uv_max,   //
-                framebuffer.width, framebuffer.height, &clip_rect, //
-                entry->border_thickness, entry->border_color,      //
-                &framebuffer);
+            draw_bitmap(entry->quad, entry->offset,                  //
+                entry->scale, entry->rotation, entry->color,         //
+                entry->texture_id, entry->uv_min, entry->uv_max,     //
+                framebuffer->width, framebuffer->height, &clip_rect, //
+                entry->border_thickness, entry->border_color,        //
+                framebuffer);
             base_address += sizeof(*entry);
         } break;
         default: InvalidCodePath;
@@ -804,6 +787,7 @@ struct RenderTileJob {
     RenderGroup* group;
     i32* command_render_order;
     Rectangle2i clip_rect;
+    Framebuffer* framebuffer;
 };
 
 static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
@@ -813,7 +797,7 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
     Assert(job->group);
     BEGIN_BLOCK("Execute render commands");
 
-    execute_render_commands(job->id, job->group, job->command_render_order, job->clip_rect, *transient);
+    execute_render_commands(job->id, job->group, job->command_render_order, job->clip_rect, job->framebuffer, *transient);
     END_BLOCK();
     MemoryBarrier(); // TODO: remove?
 }
@@ -823,9 +807,10 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
     i32 const tile_count_x = 1;
     i32 const tile_count_y = 1;
 
+    Framebuffer* buffer = &state.framebuffers[handle.v];
     // TODO: get frame buffer
-    i32 width = 0;
-    i32 height = 0;
+    i32 width = buffer->width;
+    i32 height = buffer->height;
     i32 tile_width = width / tile_count_x;
     i32 tile_height = height / tile_count_y;
 
@@ -858,6 +843,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
             job->clip_rect = rect;
             job->group = group;
             job->command_render_order = command_render_order;
+            job->framebuffer = buffer;
 
             Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
         }
@@ -877,18 +863,6 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
     i32 width = state.platform_render_info.buffer.width;
     i32 height = state.platform_render_info.buffer.height;
 
-    // Assert(state.global_offscreen_buffer.bytes_per_pixel == state.frame_buffer.bytes_per_pixel);
-    // u32 scale = state.global_offscreen_buffer.width / state.frame_buffer.width;
-    // for (i32 y = 0; y < state.global_offscreen_buffer.height; y++) {
-    //     u32* dest = (u32*)state.global_offscreen_buffer.memory + (y * state.global_offscreen_buffer.width);
-    //
-    //     u32 frame_buffer_y = y / scale;
-    //     u32* src = (u32*)state.frame_buffer.memory + (frame_buffer_y * state.frame_buffer.width);
-    //     for (i32 x = 0; x < state.global_offscreen_buffer.width; x++) {
-    //         u32 frame_buffer_x = x / scale;
-    //         *dest++ = *(src + frame_buffer_x);
-    //     }
-    // }
     u32 result = StretchDIBits(                   //
         device_context,                           //
         0, 0,                                     //
@@ -906,39 +880,47 @@ extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_CREATE_FRAMEBUFFER(win32_renderer_create_framebuffer) {
-    return {};
+    Assert(!state.framebuffers.is_full());
+
+    FrameBufferHandle handle = { .v = (i32)state.framebuffers.count() };
+    Framebuffer* f = state.framebuffers.push();
+    resize_frame_buffer(f, width, height);
+    return handle;
 }
 
 extern "C" __declspec(dllexport) RENDERER_APPLY_FRAMEBUFFER(win32_renderer_apply_framebuffer) {
-    // {
-    //     Win32RenderInfo render_info = state.platform_render_info;
-    //     Assert(render_info.buffer.bytes_per_pixel == framebuffer.bytes_per_pixel);
-    //     u32 pixel_size_x = group->pixel_size.x;
-    //     u32 pixel_size_y = group->pixel_size.y;
-    //
-    //     i32 start_x = group->offset.x;
-    //     i32 end_x = group->offset.x + group->dim.x;
-    //     i32 start_y = group->offset.y;
-    //     i32 end_y = group->offset.y + group->dim.y;
-    //
-    //     Assert(end_x <= render_info.buffer.width);
-    //     Assert(end_y <= render_info.buffer.height);
-    //
-    //     for (i32 y = start_y; y < end_y; y++) {
-    //         u32* dest = render_info.buffer.get_pixel(start_x, y);
-    //
-    //         u32 frame_buffer_y = (y - start_y) / pixel_size_y;
-    //         u32* src = framebuffer.get_pixel(0, frame_buffer_y);
-    //         for (i32 x = start_x; x < end_x; x++) {
-    //             u32 frame_buffer_x = (x - start_x) / pixel_size_x;
-    //             *dest++ = *(src + frame_buffer_x);
-    //         }
-    //     }
-    // }
+
+    Framebuffer* framebuffer = &state.framebuffers[handle.v];
+    Win32RenderInfo render_info = state.platform_render_info;
+    Assert(render_info.buffer.bytes_per_pixel == framebuffer->bytes_per_pixel);
+
+    f32 pixel_size_x = 1;
+    f32 pixel_size_y = 1;
+    if (width >= framebuffer->width) {
+        pixel_size_x = (f32)width / framebuffer->width;
+    }
+    if (height >= framebuffer->height) {
+        pixel_size_y = (f32)height / framebuffer->height;
+    }
+
+    i32 start_x = hm::max(offset_x, 0);
+    i32 end_x = hm::min(offset_x + width, render_info.buffer.width);
+    i32 start_y = hm::max(offset_y, 0);
+    i32 end_y = hm::min(offset_y + height, render_info.buffer.height);
+
+    for (i32 y = start_y; y < end_y; y++) {
+        u32* dest = render_info.buffer.get_pixel(start_x, y);
+
+        f32 frame_buffer_y = (y - offset_y) / pixel_size_y;
+        u32* src = framebuffer->get_pixel(0, (i32)frame_buffer_y);
+        for (i32 x = start_x; x < end_x; x++) {
+            i32 frame_buffer_x = (i32)((x - offset_x) / pixel_size_x);
+            *dest++ = *(src + frame_buffer_x);
+        }
+    }
 }
 
 extern "C" __declspec(dllexport) RENDERER_GET_COLOR(win32_renderer_get_color) {
-    printf("lolda\n");
     Color result = {};
     return result;
 }

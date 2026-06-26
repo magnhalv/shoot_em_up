@@ -168,7 +168,7 @@ struct RenderGroup {
 };
 
 // INTERNAL
-struct FrameBuffer {
+struct Framebuffer {
     void* memory;
     i32 memory_size;
     i32 width;
@@ -191,8 +191,8 @@ struct FrameBuffer {
     }
 };
 
-auto inline framebuffer_create(i32 width, i32 height, MemoryArena& arena) -> FrameBuffer {
-    FrameBuffer buffer;
+auto inline framebuffer_create(i32 width, i32 height, MemoryArena& arena) -> Framebuffer {
+    Framebuffer buffer;
     buffer.width = width;
     buffer.height = height;
     buffer.bytes_per_pixel = BYTES_PER_PIXEL;
@@ -262,10 +262,11 @@ typedef RENDERER_END_FRAME(renderer_end_frame_fn);
 typedef RENDERER_DELETE_CONTEXT(renderer_delete_context_fn);
 
 // Framebuffer
-#define RENDERER_CREATE_FRAMEBUFFER(name) FrameBufferHandle name(i32 width, i32 height, i32 bytes_per_pixel)
+#define RENDERER_CREATE_FRAMEBUFFER(name) FrameBufferHandle name(i32 width, i32 height)
 typedef RENDERER_CREATE_FRAMEBUFFER(renderer_create_framebuffer_fn);
 
-#define RENDERER_APPLY_FRAMEBUFFER(name) void name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)
+#define RENDERER_APPLY_FRAMEBUFFER(name) \
+    void name(FrameBufferHandle handle, i32 width, i32 height, i32 offset_x, i32 offset_y)
 typedef RENDERER_APPLY_FRAMEBUFFER(renderer_apply_framebuffer_fn);
 
 #define RENDERER_GET_COLOR(name) Color name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)

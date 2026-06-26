@@ -147,9 +147,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         state->camera = camera_init(90.0f, 0.0f, vec3());
 
         state->frame_buffer_handle = renderer->create_framebuffer( //
-            app_input->client_width,                               //
-            app_input->client_height,                              //
-            BYTES_PER_PIXEL                                        //
+            app_input->client_width / 8,                           //
+            app_input->client_height / 8                           //
         );
 
         state->is_initialized = true;
@@ -571,7 +570,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         renderer->render(Platform->work_queue, &group, state->frame_buffer_handle);
         // Here I can inspect framebuffer
-        renderer->apply_framebuffer(state->frame_buffer_handle, 0, 0);
+        u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
+        u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
+        renderer->apply_framebuffer(state->frame_buffer_handle, client_width, client_height, width, height);
+        renderer->get_color(state->frame_buffer_handle, 0, 0);
     }
     if (false) {
         // TIMED_BLOCK("render_game");

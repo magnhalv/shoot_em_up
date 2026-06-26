@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/memory.hpp"
 #include <cassert>
 
 #include <platform/types.hpp>
@@ -139,4 +140,102 @@ template <typename T> struct SwapBackList {
     u64 m_capacity{};
     u64 m_size;
     T* m_data;
+};
+
+template <typename T, u64 N> struct StackSwapBackList {
+
+    T& operator[](u64 index) {
+        assert(index < m_count);
+        return m_data[index];
+    }
+
+    const T& operator[](u64 index) const {
+        assert(index < m_count);
+        return m_data[index];
+    }
+
+    [[nodiscard]] auto inline data() const -> T* {
+        return m_data;
+    }
+    [[nodiscard]] auto inline count() const -> u64 {
+        return m_count;
+    }
+    [[nodiscard]] auto inline is_empty() const -> bool {
+        return m_count == 0;
+    }
+    [[nodiscard]] auto inline is_full() const -> bool {
+        return m_count == N;
+    }
+
+    auto make_empty() -> void {
+        ZeroArray(N, m_data);
+        m_count = 0;
+    }
+
+    [[nodiscard]] auto inline push() -> T* {
+        HM_ASSERT(m_count < N);
+        return &m_data[m_count++];
+    }
+
+    [[nodiscard]] auto inline last() -> T* {
+        return m_count > 0 ? &m_data[m_count - 1] : nullptr;
+    }
+
+    auto push(T value) -> void {
+        HM_ASSERT(m_count < N);
+        m_data[m_count++] = value;
+    }
+
+    auto push(T* value) -> void {
+        HM_ASSERT(m_count < N);
+        m_data[m_count++] = *value;
+    }
+
+    auto remove(u64 index) -> void {
+        HM_ASSERT(index < m_count);
+        m_data[index] = m_data[m_count - 1];
+        m_count--;
+    }
+
+    auto remove_and_dec(u64* index) -> void {
+        HM_ASSERT(*index < m_count);
+        m_data[*index] = m_data[m_count - 1];
+        m_count--;
+        *index = *index - 1;
+    }
+
+    auto inline pop(u64 num = 1) -> void {
+        assert(m_count >= num);
+        m_count -= num;
+    }
+
+    struct ListIterator {
+        private:
+        T* ptr;
+
+        public:
+        explicit ListIterator(T* ptr) : ptr(ptr) {
+        }
+        ListIterator& operator++() {
+            ++ptr;
+            return *this;
+        }
+        bool operator!=(const ListIterator& other) const {
+            return ptr != other.ptr;
+        }
+        T& operator*() const {
+            return *ptr;
+        }
+    };
+
+    [[nodiscard]] ListIterator begin() const {
+        return ListIterator(m_data);
+    }
+    [[nodiscard]] ListIterator end() const {
+        return ListIterator(m_data + m_count);
+    }
+
+    private:
+    T m_data[N];
+    u64 m_count = 0;
 };

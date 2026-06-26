@@ -154,7 +154,7 @@ global_variable PlatformApi* Platform = nullptr;
             Platform->print_stack_trace();                                             \
         }                                                                              \
         printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
-        std::exit(1);                                                                  \
+        abort();                                                                       \
     }
 #define AssertEqual_i32(a, b)                                                                                    \
     do {                                                                                                         \

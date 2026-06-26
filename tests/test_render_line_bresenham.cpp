@@ -1,10 +1,10 @@
 #include "doctest.h"
 
-#include <renderers/cpu_render_algorithms.hpp>
 #include <cstring>
+#include <renderers/cpu_render_algorithms.hpp>
 
-static FrameBuffer make_buffer(i32 width, i32 height) {
-    FrameBuffer buffer;
+static Framebuffer make_buffer(i32 width, i32 height) {
+    Framebuffer buffer;
     buffer.bytes_per_pixel = 4;
     buffer.height = height;
     buffer.width = width;
@@ -15,8 +15,8 @@ static FrameBuffer make_buffer(i32 width, i32 height) {
 }
 
 TEST_CASE("render_line_bresenham x-major positive slope") {
-    FrameBuffer buffer = make_buffer(5, 3);
-    Rectangle2i rect = {0, buffer.width, 0, buffer.height};
+    Framebuffer buffer = make_buffer(5, 3);
+    Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
     vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
     render_line_bresenham(vec2(0, 0), vec2(4, 2), color, rect, &buffer);
 
@@ -30,8 +30,8 @@ TEST_CASE("render_line_bresenham x-major positive slope") {
 }
 
 TEST_CASE("render_line_bresenham horizontal line") {
-    FrameBuffer buffer = make_buffer(6, 3);
-    Rectangle2i rect = {0, buffer.width, 0, buffer.height};
+    Framebuffer buffer = make_buffer(6, 3);
+    Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
     render_line_bresenham(vec2(0, 1), vec2(5, 1), vec4(1, 1, 1, 1), rect, &buffer);
 
     for (i32 x = 0; x <= 5; x++)
@@ -41,8 +41,8 @@ TEST_CASE("render_line_bresenham horizontal line") {
 }
 
 TEST_CASE("render_line_bresenham vertical line") {
-    FrameBuffer buffer = make_buffer(3, 5);
-    Rectangle2i rect = {0, buffer.width, 0, buffer.height};
+    Framebuffer buffer = make_buffer(3, 5);
+    Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
     render_line_bresenham(vec2(1, 0), vec2(1, 4), vec4(1, 1, 1, 1), rect, &buffer);
 
     for (i32 y = 0; y <= 4; y++)
@@ -59,8 +59,8 @@ TEST_CASE("render_line_bresenham y-major positive slope") {
     // y=2: set(1,2); e+=2->0; x=2, e-=4->-4
     // y=3: set(2,3); e+=2->-2; no x
     // y=4: set(2,4)
-    FrameBuffer buffer = make_buffer(3, 5);
-    Rectangle2i rect = {0, buffer.width, 0, buffer.height};
+    Framebuffer buffer = make_buffer(3, 5);
+    Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
     render_line_bresenham(vec2(0, 0), vec2(2, 4), vec4(1, 1, 1, 1), rect, &buffer);
 
     REQUIRE_EQ(get_color(&buffer, 0, 0), 0xFFFFFFFF);
@@ -74,9 +74,9 @@ TEST_CASE("render_line_bresenham y-major positive slope") {
 
 TEST_CASE("render_line_bresenham reversed endpoints draw same pixels") {
     i32 w = 5, h = 3;
-    FrameBuffer buf1 = make_buffer(w, h);
-    FrameBuffer buf2 = make_buffer(w, h);
-    Rectangle2i rect = {0, w, 0, h};
+    Framebuffer buf1 = make_buffer(w, h);
+    Framebuffer buf2 = make_buffer(w, h);
+    Rectangle2i rect = { 0, w, 0, h };
     vec4 color = vec4(1, 1, 1, 1);
 
     render_line_bresenham(vec2(0, 0), vec2(4, 2), color, rect, &buf1);
@@ -90,8 +90,8 @@ TEST_CASE("render_line_bresenham reversed endpoints draw same pixels") {
 
 TEST_CASE("render_line_bresenham clipping excludes out-of-bounds pixels") {
     // Line (0,0)->(4,4), clip to x:[1,4) y:[1,4) — corners (0,0) and (4,4) must not be written
-    FrameBuffer buffer = make_buffer(5, 5);
-    Rectangle2i rect = {1, 4, 1, 4};
+    Framebuffer buffer = make_buffer(5, 5);
+    Rectangle2i rect = { 1, 4, 1, 4 };
     render_line_bresenham(vec2(0, 0), vec2(4, 4), vec4(1, 1, 1, 1), rect, &buffer);
 
     REQUIRE_EQ(get_color(&buffer, 0, 0), 0x00000000);
@@ -104,8 +104,8 @@ TEST_CASE("render_line_bresenham clipping excludes out-of-bounds pixels") {
 }
 
 TEST_CASE("render_line_bresenham single point") {
-    FrameBuffer buffer = make_buffer(3, 3);
-    Rectangle2i rect = {0, buffer.width, 0, buffer.height};
+    Framebuffer buffer = make_buffer(3, 3);
+    Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
     render_line_bresenham(vec2(1, 1), vec2(1, 1), vec4(1, 1, 1, 1), rect, &buffer);
 
     REQUIRE_EQ(get_color(&buffer, 1, 1), 0xFFFFFFFF);
