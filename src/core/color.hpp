@@ -1,7 +1,10 @@
 #pragma once
 
+#include <platform/platform.hpp>
+
 #include "math/math.hpp"
 #include "math/vec4.hpp"
+#include "platform/types.hpp"
 
 /// @brief: Normalized color to u32
 auto inline pack_color_8x4(vec4 color) -> u32 {
@@ -165,3 +168,5 @@ global_variable const vec4 BLUE = vec4(0.0, 0.0, 1.0, 1.0);
 global_variable const vec4 YELLOW = vec4(1.0, 1.0, 0.0, 1.0);
 global_variable const vec4 PURPLE = vec4(0.5, 0.0, 0.5, 1.0);
 global_variable const vec4 CYAN = vec4(0.0, 1.0, 1.0, 1.0);
+global_variable const vec4 MEDIUM_GREY = vec4(0.667f, 0.667f, 0.667f, 1.0f);
+global_variable const vec4 LIGHT_GREY = vec4(0.922f, 0.922f, 0.922f, 1.0f);

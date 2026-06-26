@@ -63,9 +63,9 @@ typedef DEBUG_FRAME_END(debug_frame_end_fn);
 
 struct EngineApi {
     update_and_render_fn* update_and_render;
-    load_fn*              load;
+    load_fn* load;
     get_sound_samples_fn* get_sound_samples;
-    debug_frame_end_fn*   debug_frame_end;
+    debug_frame_end_fn* debug_frame_end;
 };
 
 static const char* engine_exports[] = {
@@ -182,7 +182,8 @@ struct EngineState {
     SwapBackList<Entity> player_projectiles;
     SwapBackList<Entity> enemy_projectiles;
 
-    FrameBufferHandle frame_buffer_handle;
+    FrameBufferHandle handle_background;
+    FrameBufferHandle handle_3D;
 
     Camera camera;
 

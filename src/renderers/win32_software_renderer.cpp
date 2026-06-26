@@ -145,9 +145,9 @@ static void draw_rectangle(Framebuffer* buffer, Rectangle2i rect, f32 r, f32 g, 
     }
 }
 
-static void draw_chess_map(Framebuffer& buffer, Rectangle2i rect) {
-    u32 color1 = 0xFFAAAAAA;
-    u32 color2 = 0xFFEBEBEB;
+static void clear_check_pattern(Framebuffer& buffer, Rectangle2i rect, vec4 color1, vec4 color2) {
+    u32 packed_color1 = pack_color_8x4(color1);
+    u32 packed_color2 = pack_color_8x4(color2);
 
     u32 min_x = hm::max(rect.min_x, 0);
     u32 max_x = hm::min(rect.max_x, buffer.width);
@@ -157,19 +157,18 @@ static void draw_chess_map(Framebuffer& buffer, Rectangle2i rect) {
     for (u32 y = min_y; y < max_y; y++) {
         u32* dest = ((u32*)buffer.memory + (y * buffer.width)) + (min_x);
         for (u32 x = min_x; x < max_x; x++) {
-            u32 color = (y + x) % 2 == 0 ? color1 : color2;
+            u32 color = (y + x) % 2 == 0 ? packed_color1 : packed_color2;
             *dest++ = color;
         }
     }
 }
 
 static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer) {
-    // draw_rectangle(               //
-    //     &state.frame_buffer,      //
-    //     clip_rect,                //
-    //     color.r, color.g, color.b //
-    // );
-    draw_chess_map(buffer, clip_rect);
+    draw_rectangle(               //
+        &buffer,                  //
+        clip_rect,                //
+        color.r, color.g, color.b //
+    );
 }
 
 static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
@@ -724,6 +723,11 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryClear: {
             RenderEntryClear* entry = (RenderEntryClear*)data;
             clear(framebuffer->width, framebuffer->height, entry->color, clip_rect, *framebuffer);
+            base_address += sizeof(*entry);
+        } break;
+        case RenderCommands_RenderEntryClearCheckPattern: {
+            auto* entry = (RenderEntryClearCheckPattern*)data;
+            clear_check_pattern(*framebuffer, clip_rect, entry->color1, entry->color2);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryLine: {
