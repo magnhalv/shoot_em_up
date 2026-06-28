@@ -410,20 +410,20 @@ auto inline render_triangle_filled_gambetta(
         }
     }
 
-    for (i32 y = y0; y <= y2; y++) {
+    for (i32 y = y0; y < y2; y++) {
         i32 y_idx = y - y0;
         i32 x_l = x_left[y_idx];
         i32 x_r = x_right[y_idx];
         Array<f32> z_l_to_r = interpolate_f32(x_l, z_left[y_idx], x_r, z_right[y_idx], arena);
-        for (i32 x = x_l; x <= x_r; x++) {
+        for (i32 x = x_l; x < x_r; x++) {
             set_pixel_with_z_buffer(x, y, z_l_to_r[x - x_l], packed_color, clip_rect, buffer);
         }
     }
 
     // Hmm, gotta figure out what to do about this
-    render_line_gambetta_internal(P0, P1, packed_color, clip_rect, buffer, arena);
-    render_line_gambetta_internal(P1, P2, packed_color, clip_rect, buffer, arena);
-    render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
+    // render_line_gambetta_internal(P0, P1, packed_color, clip_rect, buffer, arena);
+    // render_line_gambetta_internal(P1, P2, packed_color, clip_rect, buffer, arena);
+    // render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
 }
 
 auto inline render_shaded_triangle_gambetta(vec3 P0, vec3 P1, vec3 P2, f32 h0, f32 h1, f32 h2, vec4 color,
@@ -486,21 +486,21 @@ auto inline render_shaded_triangle_gambetta(vec3 P0, vec3 P1, vec3 P2, f32 h0, f
         h_left = h012;
     }
 
-    for (i32 y = y0; y <= y2; y++) {
+    for (i32 y = y0; y < y2; y++) {
         const i32 y_idx = y - y0;
         const i32 x_l = x_left[y_idx];
         const i32 x_r = x_right[y_idx];
 
         Array<f32> h_l_to_r = interpolate_f32(x_l, h_left[y_idx], x_r, h_right[y_idx], arena);
-        for (i32 x = x_l; x <= x_r; x++) {
+        for (i32 x = x_l; x < x_r; x++) {
             vec4 h_corrected_color = h_l_to_r[x - x_l] * color_l1;
             set_pixel(x, y, linear1_to_packed8x4_srgb255(h_corrected_color), clip_rect, buffer);
         }
     }
 
-    render_line_gambetta_intensity_internal(P0, P1, h0, h1, color_l1, clip_rect, buffer, arena);
-    render_line_gambetta_intensity_internal(P1, P2, h1, h2, color_l1, clip_rect, buffer, arena);
-    render_line_gambetta_intensity_internal(P2, P0, h2, h0, color_l1, clip_rect, buffer, arena);
+    // render_line_gambetta_intensity_internal(P0, P1, h0, h1, color_l1, clip_rect, buffer, arena);
+    // render_line_gambetta_intensity_internal(P1, P2, h1, h2, color_l1, clip_rect, buffer, arena);
+    // render_line_gambetta_intensity_internal(P2, P0, h2, h0, color_l1, clip_rect, buffer, arena);
 }
 
 auto inline viewport_to_canvas(f32 x, f32 y, f32 z, i32 window_width, i32 window_height) -> vec3 {

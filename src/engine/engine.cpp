@@ -150,9 +150,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             app_input->client_width,                             //
             app_input->client_height                             //
         );
+        const i32 pixel_size = 4;
         state->handle_3D = renderer->create_framebuffer( //
-            app_input->client_width / 8,                 //
-            app_input->client_height / 8                 //
+            app_input->client_width / pixel_size,        //
+            app_input->client_height / pixel_size        //
         );
 
         state->is_initialized = true;
