@@ -308,18 +308,18 @@ TEST_CASE("mat4: lookAt maps camera position to origin") {
     vec4 r = vec4(0, 0, 0, 1.0) * lookAt(pos, target, up);
     CHECK(r.x == doctest::Approx(0).epsilon(1e-5));
     CHECK(r.y == doctest::Approx(0).epsilon(1e-5));
-    CHECK(r.z == doctest::Approx(-5).epsilon(1e-5));
+    CHECK(r.z == doctest::Approx(5).epsilon(1e-5));
 }
 
-TEST_CASE("mat4: lookAt maps a point directly in front of camera along -Z") {
-    // Camera at origin looking along -Z (target at (0,0,-1)), up=+Y.
+TEST_CASE("mat4: lookAt maps a point directly in front of camera along Z") {
+    // Camera at origin looking along Z (target at (0,0,1)), up=+Y.
     // A world point at (0,0,-3) should be at (0,0,-3) in view space
     // (already on the camera axis, 3 units ahead).
     vec3 pos(0, 0, 0);
-    vec3 target(0, 0, -1);
+    vec3 target(0, 0, 1);
     vec3 up(0, 1, 0);
-    vec4 r = vec4(0, 0, -3, 0) * lookAt(pos, target, up);
+    vec4 r = vec4(0, 0, 3, 0) * lookAt(pos, target, up);
     CHECK(r.x == doctest::Approx(0).epsilon(1e-5));
     CHECK(r.y == doctest::Approx(0).epsilon(1e-5));
-    CHECK(r.z == doctest::Approx(-3).epsilon(1e-5));
+    CHECK(r.z == doctest::Approx(3).epsilon(1e-5));
 }

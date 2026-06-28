@@ -1,8 +1,8 @@
 #include "doctest.h"
 
 #include <core/logger.hpp>
-#include <core/memory_arena.hpp>
 #include <core/memory.hpp>
+#include <core/memory_arena.hpp>
 
 #include "util.hpp"
 
@@ -15,7 +15,7 @@ TEST_CASE_FIXTURE(SingleArenaFixture, "filling the arena") {
 }
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "allocate more than size (due to arena guard)") {
-    CHECK_CRASH(arena.allocate(default_size), "Failed to allocate 1044 bytes. Only 1008 remaining.");
+    CHECK_CRASH(arena.allocate(default_size), "Failed to allocate 1.0 KB. Only 1008 bytes remaining.");
 }
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "integrity should work with no allocations made") {

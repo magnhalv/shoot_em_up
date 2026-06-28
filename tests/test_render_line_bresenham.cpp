@@ -18,13 +18,13 @@ TEST_CASE("render_line_bresenham x-major positive slope") {
     Framebuffer buffer = make_buffer(5, 3);
     Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
     vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
-    render_line_bresenham(vec2(0, 0), vec2(4, 2), color, rect, &buffer);
+    render_line_bresenham(vec2(0, 0), vec2(4, 2), color, rect, buffer);
 
-    REQUIRE_EQ(get_color(&buffer, 0, 0), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 1, 1), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 2, 1), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 3, 2), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 4, 2), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 0, 0), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 1, 1), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 2, 1), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 3, 2), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 4, 2), 0xFFFFFFFF);
 
     free(buffer.memory);
 }
@@ -32,10 +32,10 @@ TEST_CASE("render_line_bresenham x-major positive slope") {
 TEST_CASE("render_line_bresenham horizontal line") {
     Framebuffer buffer = make_buffer(6, 3);
     Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
-    render_line_bresenham(vec2(0, 1), vec2(5, 1), vec4(1, 1, 1, 1), rect, &buffer);
+    render_line_bresenham(vec2(0, 1), vec2(5, 1), vec4(1, 1, 1, 1), rect, buffer);
 
     for (i32 x = 0; x <= 5; x++)
-        REQUIRE_EQ(get_color(&buffer, x, 1), 0xFFFFFFFF);
+        REQUIRE_EQ(get_color(buffer, x, 1), 0xFFFFFFFF);
 
     free(buffer.memory);
 }
@@ -43,10 +43,10 @@ TEST_CASE("render_line_bresenham horizontal line") {
 TEST_CASE("render_line_bresenham vertical line") {
     Framebuffer buffer = make_buffer(3, 5);
     Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
-    render_line_bresenham(vec2(1, 0), vec2(1, 4), vec4(1, 1, 1, 1), rect, &buffer);
+    render_line_bresenham(vec2(1, 0), vec2(1, 4), vec4(1, 1, 1, 1), rect, buffer);
 
     for (i32 y = 0; y <= 4; y++)
-        REQUIRE_EQ(get_color(&buffer, 1, y), 0xFFFFFFFF);
+        REQUIRE_EQ(get_color(buffer, 1, y), 0xFFFFFFFF);
 
     free(buffer.memory);
 }
@@ -61,13 +61,13 @@ TEST_CASE("render_line_bresenham y-major positive slope") {
     // y=4: set(2,4)
     Framebuffer buffer = make_buffer(3, 5);
     Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
-    render_line_bresenham(vec2(0, 0), vec2(2, 4), vec4(1, 1, 1, 1), rect, &buffer);
+    render_line_bresenham(vec2(0, 0), vec2(2, 4), vec4(1, 1, 1, 1), rect, buffer);
 
-    REQUIRE_EQ(get_color(&buffer, 0, 0), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 1, 1), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 1, 2), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 2, 3), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 2, 4), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 0, 0), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 1, 1), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 1, 2), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 2, 3), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 2, 4), 0xFFFFFFFF);
 
     free(buffer.memory);
 }
@@ -79,8 +79,8 @@ TEST_CASE("render_line_bresenham reversed endpoints draw same pixels") {
     Rectangle2i rect = { 0, w, 0, h };
     vec4 color = vec4(1, 1, 1, 1);
 
-    render_line_bresenham(vec2(0, 0), vec2(4, 2), color, rect, &buf1);
-    render_line_bresenham(vec2(4, 2), vec2(0, 0), color, rect, &buf2);
+    render_line_bresenham(vec2(0, 0), vec2(4, 2), color, rect, buf1);
+    render_line_bresenham(vec2(4, 2), vec2(0, 0), color, rect, buf2);
 
     REQUIRE_EQ(memcmp(buf1.memory, buf2.memory, buf1.memory_size), 0);
 
@@ -92,13 +92,13 @@ TEST_CASE("render_line_bresenham clipping excludes out-of-bounds pixels") {
     // Line (0,0)->(4,4), clip to x:[1,4) y:[1,4) — corners (0,0) and (4,4) must not be written
     Framebuffer buffer = make_buffer(5, 5);
     Rectangle2i rect = { 1, 4, 1, 4 };
-    render_line_bresenham(vec2(0, 0), vec2(4, 4), vec4(1, 1, 1, 1), rect, &buffer);
+    render_line_bresenham(vec2(0, 0), vec2(4, 4), vec4(1, 1, 1, 1), rect, buffer);
 
-    REQUIRE_EQ(get_color(&buffer, 0, 0), 0x00000000);
-    REQUIRE_EQ(get_color(&buffer, 4, 4), 0x00000000);
-    REQUIRE_EQ(get_color(&buffer, 1, 1), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 2, 2), 0xFFFFFFFF);
-    REQUIRE_EQ(get_color(&buffer, 3, 3), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 0, 0), 0x00000000);
+    REQUIRE_EQ(get_color(buffer, 4, 4), 0x00000000);
+    REQUIRE_EQ(get_color(buffer, 1, 1), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 2, 2), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 3, 3), 0xFFFFFFFF);
 
     free(buffer.memory);
 }
@@ -106,9 +106,9 @@ TEST_CASE("render_line_bresenham clipping excludes out-of-bounds pixels") {
 TEST_CASE("render_line_bresenham single point") {
     Framebuffer buffer = make_buffer(3, 3);
     Rectangle2i rect = { 0, buffer.width, 0, buffer.height };
-    render_line_bresenham(vec2(1, 1), vec2(1, 1), vec4(1, 1, 1, 1), rect, &buffer);
+    render_line_bresenham(vec2(1, 1), vec2(1, 1), vec4(1, 1, 1, 1), rect, buffer);
 
-    REQUIRE_EQ(get_color(&buffer, 1, 1), 0xFFFFFFFF);
+    REQUIRE_EQ(get_color(buffer, 1, 1), 0xFFFFFFFF);
 
     free(buffer.memory);
 }

@@ -517,98 +517,6 @@ auto inline is_inside_view(vec4 p) -> bool {
     return in_range(-p.w, p.x, p.w) && in_range(-p.w, p.y, p.w) && in_range(-p.w, p.z, p.w);
 }
 
-auto inline clip_triangle_against_plane(vec4 v1, vec4 v2, vec4 v3, List<vec4>& clipped_triangles, i32 plane, i32 side) {
-    const i32 Edge_Count = 3;
-    f32 ds[3] = {
-        v1.x + (side * v1.w),
-        v2.x + (side * v2.w),
-        v3.x + (side * v3.w),
-    };
-    vec4 v[3] = { v1, v2, v3 };
-
-    i32 out_count = 0;
-    i32 in_count = 0;
-    i32 out_idx[Edge_Count] = { -1, -1, -1 };
-    i32 in_idx[Edge_Count] = { -1, -1, -1 };
-    for (auto i = 0; i < 3; i++) {
-        if ((side * ds[i]) < 0) {
-            out_idx[out_count++] = i;
-        }
-        else {
-            in_idx[in_count++] = i;
-        }
-    }
-
-    if (out_count == 0) {
-        clipped_triangles.push(v1);
-        clipped_triangles.push(v2);
-        clipped_triangles.push(v3);
-    }
-    else if (out_count == 1) {
-        i32 a_idx = out_idx[0];
-        i32 b_idx = (a_idx + 1) % Edge_Count;
-        i32 c_idx = (a_idx + 2) % Edge_Count;
-        vec4 a = v[a_idx];
-        vec4 b = v[b_idx];
-        vec4 c = v[c_idx];
-
-        // ab
-        vec4 ab = {};
-        {
-            f32 d_a = a.x + (side * a.w);
-            f32 d_b = b.x + (side * b.w);
-            f32 t = -(d_a) / (d_b - d_a);
-            ab = lerp(a, t, b);
-        }
-        vec4 ac = {};
-        {
-            f32 d_a = a.x + (side * a.w);
-            f32 d_c = c.x + (side * c.w);
-            f32 t = -(d_a) / (d_c - d_a);
-            ac = lerp(a, t, c);
-        }
-
-        // ab -> b -> c;
-        clipped_triangles.push(ab);
-        clipped_triangles.push(b);
-        clipped_triangles.push(c);
-        // ac -> ab -> c;
-        clipped_triangles.push(ac);
-        clipped_triangles.push(ab);
-        clipped_triangles.push(c);
-    }
-    else if (out_count == 2) {
-        i32 a_idx = in_idx[0];
-        i32 b_idx = (a_idx + 1) % Edge_Count;
-        i32 c_idx = (a_idx + 2) % Edge_Count;
-
-        vec4 a = v[a_idx];
-        vec4 b = v[b_idx];
-        vec4 c = v[c_idx];
-
-        clipped_triangles.push(a);
-        // b'
-        {
-            f32 d_a = a.x + (side * a.w);
-            f32 d_b = b.x + (side * b.w);
-            f32 t = -(d_a) / (d_b - d_a);
-            vec4 b_new = lerp(a, t, b);
-            clipped_triangles.push(b_new);
-        }
-        {
-            f32 d_a = a.x + (side * a.w);
-            f32 d_c = c.x + (side * c.w);
-            f32 t = -(d_a) / (d_c - d_a);
-            vec4 c_new = lerp(a, t, c);
-            clipped_triangles.push(c_new);
-        }
-
-        // c'
-    }
-    else if (out_count == 3) {
-    }
-}
-
 enum PlaneIdx : i8 {
     PlaneIdx_X = 0,
     PlaneIdx_Y = 1,
@@ -629,22 +537,19 @@ auto inline clip_triangle_against_plane2(                 //
     Assert(plane_index >= 0 && plane_index < PlaneIdx_Count);
     Assert(plane_direction == 1 || plane_direction == -1);
 
-    Array<i32> index_map = Array<i32>::create(in_vertices.count(), arena);
-    fill_inc(index_map);
-
     f32 dir = (f32)plane_direction;
     for (auto triangle_indices : in_indices) {
-        vec4 v0 = in_vertices[index_map[triangle_indices.x]];
-        vec4 v1 = in_vertices[index_map[triangle_indices.y]];
-        vec4 v2 = in_vertices[index_map[triangle_indices.z]];
+        vec4 v0 = in_vertices[triangle_indices.x];
+        vec4 v1 = in_vertices[triangle_indices.y];
+        vec4 v2 = in_vertices[triangle_indices.z];
 
         const i32 Edge_Count = 3;
-        f32 ds[3] = {
+        f32 ds[Edge_Count] = {
             v0.v[plane_index] + (dir * v0.w),
             v1.v[plane_index] + (dir * v1.w),
             v2.v[plane_index] + (dir * v2.w),
         };
-        vec4 v[3] = { v0, v1, v2 };
+        vec4 v[Edge_Count] = { v0, v1, v2 };
 
         i32 out_count = 0;
         i32 in_count = 0;
@@ -679,15 +584,15 @@ auto inline clip_triangle_against_plane2(                 //
             // ab
             vec4 ab = {};
             {
-                f32 d_a = a.v[plane_index] + (dir * a.w);
-                f32 d_b = b.v[plane_index] + (dir * b.w);
+                f32 d_a = ds[a_idx];
+                f32 d_b = ds[b_idx];
                 f32 t = -(d_a) / (d_b - d_a);
                 ab = lerp(a, t, b);
             }
             vec4 ac = {};
             {
-                f32 d_a = a.v[plane_index] + (dir * a.w);
-                f32 d_c = c.v[plane_index] + (dir * c.w);
+                f32 d_a = ds[a_idx];
+                f32 d_c = ds[c_idx];
                 f32 t = -(d_a) / (d_c - d_a);
                 ac = lerp(a, t, c);
             }
@@ -725,15 +630,15 @@ auto inline clip_triangle_against_plane2(                 //
             vec4 b_new;
             // b'
             {
-                f32 d_a = a.v[plane_index] + (dir * a.w);
-                f32 d_b = b.v[plane_index] + (dir * b.w);
+                f32 d_a = ds[a_idx];
+                f32 d_b = ds[b_idx];
                 f32 t = -(d_a) / (d_b - d_a);
                 b_new = lerp(a, t, b);
             }
             vec4 c_new;
             {
-                f32 d_a = a.v[plane_index] + (dir * a.w);
-                f32 d_c = c.v[plane_index] + (dir * c.w);
+                f32 d_a = ds[a_idx];
+                f32 d_c = ds[c_idx];
                 f32 t = -(d_a) / (d_c - d_a);
                 c_new = lerp(a, t, c);
             }
