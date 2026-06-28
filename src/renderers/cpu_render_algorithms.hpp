@@ -106,6 +106,15 @@ auto inline set_pixel(i32 x, i32 y, u32 color, Rectangle2i clip_rect, Framebuffe
     }
 }
 
+auto inline set_pixel_with_z_buffer(i32 x, i32 y, f32 z, u32 color, Rectangle2i clip_rect, Framebuffer& buffer) {
+    f32 curr_z = buffer.z_buffer[y * buffer.width + x];
+    // z > curr_z even though z grows forward. This is due to the 1/z which gives a smaller z-component the further away it is.
+    if (is_inside(ivec2(x, y), clip_rect) && z > curr_z) {
+        buffer.set_pixel(x, y, color);
+        buffer.z_buffer[y * buffer.width + x] = z;
+    }
+}
+
 auto inline set_pixels(i32 x_start, i32 x_end, i32 y, u32 color, Rectangle2i clip_rect, Framebuffer& buffer) {
     if (!in_range(clip_rect.min_y, y, clip_rect.max_y)) {
         return;
@@ -253,10 +262,10 @@ auto inline interpolate_f32(i32 i0, f32 d0, i32 i1, f32 d1, MemoryArena& arena) 
 }
 
 auto inline render_line_gambetta_internal(
-    vec2 P0, vec2 P1, u32 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
+    vec3 P0, vec3 P1, u32 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
     if (abs(P1.x - P0.x) > abs(P1.y - P0.y)) {
         if (P0.x > P1.x) {
-            swap_vec2(P0, P1);
+            vec3_swap(P0, P1);
         }
         i32 x0 = round_f32_to_i32(P0.x);
         i32 y0 = round_f32_to_i32(P0.y);
@@ -269,7 +278,7 @@ auto inline render_line_gambetta_internal(
     }
     else {
         if (P0.y > P1.y) {
-            swap_vec2(P0, P1);
+            vec3_swap(P0, P1);
         }
         i32 x0 = round_f32_to_i32(P0.x);
         i32 y0 = round_f32_to_i32(P0.y);
@@ -282,11 +291,11 @@ auto inline render_line_gambetta_internal(
     }
 }
 
-auto inline render_line_gambetta_intensity_internal(vec2 P0, vec2 P1, f32 h0, f32 h1, vec4 color_l1,
+auto inline render_line_gambetta_intensity_internal(vec3 P0, vec3 P1, f32 h0, f32 h1, vec4 color_l1,
     Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
     if (abs(P1.x - P0.x) > abs(P1.y - P0.y)) {
         if (P0.x > P1.x) {
-            swap_vec2(P0, P1);
+            vec3_swap(P0, P1);
             swap_f32(h0, h1);
         }
         i32 x0 = round_f32_to_i32(P0.x);
@@ -303,7 +312,7 @@ auto inline render_line_gambetta_intensity_internal(vec2 P0, vec2 P1, f32 h0, f3
     }
     else {
         if (P0.y > P1.y) {
-            swap_vec2(P0, P1);
+            vec3_swap(P0, P1);
             swap_f32(h0, h1);
         }
         i32 x0 = round_f32_to_i32(P0.x);
@@ -320,64 +329,94 @@ auto inline render_line_gambetta_intensity_internal(vec2 P0, vec2 P1, f32 h0, f3
     }
 }
 
-auto inline render_line_gambetta(vec2 P0, vec2 P1, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena)
+auto inline render_line_gambetta(vec3 P0, vec3 P1, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena)
     -> void {
     u32 c = pack_color_8x4(color);
     render_line_gambetta_internal(P0, P1, c, clip_rect, buffer, arena);
 }
 
 auto inline render_triangle_writeframe_gambetta(
-    vec2 P0, vec2 P1, vec2 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
+    vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
     render_line_gambetta(P0, P1, color, clip_rect, buffer, arena);
     render_line_gambetta(P1, P2, color, clip_rect, buffer, arena);
     render_line_gambetta(P2, P0, color, clip_rect, buffer, arena);
 }
 
-auto inline render_filled_triangle_gambetta(
-    vec2 P0, vec2 P1, vec2 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
+auto inline render_triangle_filled_gambetta(
+    vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
 
     if (P1.y < P0.y) {
-        swap_vec2(P0, P1);
+        vec3_swap(P0, P1);
     }
     if (P2.y < P0.y) {
-        swap_vec2(P0, P2);
+        vec3_swap(P0, P2);
     }
     if (P2.y < P1.y) {
-        swap_vec2(P1, P2);
+        vec3_swap(P1, P2);
     }
 
     u32 packed_color = pack_color_8x4(color);
 
     i32 x0 = round_f32_to_i32(P0.x);
     i32 y0 = round_f32_to_i32(P0.y);
+    f32 z0 = P0.z;
     i32 x1 = round_f32_to_i32(P1.x);
     i32 y1 = round_f32_to_i32(P1.y);
+    f32 z1 = P1.z;
     i32 x2 = round_f32_to_i32(P2.x);
     i32 y2 = round_f32_to_i32(P2.y);
+    f32 z2 = P2.z;
 
     Array<i32> x01 = interpolate_i32(y0, x0, y1, x1, arena);
+    Array<f32> z01 = interpolate_f32(y0, z0, y1, z1, arena);
     Array<i32> x12 = interpolate_i32(y1, x1, y2, x2, arena);
+    Array<f32> z12 = interpolate_f32(y1, z1, y2, z2, arena);
 
     x01 = span(x01, 0, x01.count() - 1);
+    z01 = span(z01, 0, z01.count() - 1);
     Array<i32> x012 = concat(x01, x12, arena);
+    Array<f32> z012 = concat(z01, z12, arena);
 
     Array<i32> x02 = interpolate_i32(y0, x0, y2, x2, arena);
+    Array<f32> z02 = interpolate_f32(y0, z0, y2, z2, arena);
 
-    i32 m = (i32)x012.count() / 2;
     Array<i32> x_left;
     Array<i32> x_right;
-    if (x02[m] < x012[m]) {
-        x_left = x02;
-        x_right = x012;
+    Array<f32> z_left;
+    Array<f32> z_right;
+    {
+        i32 m = (i32)((x012.count() - 1) / 2);
+        if (x02[m] < x012[m]) {
+            x_left = x02;
+            x_right = x012;
+
+            z_left = z02;
+            z_right = z012;
+        }
+        else {
+            x_right = x02;
+            x_left = x012;
+
+            z_right = z02;
+            z_left = z012;
+        }
     }
-    else {
-        x_right = x02;
-        x_left = x012;
+
+    {
+        i32 m = (i32)((z012.count() - 1) / 2);
+        if (z02[m] < z012[m]) {
+        }
+        else {
+        }
     }
 
     for (i32 y = y0; y <= y2; y++) {
-        for (i32 x = x_left[y - y0]; x <= x_right[y - y0]; x++) {
-            set_pixel(x, y, packed_color, clip_rect, buffer);
+        i32 y_idx = y - y0;
+        i32 x_l = x_left[y_idx];
+        i32 x_r = x_right[y_idx];
+        Array<f32> z_l_to_r = interpolate_f32(x_l, z_left[y_idx], x_r, z_right[y_idx], arena);
+        for (i32 x = x_l; x <= x_r; x++) {
+            set_pixel_with_z_buffer(x, y, z_l_to_r[x - x_l], packed_color, clip_rect, buffer);
         }
     }
 
@@ -387,19 +426,19 @@ auto inline render_filled_triangle_gambetta(
     render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
 }
 
-auto inline render_shaded_triangle_gambetta(vec2 P0, vec2 P1, vec2 P2, f32 h0, f32 h1, f32 h2, vec4 color,
+auto inline render_shaded_triangle_gambetta(vec3 P0, vec3 P1, vec3 P2, f32 h0, f32 h1, f32 h2, vec4 color,
     Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
 
     if (P1.y < P0.y) {
-        swap_vec2(P0, P1);
+        vec3_swap(P0, P1);
         swap_f32(h0, h1);
     }
     if (P2.y < P0.y) {
-        swap_vec2(P0, P2);
+        vec3_swap(P0, P2);
         swap_f32(h0, h2);
     }
     if (P2.y < P1.y) {
-        swap_vec2(P1, P2);
+        vec3_swap(P1, P2);
         swap_f32(h1, h2);
     }
 
@@ -464,14 +503,14 @@ auto inline render_shaded_triangle_gambetta(vec2 P0, vec2 P1, vec2 P2, f32 h0, f
     render_line_gambetta_intensity_internal(P2, P0, h2, h0, color_l1, clip_rect, buffer, arena);
 }
 
-auto inline viewport_to_canvas(f32 x, f32 y, i32 window_width, i32 window_height) -> vec2 {
+auto inline viewport_to_canvas(f32 x, f32 y, f32 z, i32 window_width, i32 window_height) -> vec3 {
     const f32 new_x = (x * 0.5f + 0.5f) * (window_width - 1);
     const f32 new_y = (y * 0.5f + 0.5f) * (window_height - 1);
-    return { new_x, new_y };
+    return { new_x, new_y, 1 / z };
 }
 
-auto inline project_vertex(vec4 v, i32 window_width, i32 window_height) -> vec2 {
-    return viewport_to_canvas(v.x / v.w, v.y / v.w, window_width, window_height);
+auto inline project_vertex(vec4 v, i32 window_width, i32 window_height) -> vec3 {
+    return viewport_to_canvas(v.x / v.w, v.y / v.w, v.z, window_width, window_height);
 }
 
 auto inline is_inside_view(vec4 p) -> bool {
@@ -785,11 +824,12 @@ auto inline clip_triangles_against_all_planes(          //
     temp_indices.clear();
 }
 
-auto inline render_polygon_gambetta(                                //
+auto inline render_mesh_gambetta(                                   //
     Array<vec4> vertices, Array<ivec3> indices, Array<vec4> colors, //
     Array<Transform> instances,                                     //
     const mat4& world_to_view,                                      //
     const mat4& view_to_clip,                                       //
+    bool is_wireframe,                                              //
     Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena  //
     ) -> void {
     Assert(indices.count() == colors.count());
@@ -808,18 +848,24 @@ auto inline render_polygon_gambetta(                                //
         auto clipped_indices = List<ivec3>::create(indices.count() * 100, arena);
         clip_triangles_against_all_planes(clip_space_vertices, indices, clipped_vertices, clipped_indices, arena);
 
-        auto projected_vertices = Array<vec2>::create(clipped_vertices.count(), arena);
+        auto projected_vertices = Array<vec3>::create(clipped_vertices.count(), arena);
         for (i32 i = 0; i < clipped_vertices.count(); i++) {
             projected_vertices[i] = project_vertex(clipped_vertices[i], buffer.width, buffer.height);
         }
 
         for (i32 i = 0; i < clipped_indices.count(); i++) {
             ivec3 index = clipped_indices[i];
-            vec2 a = projected_vertices[index.x];
-            vec2 b = projected_vertices[index.y];
-            vec2 c = projected_vertices[index.z];
-            render_triangle_writeframe_gambetta( //
-                a, b, c, global_color_palette[i % Global_Color_Palette_Count], clip_rect, buffer, arena);
+            vec3 a = projected_vertices[index.x];
+            vec3 b = projected_vertices[index.y];
+            vec3 c = projected_vertices[index.z];
+            if (is_wireframe) {
+                render_triangle_writeframe_gambetta( //
+                    a, b, c, global_color_palette[i % Global_Color_Palette_Count], clip_rect, buffer, arena);
+            }
+            else {
+                render_triangle_filled_gambetta( //
+                    a, b, c, global_color_palette[i % Global_Color_Palette_Count], clip_rect, buffer, arena);
+            }
         }
     }
 }

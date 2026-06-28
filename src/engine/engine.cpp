@@ -400,25 +400,25 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (false) {
             TIMED_BLOCK("render_test_lines");
 
-            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            vec3 center = vec3(app_input->client_width / 2.0f, app_input->client_height / 2.0f, 0.0f);
             const i32 length = 20;
-            vec2 end_points[] = {
-                vec2(center.x + length, center.y),
-                vec2(center.x + length * cosf((1 * PI) / 8.0f), center.y + length * sinf((1 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((2 * PI) / 8.0f), center.y + length * sinf((2 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((3 * PI) / 8.0f), center.y + length * sinf((3 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((4 * PI) / 8.0f), center.y + length * sinf((4 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((5 * PI) / 8.0f), center.y + length * sinf((5 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((6 * PI) / 8.0f), center.y + length * sinf((6 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((7 * PI) / 8.0f), center.y + length * sinf((7 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((8 * PI) / 8.0f), center.y + length * sinf((8 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((9 * PI) / 8.0f), center.y + length * sinf((9 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((10 * PI) / 8.0f), center.y + length * sinf((10 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((11 * PI) / 8.0f), center.y + length * sinf((11 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((12 * PI) / 8.0f), center.y + length * sinf((12 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((13 * PI) / 8.0f), center.y + length * sinf((13 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((14 * PI) / 8.0f), center.y + length * sinf((14 * PI) / 8.0f)),
-                vec2(center.x + length * cosf((15 * PI) / 8.0f), center.y + length * sinf((15 * PI) / 8.0f)),
+            vec3 end_points[] = {
+                vec3(center.x + length, center.y, 0.0f),
+                vec3(center.x + length * cosf((1 * PI) / 8.0f), center.y + length * sinf((1 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((2 * PI) / 8.0f), center.y + length * sinf((2 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((3 * PI) / 8.0f), center.y + length * sinf((3 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((4 * PI) / 8.0f), center.y + length * sinf((4 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((5 * PI) / 8.0f), center.y + length * sinf((5 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((6 * PI) / 8.0f), center.y + length * sinf((6 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((7 * PI) / 8.0f), center.y + length * sinf((7 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((8 * PI) / 8.0f), center.y + length * sinf((8 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((9 * PI) / 8.0f), center.y + length * sinf((9 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((10 * PI) / 8.0f), center.y + length * sinf((10 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((11 * PI) / 8.0f), center.y + length * sinf((11 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((12 * PI) / 8.0f), center.y + length * sinf((12 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((13 * PI) / 8.0f), center.y + length * sinf((13 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((14 * PI) / 8.0f), center.y + length * sinf((14 * PI) / 8.0f), 0.0f),
+                vec3(center.x + length * cosf((15 * PI) / 8.0f), center.y + length * sinf((15 * PI) / 8.0f), 0.0f),
                 center,
             };
 
@@ -452,12 +452,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
         if (false) {
             TIMED_BLOCK("render_test_filled_triangle");
-            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            vec3 center = { app_input->client_width / 16.0f, app_input->client_height / 16.0f, 0.0f };
             auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
             f32 t = (f32)app_input->t;
             triangle->vertices[0] = center;
-            triangle->vertices[1] = (vec2(cosf(t), sinf(t)) * 10) + center;
-            triangle->vertices[2] = vec2(10.0f, 0.0f) + center;
+            triangle->vertices[1] = (vec3(cosf(t), sinf(t), 0.0f) * 10) + center;
+            triangle->vertices[2] = vec3(10.0f, 0.0f, 0.0f) + center;
             triangle->color = global_color_palette[0];
         }
         if (false) {
@@ -935,10 +935,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     }
 
     {
-        u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
-        u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
+        // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
+        // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
         renderer->apply_framebuffer(state->handle_background, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(state->handle_3D, client_width, client_height, width, height);
+        renderer->apply_framebuffer(state->handle_3D, client_width, client_height, 0, 0);
         renderer->get_color(state->handle_3D, 0, 0);
     }
 }

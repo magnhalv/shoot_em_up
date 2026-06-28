@@ -42,7 +42,8 @@ enum RenderGroupEntryType {                      //
     RenderCommands_RenderEntryTriangle,          //
     RenderCommands_RenderEntryFilledTriangle,    //
     RenderCommands_RenderEntryShadedTriangle,    //
-    RenderCommands_RenderEntryTriMesh            //
+    RenderCommands_RenderEntryTriMesh,           //
+    RenderCommands_RenderEntryTriMeshWireframe   //
 };
 
 struct RenderGroupEntryHeader {
@@ -83,8 +84,8 @@ struct RenderEntryBitmap {
 };
 
 struct RenderEntryLine {
-    vec2 start;
-    vec2 end;
+    vec3 start;
+    vec3 end;
     vec4 color;
 };
 
@@ -103,11 +104,11 @@ struct RenderEntryFilledCircle {
 struct RenderEntryTriangle {
     union {
         struct {
-            vec2 P0;
-            vec2 P1;
-            vec2 P2;
+            vec3 P0;
+            vec3 P1;
+            vec3 P2;
         };
-        vec2 vertices[3];
+        vec3 vertices[3];
     };
     vec4 color;
 };
@@ -115,11 +116,11 @@ struct RenderEntryTriangle {
 struct RenderEntryFilledTriangle {
     union {
         struct {
-            vec2 P0;
-            vec2 P1;
-            vec2 P2;
+            vec3 P0;
+            vec3 P1;
+            vec3 P2;
         };
-        vec2 vertices[3];
+        vec3 vertices[3];
     };
     vec4 color;
 };
@@ -127,9 +128,9 @@ struct RenderEntryFilledTriangle {
 struct RenderEntryShadedTriangle {
     union {
         struct {
-            vec2 P0;
-            vec2 P1;
-            vec2 P2;
+            vec3 P0;
+            vec3 P1;
+            vec3 P2;
         };
         vec2 vertices[3];
     };
@@ -168,8 +169,10 @@ struct RenderGroup {
 };
 
 // INTERNAL
+
 struct Framebuffer {
     void* memory;
+    Array<f32> z_buffer;
     i32 memory_size;
     i32 width;
     i32 height;
@@ -190,17 +193,6 @@ struct Framebuffer {
         return (u32*)((u8*)memory + (y * pitch) + (x * bytes_per_pixel));
     }
 };
-
-auto inline framebuffer_create(i32 width, i32 height, MemoryArena& arena) -> Framebuffer {
-    Framebuffer buffer;
-    buffer.width = width;
-    buffer.height = height;
-    buffer.bytes_per_pixel = BYTES_PER_PIXEL;
-    buffer.memory_size = buffer.bytes_per_pixel * (buffer.width * buffer.height);
-    buffer.memory = (void*)allocate<u8>(arena, buffer.memory_size);
-    buffer.pitch = buffer.width * buffer.bytes_per_pixel;
-    return buffer;
-}
 
 // INTERNAL END
 

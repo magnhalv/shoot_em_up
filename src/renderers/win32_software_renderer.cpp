@@ -74,12 +74,20 @@ internal void resize_frame_buffer(Framebuffer* buffer, int width, int height) {
     if (buffer->memory) {
         VirtualFree(buffer->memory, 0, MEM_RELEASE);
     }
+    if (buffer->z_buffer.m_data) {
+        VirtualFree(buffer->z_buffer.m_data, 0, MEM_RELEASE);
+    }
 
+    u64 entry_count = width * height;
     buffer->width = width;
     buffer->height = height;
     buffer->bytes_per_pixel = BYTES_PER_PIXEL;
     buffer->memory_size = buffer->bytes_per_pixel * (buffer->width * buffer->height);
     buffer->memory = VirtualAlloc(0, buffer->memory_size, MEM_COMMIT, PAGE_READWRITE);
+    buffer->z_buffer.init(                                                            //
+        (f32*)VirtualAlloc(0, entry_count * sizeof(f32), MEM_COMMIT, PAGE_READWRITE), //
+        entry_count                                                                   //
+    );
     buffer->pitch = buffer->width * buffer->bytes_per_pixel;
     // Should always be 64KB aligned from virtual alloc
     Assert(is_aligned(buffer->memory, KiloBytes(64)));
@@ -155,10 +163,11 @@ static void clear_check_pattern(Framebuffer& buffer, Rectangle2i rect, vec4 colo
     u32 max_y = hm::min(rect.max_y, buffer.height);
 
     for (u32 y = min_y; y < max_y; y++) {
-        u32* dest = ((u32*)buffer.memory + (y * buffer.width)) + (min_x);
+        u32* pixel_dest = ((u32*)buffer.memory + (y * buffer.width)) + (min_x);
         for (u32 x = min_x; x < max_x; x++) {
             u32 color = (y + x) % 2 == 0 ? packed_color1 : packed_color2;
-            *dest++ = color;
+            *pixel_dest++ = color;
+            buffer.z_buffer[y * buffer.width + x] = 0.0f;
         }
     }
 }
@@ -752,7 +761,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         } break;
         case RenderCommands_RenderEntryFilledTriangle: {
             auto entry = (RenderEntryFilledTriangle*)data;
-            render_filled_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, *framebuffer, transient);
+            render_triangle_filled_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryShadedTriangle: {
@@ -763,12 +772,22 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         } break;
         case RenderCommands_RenderEntryTriMesh: {
             auto entry = (RenderEntryTriMesh*)data;
-            render_polygon_gambetta(                                                //
+            render_mesh_gambetta(                                                   //
                 entry->model.vertices, entry->model.triangles, entry->model.colors, //
                 entry->instances,                                                   //
                 entry->world_to_view,                                               //
                 entry->view_to_clip,                                                //
-                clip_rect, *framebuffer, transient);
+                false, clip_rect, *framebuffer, transient);
+            base_address += sizeof(*entry);
+        } break;
+        case RenderCommands_RenderEntryTriMeshWireframe: {
+            auto entry = (RenderEntryTriMesh*)data;
+            render_mesh_gambetta(                                                   //
+                entry->model.vertices, entry->model.triangles, entry->model.colors, //
+                entry->instances,                                                   //
+                entry->world_to_view,                                               //
+                entry->view_to_clip,                                                //
+                true, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {

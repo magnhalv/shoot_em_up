@@ -75,3 +75,9 @@ bool operator==(const vec3& l, const vec3& r);
 bool operator!=(const vec3& l, const vec3& r);
 
 void print_vec3(const vec3& v);
+
+inline auto vec3_swap(vec3& a, vec3& b) -> void {
+    vec3 temp = a;
+    a = b;
+    b = temp;
+}
