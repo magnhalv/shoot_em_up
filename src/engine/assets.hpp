@@ -4,8 +4,8 @@
 #include <platform/types.hpp>
 
 #include <core/memory_arena.hpp>
+#include <core/array.hpp>
 
-#include <engine/array.hpp>
 #include <engine/hugin_file_formats.hpp>
 
 const u32 BitmapBytePerPixel = 4;

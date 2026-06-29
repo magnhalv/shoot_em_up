@@ -6,7 +6,7 @@
 #include <platform/types.hpp>
 
 #include <core/memory_arena.hpp>
-#include <engine/array.hpp>
+#include <core/array.hpp>
 
 #include "math/vec2.hpp"
 #include "math/vec3.hpp"

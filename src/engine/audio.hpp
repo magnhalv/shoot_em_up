@@ -1,8 +1,8 @@
 #pragma once
 
 #include <core/memory_arena.hpp>
+#include <core/array.hpp>
 
-#include <engine/array.hpp>
 #include <engine/assets.hpp>
 #include <engine/globals.hpp>
 #include <engine/hugin_file_formats.hpp>

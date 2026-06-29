@@ -2,8 +2,9 @@
 
 #include <platform/types.hpp>
 
-#include "core/string8.hpp"
-#include "engine/array.hpp"
+#include <core/string8.hpp>
+#include <core/array.hpp>
+
 #include "macros.hpp"
 
 #define DeferLoop_(begin, end, n) for (int CONCAT(_i_, n) = ((begin), 0); !CONCAT(_i_, n); CONCAT(_i_, n) += 1, (end))

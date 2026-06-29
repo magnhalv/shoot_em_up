@@ -7,12 +7,12 @@
 #include <core/memory.hpp>
 #include <core/memory_arena.hpp>
 #include <core/util.hpp>
+#include <core/array.hpp>
 
 #include <math/util.hpp>
 #include <math/vec2.hpp>
 #include <math/vec4.hpp>
 
-#include <engine/array.hpp>
 
 #include "renderer.hpp"
 

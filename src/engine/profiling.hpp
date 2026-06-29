@@ -6,7 +6,7 @@
 #include <core/list.hpp>
 #include <core/memory_arena.hpp>
 #include <core/stack_list.hpp>
-#include <engine/array.hpp>
+#include <core/array.hpp>
 
 #include <math/vec2.hpp>
 

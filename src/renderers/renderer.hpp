@@ -1,14 +1,14 @@
 #pragma once
 
-#include "engine/array.hpp"
-#include "math/transform.hpp"
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
 
+#include <math/transform.hpp>
 #include <math/vec2.hpp>
 #include <math/vec3.hpp>
 #include <math/vec4.hpp>
 
+#include <core/array.hpp>
 #include <core/list.hpp>
 
 #include <engine/hugin_file_formats.hpp>
