@@ -4,6 +4,7 @@
 #include <platform/types.hpp>
 
 #include <core/hash.hpp>
+#include <core/color.hpp>
 #include <math/util.hpp>
 
 #include "imgui.hpp"
@@ -526,7 +527,7 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
                     (glyph_height / 2.0f) + y - (glyph_height + cp.yoff) + 0.5f);
                 char_el->scale = vec2((f32)glyph_width, (f32)glyph_height);
                 char_el->rotation = 0.0f;
-                char_el->color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+                char_el->color = RED;
                 char_el->texture_id = global_context->texture_id;
 
                 // Offset with 0.5f to not make the bilinear interpolation not make the font blurry.
@@ -621,9 +622,9 @@ auto UI_PopWindow() -> void {
     global_context->state()->parents.pop();
 }
 
-const vec4 Button_Color = vec4(1.0f, 50.0f, 90.0f, 255.0f);
-const vec4 Hover_Button_Color = vec4(10.0f, 60.0f, 100.0f, 255.0f);
-const vec4 Clicked_Button_Color = vec4(20.0f, 70.0f, 120.0f, 255.0f);
+const vec4 Button_Color = BLUE;
+const vec4 Hover_Button_Color = GREEN;
+const vec4 Clicked_Button_Color = RED;
 
 auto UI_Button(string8 text) -> UI_Entity_Status {
     UI_Entity* button = allocate<UI_Entity>(global_context->frame_arena(), 1);

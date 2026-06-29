@@ -147,15 +147,22 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         state->camera = camera_init(90.0f, 0.0f, vec3());
 
-        state->handle_background = renderer->create_framebuffer( //
-            app_input->client_width,                             //
-            app_input->client_height                             //
-        );
-        const i32 pixel_size = 4;
-        state->handle_3D = renderer->create_framebuffer( //
-            app_input->client_width / pixel_size,        //
-            app_input->client_height / pixel_size        //
-        );
+        {
+          state->handle_background = renderer->create_framebuffer( //
+              app_input->client_width,                             //
+              app_input->client_height                             //
+          );
+          const i32 pixel_size = 4;
+          state->handle_3D = renderer->create_framebuffer( //
+              app_input->client_width / pixel_size,        //
+              app_input->client_height / pixel_size        //
+          );
+          state->handle_UI = renderer->create_framebuffer( //
+              app_input->client_width,        //
+              app_input->client_height//
+          );
+
+        }
 
         state->is_initialized = true;
     }
@@ -709,11 +716,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         END_BLOCK();
     }
 
-    if (false) {
+    if (true) {
 
         DebugState* debug_state = (DebugState*)engine_memory->debug.data;
         if (state->ui_context && debug_state->is_initialized) {
-
             {
                 TIMED_BLOCK("gui_create");
 
@@ -721,17 +727,17 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 Mouse* mouse = &app_input->input.mouse;
                 UI_Begin(mouse, client_width, client_height);
                 UI_SetLayout({ .layout_direction = UI_Direction_Right });
-                vec4 background_color = vec4(29.0f, 32.0f, 75.0f, 180.0f);
-                vec4 title_background_color = vec4(20.0f, 120.0f, 20.0f, 255.0f);
-                vec4 red = vec4(120.0f, 20.0f, 20.0f, 255.0f);
+                vec4 background_color = vec4(0.114f, 0.125f, 0.294f, 0.706f);
+                vec4 title_background_color = vec4(0.078f, 0.471f, 0.078f, 1.0f);
+                vec4 red = vec4(0.471f, 0.078f, 0.078f, 1.0f);
                 UI_ScopedBackgroundColor(background_color);
                 UI_ScopedFlexDirection(UI_FlexDirection_Row);
                 UI_ScopedPadding({ 10.0f });
                 UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(500.0f)) {
                     UI_Text("Frame profiling");
                     {
-                        vec4 grey = vec4(127.0f, 127.0f, 127.0f, 255.0f);
-                        vec4 white = vec4(200.0f, 200.0f, 200.0f, 255.0f);
+                        vec4 grey = vec4(0.498f, 0.498f, 0.498f, 1.0f);
+                        vec4 white = vec4(0.784f, 0.784f, 0.784f, 1.0f);
                         UI_ScopedPadding({ 0.0f });
                         UI_ScopedFlexDirection(UI_FlexDirection_Column);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
@@ -750,13 +756,13 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 // fraction = 0.8f;
 
                                 if (frame_idx == debug_state->current_inspecting_frame) {
-                                    color = vec4(10.0f, 127.0f, 127.0f, 255.0f);
+                                    color = vec4(0.039f, 0.498f, 0.498f, 1.0f);
                                 }
                                 else if ((debug_state->processed_frame_count) % Historic_Frame_Count == frame_idx) {
-                                    color = vec4(255.0f, 0.0f, 0.0f, 255.0f);
+                                    color = RED;
                                 }
                                 else if ((debug_state->processed_frame_count - 1) % Historic_Frame_Count == frame_idx) {
-                                    color = vec4(10.0f, 127.0f, 20.0f, 255.0f);
+                                    color = vec4(0.039f, 0.498f, 0.078f, 1.0f);
                                 }
                                 string8 id = string8_format(g_transient, "frame_block_%d", frame_idx);
                                 UI_ScopedBackgroundColor(color);
@@ -776,7 +782,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     bool click_released =
                                         UI_Box(id1, UI_Grow(1.0f), UI_PercentOfParent(1.0f - fraction)).click_released;
                                     if (fraction > 0.0f) {
-                                        vec4 blue2 = vec4(10.0f, 50.0f, 200.0f, 255.0f);
+                                        vec4 blue2 = vec4(0.039f, 0.196f, 0.784f, 1.0f);
                                         vec4 fraction_color = lerp(blue2, 0.5f, color);
                                         UI_ScopedBackgroundColor(fraction_color);
                                         click_released = click_released ||
@@ -888,7 +894,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         debug_state->breadcrumbs[thread_idx].node_guids.push(node->GUID);
                                     }
                                     if (box.hovered) {
-                                        vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 220.0f);
+                                        vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 0.863f);
                                         UI_ScopedPadding({ 5.0f });
                                         UI_ScopedBackgroundColor(hover_background_color);
                                         UI_ScopedZIndex(9000);
@@ -922,7 +928,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             UI_Generate_Render_Commands(&ui_render_group);
 
             BEGIN_BLOCK("gui_render");
-            renderer->render(Platform->work_queue, &ui_render_group, state->handle_3D);
+            renderer->render(Platform->work_queue, &ui_render_group, state->handle_UI);
             END_BLOCK();
         }
     }
@@ -944,6 +950,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
         renderer->apply_framebuffer(state->handle_background, client_width, client_height, 0, 0);
         renderer->apply_framebuffer(state->handle_3D, client_width, client_height, 0, 0);
+        renderer->apply_framebuffer(state->handle_UI, client_width, client_height, 0, 0);
         renderer->get_color(state->handle_3D, 0, 0);
     }
 }

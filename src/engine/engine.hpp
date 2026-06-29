@@ -184,6 +184,7 @@ struct EngineState {
 
     FrameBufferHandle handle_background;
     FrameBufferHandle handle_3D;
+    FrameBufferHandle handle_UI;
 
     Camera camera;
 

@@ -23,6 +23,7 @@
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
 #include "core/lib.hpp"
+#include "math/vec3.hpp"
 #include "platform/types.hpp"
 
 struct WindowDimension {
