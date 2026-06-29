@@ -49,7 +49,7 @@ void normalize(vec3& v) {
 vec3 normalized(const vec3& v) {
   f32 lenSq = v.x * v.x + v.y * v.y + v.z * v.z;
   if (lenSq < VEC3_EPSILON) {
-    return v;
+    return {0.0f, 0.0f, 0.0f};
   }
   f32 invLen = 1.0f / sqrtf(lenSq);
 

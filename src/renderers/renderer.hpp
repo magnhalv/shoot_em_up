@@ -148,6 +148,7 @@ struct TriMesh {
 };
 
 struct RenderEntryTriMesh {
+    vec4 camera_position;
     mat4 world_to_view;
     mat4 view_to_clip;
     TriMesh model;

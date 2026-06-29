@@ -22,6 +22,7 @@
 #include "assets.hpp"
 #include "audio.hpp"
 #include "core/memory_arena.hpp"
+#include "core/mesh.hpp"
 #include "core/string8.hpp"
 #include "engine.hpp"
 #include "gameplay.hpp"
@@ -510,7 +511,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             model->triangles[10] = ivec3(2, 6, 7);
             model->triangles[11] = ivec3(2, 7, 3);
 
-            // model->normals = calculate_normals(model->vertices, model->triangles, *g_transient);
+            model->normals = calculate_face_normals(model->vertices, model->triangles, *g_transient);
 
             model->colors[0] = RED;
             model->colors[1] = RED;
@@ -538,6 +539,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             mesh->world_to_view = camera_get_view(state->camera);
             mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
+            mesh->camera_position = vec4(state->camera.m_position, 1.0f);
         }
         if (false) {
             TIMED_BLOCK("render_rectangle");

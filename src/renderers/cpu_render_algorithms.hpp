@@ -729,20 +729,34 @@ auto inline clip_triangles_against_all_planes(          //
     temp_indices.clear();
 }
 
-auto inline render_mesh_gambetta(                                   //
-    Array<vec4> vertices, Array<ivec3> indices, Array<vec4> colors, //
-    Array<Transform> instances,                                     //
-    const mat4& world_to_view,                                      //
-    const mat4& view_to_clip,                                       //
-    bool is_wireframe,                                              //
-    Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena  //
+auto inline render_mesh_gambetta(                                     //
+    Array<vec4> vertices, Array<ivec3> indices,  Array<vec3> normals, //
+    Array<vec4> colors,                                               // 
+    Array<Transform> instances,                                       //
+    const mat4& world_to_view,                                        //
+    const mat4& view_to_clip,                                         //
+    const vec4& camera_direction,                                         //
+    bool is_wireframe,                                                //
+    Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena    //
     ) -> void {
     Assert(indices.count() == colors.count());
 
     for (const auto& instance : instances) {
+        mat4 M_to_W = instance.to_mat4();
+        mat4 W_to_M = inverse(M_to_W);
+        vec4 cam_pos_M = camera_direction * W_to_M;
+
+        auto not_culled_indices = List<ivec3>::create(indices.count(), arena);
+        for (u32 i= 0; i< normals.count(); i++) {
+          const ivec3 triangle = indices[i];
+          const vec4 a = vertices[triangle.a];
+          const vec3 cam_direction_M = (a - cam_pos_M).xyz();
+          if (dot(cam_direction_M, normals[i]) < 0) {
+            not_culled_indices.push(indices[i]);
+          }
+        }
         auto clip_space_vertices = Array<vec4>::create(vertices.count(), arena);
 
-        mat4 M_to_W = instance.to_mat4();
         mat4 M_to_C = M_to_W * world_to_view;
         mat4 M_to_Clip = M_to_C * view_to_clip;
         for (u32 i = 0; i < vertices.count(); i++) {
@@ -750,8 +764,8 @@ auto inline render_mesh_gambetta(                                   //
         }
 
         auto clipped_vertices = List<vec4>::create(vertices.count() * 100, arena);
-        auto clipped_indices = List<ivec3>::create(indices.count() * 100, arena);
-        clip_triangles_against_all_planes(clip_space_vertices, indices, clipped_vertices, clipped_indices, arena);
+        auto clipped_indices = List<ivec3>::create(not_culled_indices.count() * 100, arena);
+        clip_triangles_against_all_planes(clip_space_vertices, not_culled_indices.to_array(), clipped_vertices, clipped_indices, arena);
 
         auto projected_vertices = Array<vec3>::create(clipped_vertices.count(), arena);
         for (i32 i = 0; i < clipped_vertices.count(); i++) {

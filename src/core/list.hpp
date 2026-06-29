@@ -8,8 +8,6 @@
 #include <core/memory_arena.hpp>
 #include <core/array.hpp>
 
-#include "math/vec2.hpp"
-#include "math/vec3.hpp"
 
 template <typename T> struct List {
 
@@ -136,10 +134,3 @@ template <typename T> struct List {
     T* m_data;
 };
 
-extern template struct List<i32>;
-
-extern template struct List<f32>;
-
-extern template struct List<vec3>;
-
-extern template struct List<vec2>;

@@ -37,6 +37,11 @@ struct ivec3 {
             i32 y;
             i32 z;
         };
+        struct {
+            i32 a;
+            i32 b;
+            i32 c;
+        };
         i32 v[3]{};
     };
     inline ivec3() : x(0), y(0), z(0) {
