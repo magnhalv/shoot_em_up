@@ -143,6 +143,7 @@ struct RenderEntryShadedTriangle {
 struct TriMesh {
     Array<vec4> vertices;
     Array<ivec3> triangles;
+    Array<vec3> normals;
     Array<vec4> colors;
 };
 

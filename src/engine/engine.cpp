@@ -510,6 +510,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             model->triangles[10] = ivec3(2, 6, 7);
             model->triangles[11] = ivec3(2, 7, 3);
 
+            // model->normals = calculate_normals(model->vertices, model->triangles, *g_transient);
+
             model->colors[0] = RED;
             model->colors[1] = RED;
             model->colors[2] = GREEN;
