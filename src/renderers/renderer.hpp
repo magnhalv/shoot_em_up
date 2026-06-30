@@ -243,7 +243,7 @@ typedef RENDERER_INIT(renderer_init_fn);
 #define RENDERER_ADD_TEXTURE(name) bool name(i32 texture_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 
-#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, RenderGroup* group, FrameBufferHandle handle)
+#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, bool is_multithreaded, RenderGroup* group, FrameBufferHandle handle)
 typedef RENDERER_RENDER(renderer_render_fn);
 
 #define RENDERER_BEGIN_FRAME(name) void name(void* context)

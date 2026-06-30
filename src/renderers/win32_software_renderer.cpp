@@ -832,52 +832,63 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
-    i32 const tile_count_x = 1;
-    i32 const tile_count_y = 1;
-
     Framebuffer* buffer = &state.framebuffers[handle.v];
-    // TODO: get frame buffer
+
     i32 width = buffer->width;
     i32 height = buffer->height;
-    i32 tile_width = width / tile_count_x;
-    i32 tile_height = height / tile_count_y;
+    if (is_multithreaded) {
+      i32 const tile_count_x = 4;
+      i32 const tile_count_y = 4;
 
-    const i32 sse_width = 8;
-    tile_width = ((tile_width + (sse_width - 1)) / sse_width) * sse_width;
+      Framebuffer* buffer = &state.framebuffers[handle.v];
 
-    RenderTileJob render_tile_jobs[tile_count_x * tile_count_y];
+      i32 tile_width = width / tile_count_x;
+      i32 tile_height = height / tile_count_y;
 
-    i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
+      const i32 sse_width = 8;
+      tile_width = ((tile_width + (sse_width - 1)) / sse_width) * sse_width;
 
-    i32 job_count = 0;
-    for (i32 y = 0; y < tile_count_y; y++) {
-        for (i32 x = 0; x < tile_count_x; x++) {
-            RenderTileJob* job = render_tile_jobs + job_count++;
+      RenderTileJob render_tile_jobs[tile_count_x * tile_count_y];
 
-            Rectangle2i rect = {};
-            rect.min_x = (x * tile_width);
-            rect.max_x = rect.min_x + tile_width;
-            if (x == tile_count_x - 1) {
-                rect.max_x = width;
-            }
+      i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
 
-            rect.min_y = (y * tile_height);
-            rect.max_y = rect.min_y + tile_height;
-            if (y == tile_count_y - 1) {
-                rect.max_y = height;
-            }
+      i32 job_count = 0;
+      for (i32 y = 0; y < tile_count_y; y++) {
+          for (i32 x = 0; x < tile_count_x; x++) {
+              RenderTileJob* job = render_tile_jobs + job_count++;
 
-            job->id = job_count;
-            job->clip_rect = rect;
-            job->group = group;
-            job->command_render_order = command_render_order;
-            job->framebuffer = buffer;
+              Rectangle2i rect = {};
+              rect.min_x = (x * tile_width);
+              rect.max_x = rect.min_x + tile_width;
+              if (x == tile_count_x - 1) {
+                  rect.max_x = width;
+              }
 
-            Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
-        }
+              rect.min_y = (y * tile_height);
+              rect.max_y = rect.min_y + tile_height;
+              if (y == tile_count_y - 1) {
+                  rect.max_y = height;
+              }
+
+              job->id = job_count;
+              job->clip_rect = rect;
+              job->group = group;
+              job->command_render_order = command_render_order;
+              job->framebuffer = buffer;
+
+              Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
+          }
+      }
+
+      Platform->complete_all_work(render_queue);
     }
-
-    Platform->complete_all_work(render_queue);
+    else {
+        i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
+        Rectangle2i clip_rect = {};
+        clip_rect.max_x = width;
+        clip_rect.max_y = height;
+        execute_render_commands(1, group, command_render_order, clip_rect, buffer, *g_transient);
+    }
 }
 
 extern "C" __declspec(dllexport) RENDERER_BEGIN_FRAME(win32_renderer_begin_frame) {
@@ -943,7 +954,10 @@ extern "C" __declspec(dllexport) RENDERER_APPLY_FRAMEBUFFER(win32_renderer_apply
         u32* src = framebuffer->get_pixel(0, (i32)frame_buffer_y);
         for (i32 x = start_x; x < end_x; x++) {
             i32 frame_buffer_x = (i32)((x - offset_x) / pixel_size_x);
-            *dest++ = *(src + frame_buffer_x);
+            u32 src_color = *(src + frame_buffer_x);
+            if (src_color > 0) {
+              *dest++ = *(src + frame_buffer_x);
+            }
         }
     }
 }

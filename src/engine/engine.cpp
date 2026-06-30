@@ -585,7 +585,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
         }
 
-        renderer->render(Platform->work_queue, &group, state->handle_3D);
+        {
+          TIMED_BLOCK("Render_3D");
+          renderer->render(Platform->work_queue, &group, state->handle_3D);
+        }
         // Here I can inspect framebuffer
     }
     if (false) {
@@ -711,9 +714,10 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             }
         }
 
-        BEGIN_BLOCK("game_render");
-        renderer->render(Platform->work_queue, &group, state->handle_3D);
-        END_BLOCK();
+        {
+          TIMED_BLOCK("game_render"); 
+          renderer->render(Platform->work_queue, &group, state->handle_3D);
+        }
     }
 
     if (true) {
@@ -925,10 +929,13 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
             ui_render_group.sort_keys.init(g_transient, 2048);
             ui_render_group.sort_entries_offset.init(g_transient, 2048);
+            auto* clear = PushRenderElement(&ui_render_group, RenderEntryClear, -1);
+            clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
+
             UI_Generate_Render_Commands(&ui_render_group);
 
             BEGIN_BLOCK("gui_render");
-            renderer->render(Platform->work_queue, &ui_render_group, state->handle_UI);
+            renderer->render(Platform->work_queue, false, &ui_render_group, state->handle_UI);
             END_BLOCK();
         }
     }
@@ -941,11 +948,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         background_group.sort_keys.init(g_transient, 1);
         background_group.sort_entries_offset.init(g_transient, 1);
         auto* clear = PushRenderElement(&background_group, RenderEntryClear, 0);
-        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
-        renderer->render(Platform->work_queue, &background_group, state->handle_background);
+        clear->color = vec4(0.0f, 0.0f, 0.0, 1.0);
+        renderer->render(Platform->work_queue, true, &background_group, state->handle_background);
     }
 
     {
+        TIMED_BLOCK("frame_buffers_apply");
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
         renderer->apply_framebuffer(state->handle_background, client_width, client_height, 0, 0);
