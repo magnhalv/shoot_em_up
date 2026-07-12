@@ -1,6 +1,7 @@
-#include <math/math.hpp>
+#include <platform/assert.hpp>
 
 #include <math/mat2.hpp>
+#include <math/math.hpp>
 
 bool operator==(const mat2& a, const mat2& b) {
     for (i32 i = 0; i < 4; i++) {

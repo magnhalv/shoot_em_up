@@ -42,6 +42,10 @@ struct vec2 {
     auto print() -> void {
         printf("(x: %f, y: %f)\n", x, y);
     }
+    auto print(const char* tag) -> void {
+        printf("%s\n", tag);
+        printf("  (x: %f, y: %f)\n", x, y);
+    }
 };
 
 inline vec2 operator+(const vec2& l, const vec2& r) {

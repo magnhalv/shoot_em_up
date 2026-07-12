@@ -32,9 +32,9 @@ DEBUG_FRAME_END(debug_frame_end) {
 
     global_debug_table->current_debug_table = !global_debug_table->current_debug_table;
     u64 new_event_index = (u64)global_debug_table->current_debug_table << 32;
-    u64 array_idx_and_event_idx = atomic_exchange_u64(&global_debug_table->event_index, new_event_index);
-    u32 array_idx = array_idx_and_event_idx >> 32;
-    u32 event_count = array_idx_and_event_idx & 0xFFFFFFFF;
+    u64 array_idx_and_event_count = atomic_exchange_u64(&global_debug_table->event_index, new_event_index);
+    u32 array_idx = array_idx_and_event_count >> 32;
+    u32 event_count = array_idx_and_event_count & 0xFFFFFFFF;
 
     if (state->current_inspecting_frame != u64_max) {
         return;
@@ -123,6 +123,7 @@ DEBUG_FRAME_END(debug_frame_end) {
     u64 curr_frame_idx = state->processed_frame_count++;
     state->historic_frame_indices[curr_frame_idx % Historic_Frame_Count] = frame_node_idx;
     {
+        // Verify that we do not overwrite the frame in front of us, unless its a frame older than historic frame count
         u32 next_frame_entry_node_idx = state->historic_frame_indices[(curr_frame_idx + 1) % Historic_Frame_Count];
         u32 distance = (next_frame_entry_node_idx + PrintEventNode_Count - frame_node_idx) % PrintEventNode_Count;
         Assert(state->node_forest.curr_tree_node_count < distance);

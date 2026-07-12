@@ -3,8 +3,8 @@
 #include <cmath>
 #include <platform/types.hpp>
 
-#include <core/hash.hpp>
 #include <core/color.hpp>
+#include <core/hash.hpp>
 #include <math/util.hpp>
 
 #include "imgui.hpp"
@@ -22,7 +22,8 @@ auto UI_GetCodePointsTotalLength(List<CodePoint>* code_points) -> f32 {
             result += Space_Width;
         }
         else {
-            result += cp.xadvance;
+            // If you update this, check below
+            result += floorf(cp.xadvance + 0.5f);
         }
     }
     return result;
@@ -782,4 +783,19 @@ auto UI_PushStylePadding(UI_EdgeInsets padding) -> void {
 auto UI_PopStylePadding() -> void {
     global_context->style->padding = *global_context->style_overrides.padding.last();
     global_context->style_overrides.padding.pop();
+}
+
+auto UI_PushStyleBorder(f32 thickness, vec4 color) -> void {
+    global_context->style_overrides.border_thickness.push(global_context->style->border_thickness);
+    global_context->style->border_thickness = thickness;
+
+    global_context->style_overrides.border_color.push(global_context->style->border_color);
+    global_context->style->border_color = color;
+}
+auto UI_PopStyleBorder() -> void {
+    global_context->style->border_thickness = *global_context->style_overrides.border_thickness.last();
+    global_context->style_overrides.border_thickness.pop();
+
+    global_context->style->border_color = *global_context->style_overrides.border_color.last();
+    global_context->style_overrides.border_color.pop();
 }

@@ -236,6 +236,8 @@ struct UI_StyleOverrides {
     StackList<UI_FlexDirection, UI_Max_Style_Depth> flex_direction;
     StackList<UI_EdgeInsets, UI_Max_Style_Depth> margin;
     StackList<UI_EdgeInsets, UI_Max_Style_Depth> padding;
+    StackList<vec4, UI_Max_Style_Depth> border_color;
+    StackList<f32, UI_Max_Style_Depth> border_thickness;
 };
 
 struct UI_Style {
@@ -336,6 +338,9 @@ auto UI_PopStyleMargin() -> void;
 auto UI_PushStylePadding(UI_EdgeInsets padding) -> void;
 auto UI_PopStylePadding() -> void;
 
+auto UI_PushStyleBorder(f32 thickness, vec4 color) -> void;
+auto UI_PopStyleBorder() -> void;
+
 auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void;
 
 #define UI_SetSize(size_x, size_y) DeferLoop(UI_PushStyleSize(size_x, size_y), UI_PopStyleSize())
@@ -360,3 +365,6 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void;
 #define UI_ScopedPadding(padding) \
     UI_PushStylePadding(padding); \
     Defer({ UI_PopStylePadding(); });
+#define UI_ScopedBorder(thickness, color) \
+    UI_PushStyleBorder(thickness, color); \
+    Defer({ UI_PopStyleBorder(); });

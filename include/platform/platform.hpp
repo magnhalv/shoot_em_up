@@ -9,15 +9,19 @@
 // For exit(1)
 #include <stdlib.h>
 
+// TODO: Remove this
+#include "assert.hpp"
 #include "types.hpp"
 #include "user_input.hpp"
 
 #include <core/memory_arena.hpp>
+#include <core/stack_array.hpp>
 
-const i32 CLIENT_WIDTH = 928;
-const i32 CLIENT_HEIGHT = 768;
+const i32 CLIENT_WIDTH = 928 * 2;
+const i32 CLIENT_HEIGHT = 768 * 2;
 const i32 BYTES_PER_PIXEL = 4;
 
+const u32 MAIN_THREAD_IDX = 0;
 const u32 WORKER_THREAD_COUNT = 1;
 const u32 TOTAL_THREAD_COUNT = WORKER_THREAD_COUNT + 1;
 
@@ -81,6 +85,14 @@ inline int cpu_supports_avx512f(void) {
 
 enum PlatformFileType : u32 { PlatformFileType_AssetFile, PlatformFileType_Count };
 
+struct PlatformWorkQueue;
+struct ThreadContext {
+    i32 thread_id;
+    i32 thread_idx;
+    MemoryArena scratch;
+    PlatformWorkQueue* queue;
+};
+
 // Platform API
 #define PLATFORM_GET_FILE_LAST_MODIFIED(name) u64 name(const char* file_path)
 typedef PLATFORM_GET_FILE_LAST_MODIFIED(platform_get_file_last_modified);
@@ -109,8 +121,7 @@ typedef PLATFORM_READ_FILE(platform_read_file);
 #define PLATFORM_PRINT_STACK_TRACE(name) void name()
 typedef PLATFORM_PRINT_STACK_TRACE(platform_print_stack_trace);
 
-struct PlatformWorkQueue;
-#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(PlatformWorkQueue* queue, void* data, MemoryArena* transient)
+#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(ThreadContext* context, void* data)
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 
 typedef void platform_add_work_queue_entry(PlatformWorkQueue* Queue, platform_work_queue_callback* Callback, void* Data);
@@ -143,62 +154,20 @@ struct PlatformApi {
     u32 main_thread_id;
 #endif
 
-    u32 thread_ids[TOTAL_THREAD_COUNT];
+    StackArray<u32, TOTAL_THREAD_COUNT> thread_ids;
 };
 
 global_variable PlatformApi* Platform = nullptr;
 
-#define Assert(expr)                                                                   \
-    if (!(expr)) {                                                                     \
-        if (Platform) {                                                                \
-            Platform->print_stack_trace();                                             \
-        }                                                                              \
-        printf("Assertion failed: %s, file %s, line %d\n", #expr, __FILE__, __LINE__); \
-        abort();                                                                       \
+inline void platform_assert_print_stack_trace() {
+    if (Platform) {
+        Platform->print_stack_trace();
     }
-#define AssertEqual_i32(a, b)                                                                                    \
-    do {                                                                                                         \
-        i32 _a = (a);                                                                                            \
-        i32 _b = (b);                                                                                            \
-        if (_a != _b) {                                                                                          \
-            printf("Assert failed: %s == %s, %d != %d, file %s, line %d\n", #a, #b, _a, _b, __FILE__, __LINE__); \
-            abort();                                                                                             \
-        }                                                                                                        \
-    } while (0)
-
-#define AssertEqual_i64(a, b)                                                                                        \
-    do {                                                                                                             \
-        i64 _a = (a);                                                                                                \
-        i64 _b = (b);                                                                                                \
-        if (_a != _b) {                                                                                              \
-            printf("Assert failed: %s == %s, %lld != %lld, file %s, line %d\n", #a, #b, _a, _b, __FILE__, __LINE__); \
-            abort();                                                                                                 \
-        }                                                                                                            \
-    } while (0)
-
-#define AssertEqual_f32(a, b)                                                                                                   \
-    do {                                                                                                                        \
-        f32 _a = (a);                                                                                                           \
-        f32 _b = (b);                                                                                                           \
-        f32 _eps = F32_EPSILON;                                                                                                 \
-        f32 _diff = _a - _b;                                                                                                    \
-        if (_diff < 0.0f)                                                                                                       \
-            _diff = -_diff;                                                                                                     \
-        if (_diff > _eps) {                                                                                                     \
-            printf("Assert failed: %s == %s, %f != %f (eps %f), file %s, line %d\n", #a, #b, _a, _b, _eps, __FILE__, __LINE__); \
-            abort();                                                                                                            \
-        }                                                                                                                       \
-    } while (0)
-
-#define InvalidCodePath Assert(!"InvalidCodePath")
-#define InvalidDefaultCase \
-    default: {             \
-        InvalidCodePath;   \
-    } break
+}
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
-const u64 Transient_Memory_Block_Size = MegaBytes(64);
-const u64 Debug_Memory_Block_Size = MegaBytes(20);
+const u64 Transient_Memory_Block_Size = MegaBytes(128);
+const u64 Debug_Memory_Block_Size = MegaBytes(512);
 const u64 Thread_Memory_Block_Size = MegaBytes(64);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Debug_Memory_Block_Size;
 const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);

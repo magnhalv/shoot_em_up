@@ -977,7 +977,7 @@ internal auto win32_sleep_until(i64 target_tick, HANDLE timer) -> bool {
     return did_sleep;
 }
 
-internal void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_callback* callback, void* data) {
+internal void win32_add_work_queue_entry(PlatformWorkQueue* queue, platform_work_queue_callback* callback, void* data) {
     // NOTE: This function assumes only a single thread writes to it.
     u32 new_next_entry_to_write = (queue->NextEntryToWrite + 1) % ArrayCount(queue->entries);
     // Means the work queue is full
@@ -993,7 +993,7 @@ internal void win32_add_entry(PlatformWorkQueue* queue, platform_work_queue_call
     ReleaseSemaphore(queue->SemaphoreHandle, 1, 0);
 }
 
-bool win32_do_next_work_entry(Win32ThreadContext* context) {
+bool win32_do_next_work_entry(ThreadContext* context) {
 
     PlatformWorkQueue* queue = context->queue;
     bool we_should_sleep = false;
@@ -1009,9 +1009,8 @@ bool win32_do_next_work_entry(Win32ThreadContext* context) {
 
         if (index == original_next_entry_to_read) {
             platform_work_queue_entry entry = queue->entries[index];
-
-            context->arena.clear_to_zero();
-            entry.Callback(queue, entry.Data, &context->arena);
+            context->scratch.clear();
+            entry.Callback(context, entry.Data);
             InterlockedIncrement((LONG volatile*)&queue->completion_count);
         }
     }
@@ -1025,8 +1024,8 @@ bool win32_do_next_work_entry(Win32ThreadContext* context) {
 static void win32_complete_all_work(PlatformWorkQueue* queue) {
     while (queue->completion_count != queue->completion_goal) {
 
-        // if (win32_do_next_work_entry(queue)) {
-        // };
+        // if (!win32_do_next_work_entry(queue)) {
+        // }
         YieldProcessor();
     }
 
@@ -1035,7 +1034,7 @@ static void win32_complete_all_work(PlatformWorkQueue* queue) {
 }
 
 DWORD WINAPI worker_proc(LPVOID lpParameter) {
-    Win32ThreadContext* context = (Win32ThreadContext*)lpParameter;
+    ThreadContext* context = (ThreadContext*)lpParameter;
     // TODO: Get ThreadID
     while (true) {
         if (win32_do_next_work_entry(context)) {
@@ -1046,8 +1045,9 @@ DWORD WINAPI worker_proc(LPVOID lpParameter) {
     return 0;
 }
 
-static void win32_make_queue(
-    PlatformApi* platform, u32 num_threads, Array<Win32ThreadContext> contexts, Array<MemoryBlock> memory_blocks) {
+static void win32_make_queue(PlatformApi* platform, Array<ThreadContext> contexts, Array<MemoryBlock> memory_blocks) {
+    const u32 thread_count = (u32)contexts.count();
+
     PlatformWorkQueue* queue = platform->work_queue;
     queue->completion_goal = 0;
     queue->completion_count = 0;
@@ -1056,28 +1056,33 @@ static void win32_make_queue(
     queue->NextEntryToWrite = 0;
 
     u32 initial_count = 0;
-    queue->SemaphoreHandle = CreateSemaphoreEx(0, initial_count, num_threads, 0, 0, SEMAPHORE_ALL_ACCESS);
+    queue->SemaphoreHandle = CreateSemaphoreEx(0, initial_count, thread_count, 0, 0, SEMAPHORE_ALL_ACCESS);
     platform->thread_ids[0] = platform->main_thread_id;
-    printf("Num threads: %d\n", num_threads);
+    printf("Total thread count: %d\n", thread_count);
     printf("Main thread: %d\n", platform->main_thread_id);
     Assert(platform->main_thread_id != 0);
-    for (u32 i = 0; i < num_threads; i++) {
-        Win32ThreadContext* context = &contexts[i];
 
-        context->thread_idx = i + 1;
-        context->arena.init((u8*)memory_blocks[i].data, memory_blocks[i].size);
+    for (u32 i = 0; i < thread_count; i++) {
+        ThreadContext* context = &contexts[i];
+
+        context->thread_idx = i;
+        context->scratch.init((u8*)memory_blocks[i].data, memory_blocks[i].size);
         context->queue = queue;
+        if (i == MAIN_THREAD_IDX) {
+            context->thread_id = platform->main_thread_id;
+        }
+        else {
+            DWORD thread_id;
+            HANDLE thread_handle = CreateThread(0, 0, &worker_proc, context, 0, &thread_id);
+            context->thread_id = thread_id;
+            printf("Created thread: %lu\n", thread_id);
+            platform->thread_ids[i] = (u32)thread_id;
 
-        DWORD thread_id;
-        HANDLE thread_handle = CreateThread(0, 0, &worker_proc, context, 0, &thread_id);
-        context->thread_id = thread_id;
-        printf("Created thread: %lu\n", thread_id);
-        platform->thread_ids[i + 1] = (u32)thread_id;
-
-        // Only windows 10+
-        std::wstring name = L"WorkerThread_" + std::to_wstring(i);
-        HRESULT name_result = SetThreadDescription(thread_handle, name.c_str());
-        CloseHandle(thread_handle);
+            // Only windows 10+
+            std::wstring name = L"WorkerThread_" + std::to_wstring(i);
+            SetThreadDescription(thread_handle, name.c_str());
+            CloseHandle(thread_handle);
+        }
     }
 }
 
@@ -1277,7 +1282,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     platform.read_file = &win32_read_file;
     platform.open_next_file = &win32_open_next_file;
 
-    platform.add_work_queue_entry = &win32_add_entry;
+    platform.add_work_queue_entry = &win32_add_work_queue_entry;
     platform.complete_all_work = &win32_complete_all_work;
 #if HOMEMADE_DEBUG
     platform.print_stack_trace = &win32_print_stack_trace;
@@ -1338,10 +1343,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     // Must be enabled before workers to capture the first sleep event
     global_debug_table->collect_events = true;
     PlatformWorkQueue work_queue = {};
-    StackArray<Win32ThreadContext, WORKER_THREAD_COUNT> thread_contexts = {};
+    StackArray<ThreadContext, TOTAL_THREAD_COUNT> thread_contexts = {};
+    ThreadContext* main_thread = &thread_contexts[0];
 
     platform.work_queue = &work_queue;
-    win32_make_queue(&platform, WORKER_THREAD_COUNT, thread_contexts.to_array(), thread_memory_blocks.to_array());
+    win32_make_queue(&platform, thread_contexts.to_array(), thread_memory_blocks.to_array());
 
     while (global_is_running) {
 
@@ -1461,7 +1467,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             engine_input.client_width = CLIENT_WIDTH;
             engine_input.client_height = CLIENT_HEIGHT;
 
-            engine_api.update_and_render(&engine_memory, &engine_input, &renderer_api);
+            BEGIN_BLOCK("engine_update_and_render");
+            engine_api.update_and_render(main_thread, &engine_memory, &engine_input, &renderer_api);
+            END_BLOCK();
 
             if (audio.is_initialized) {
                 // BEGIN_BLOCK("audio");

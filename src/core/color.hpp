@@ -162,6 +162,7 @@ global_variable vec4 global_color_palette[Global_Color_Palette_Count] = {
     vec4(0.529f, 0.808f, 0.922f, 1.0f), // sky blue
     vec4(1.000f, 1.000f, 1.000f, 1.0f), // white
 };
+global_variable const vec4 BLACK = vec4(0.0, 0.0, 0.0, 1.0);
 global_variable const vec4 RED = vec4(1.0, 0.0, 0.0, 1.0);
 global_variable const vec4 GREEN = vec4(0.0, 1.0, 0.0, 1.0);
 global_variable const vec4 BLUE = vec4(0.0, 0.0, 1.0, 1.0);

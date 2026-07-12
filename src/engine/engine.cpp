@@ -110,7 +110,6 @@ auto noise(f32 x) {
 }
 
 ENGINE_UPDATE_AND_RENDER(update_and_render) {
-
     auto* state = (EngineState*)engine_memory->permanent;
     // const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
 
@@ -148,20 +147,19 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         state->camera = camera_init(90.0f, 0.0f, vec3());
 
         {
-          state->handle_background = renderer->create_framebuffer( //
-              app_input->client_width,                             //
-              app_input->client_height                             //
-          );
-          const i32 pixel_size = 4;
-          state->handle_3D = renderer->create_framebuffer( //
-              app_input->client_width / pixel_size,        //
-              app_input->client_height / pixel_size        //
-          );
-          state->handle_UI = renderer->create_framebuffer( //
-              app_input->client_width,        //
-              app_input->client_height//
-          );
-
+            state->handle_background = renderer->create_framebuffer( //
+                app_input->client_width,                             //
+                app_input->client_height                             //
+            );
+            const i32 pixel_size = 4;
+            state->handle_3D = renderer->create_framebuffer( //
+                app_input->client_width / pixel_size,        //
+                app_input->client_height / pixel_size        //
+            );
+            state->handle_UI = renderer->create_framebuffer( //
+                app_input->client_width,                     //
+                app_input->client_height                     //
+            );
         }
 
         state->is_initialized = true;
@@ -407,8 +405,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         clear->color2 = LIGHT_GREY;
 
         if (false) {
-            TIMED_BLOCK("render_test_lines");
-
             vec3 center = vec3(app_input->client_width / 2.0f, app_input->client_height / 2.0f, 0.0f);
             const i32 length = 20;
             vec3 end_points[] = {
@@ -443,7 +439,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         const f32 size = 100.0f;
         if (false) {
-            TIMED_BLOCK("render_test_circle");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* circle = PushRenderElement(&group, RenderEntryCircle, 0);
             circle->P = center;
@@ -452,7 +447,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         if (false) {
-            TIMED_BLOCK("render_test_circle");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* circle = PushRenderElement(&group, RenderEntryFilledCircle, 0);
             circle->P = center;
@@ -460,7 +454,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             circle->color = global_color_palette[0];
         }
         if (false) {
-            TIMED_BLOCK("render_test_filled_triangle");
             vec3 center = { app_input->client_width / 16.0f, app_input->client_height / 16.0f, 0.0f };
             auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
             f32 t = (f32)app_input->t;
@@ -470,7 +463,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             triangle->color = global_color_palette[0];
         }
         if (false) {
-            TIMED_BLOCK("render_shaded_triangle");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* triangle = PushRenderElement(&group, RenderEntryShadedTriangle, 0);
             f32 t = (f32)app_input->t;
@@ -485,7 +477,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         if (true) {
-            TIMED_BLOCK("render_cube");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
             TriMesh* model = &mesh->model;
@@ -549,7 +540,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->camera_position = vec4(state->camera.m_position, 1.0f);
         }
         if (false) {
-            TIMED_BLOCK("render_rectangle");
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
             TriMesh* model = &mesh->model;
@@ -586,8 +576,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         {
-          TIMED_BLOCK("Render_3D");
-          renderer->render(Platform->work_queue, &group, state->handle_3D);
+            TIMED_BLOCK("Render_3D");
+            renderer->render(Platform->work_queue, false, &group, state->handle_3D);
         }
         // Here I can inspect framebuffer
     }
@@ -715,8 +705,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         {
-          TIMED_BLOCK("game_render"); 
-          renderer->render(Platform->work_queue, &group, state->handle_3D);
+            TIMED_BLOCK("game_render");
+            renderer->render(Platform->work_queue, false, &group, state->handle_3D);
         }
     }
 
@@ -726,6 +716,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (state->ui_context && debug_state->is_initialized) {
             {
                 TIMED_BLOCK("gui_create");
+
+                const i32 current_frame_idx = (debug_state->processed_frame_count) % Historic_Frame_Count;
+                const i32 previous_frame_idx = (debug_state->processed_frame_count - 1) % Historic_Frame_Count;
 
                 UI_SetContext(state->ui_context);
                 Mouse* mouse = &app_input->input.mouse;
@@ -795,6 +788,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     if (click_released) {
                                         if (debug_state->current_inspecting_frame == frame_idx) {
                                             debug_state->current_inspecting_frame = u64_max;
+                                            for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
+                                                debug_state->thread_breadcrumbs[thread_idx].clear();
+                                            }
                                         }
                                         else {
                                             debug_state->current_inspecting_frame = frame_idx;
@@ -821,25 +817,24 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                     UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
 
-                    i32 block_idx = 0;
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
+                        i32 block_idx = 0;
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
                         u32 node_idx = thread_node->first_kid_idx;
 
-                        if (!debug_state->breadcrumbs[thread_idx].node_guids.is_empty()) {
-                            StackList<const char*, 10>& breadcrumbs = debug_state->breadcrumbs[thread_idx].node_guids;
-                            u32 curr_node_idx = node_idx;
+                        StackList<const char*, 10> breadcrumb_guids = {};
+                        if (!debug_state->thread_breadcrumbs[thread_idx].is_empty()) {
+                            auto& breadcrumbs = debug_state->thread_breadcrumbs[thread_idx];
                             for (i32 i = 0; i < breadcrumbs.count(); i++) {
-                                while (curr_node_idx != Nil_Index) {
-                                    ProfileNode* curr_node = &debug_nodes[curr_node_idx];
-                                    const char* breadcrumb_GUID = breadcrumbs[i];
-                                    if (curr_node->GUID == breadcrumb_GUID) {
-                                        node_idx = curr_node->first_kid_idx;
-                                        break;
-                                    }
-                                    else {
-                                        curr_node_idx = curr_node->next_sib_idx;
-                                    }
+                                u32 curr_node_idx = node_idx;
+                                i32 local_block_idx = 0;
+                                while (curr_node_idx != Nil_Index && local_block_idx < breadcrumbs[i]) {
+                                    curr_node_idx = debug_nodes[curr_node_idx].next_sib_idx;
+                                    local_block_idx++;
+                                }
+                                if (curr_node_idx != Nil_Index) {
+                                    node_idx = debug_nodes[curr_node_idx].first_kid_idx;
+                                    breadcrumb_guids.push(debug_nodes[curr_node_idx].GUID);
                                 }
                             }
                         }
@@ -852,16 +847,15 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                                     if (thread_idx == 0) {
                                         UI_Text(string8_format(g_transient, "Main thread (%d)", thread_node->value_u32));
-                                        StackList<const char*, 10>& breadcrumbs = debug_state->breadcrumbs[thread_idx].node_guids;
-                                        for (const char* guid : breadcrumbs) {
-                                            i32 delim_idx = cstr_find_last('|', guid);
-                                            if (delim_idx != -1) {
-                                                UI_Text(string8_format(g_transient, ">%s", guid + delim_idx + 1));
-                                            }
-                                        }
                                     }
                                     else {
                                         UI_Text(string8_format(g_transient, "Thread %d (%d)", thread_idx, thread_node->value_u32));
+                                    }
+                                    for (auto& guid : breadcrumb_guids) {
+                                        i32 delim_idx = cstr_find_last('|', guid);
+                                        if (delim_idx != -1) {
+                                            UI_Text(string8_format(g_transient, ">%s", guid + delim_idx + 1));
+                                        }
                                     }
                                 }
                             }
@@ -889,14 +883,21 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                                     string8 box_id = string8_format(g_transient, "%s_thread_idx_%d_profile_box_%d",
                                         node->GUID, thread_idx, block_idx);
+
+                                    UI_PushStyleBorder(1.0f, vec4(0.1f, 0.1f, 0.1f, 1.0f));
                                     UI_Entity_Status box = UI_Box(box_id.data,                        //
                                         UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f), //
                                         UI_RelativePercentOfParent(node_start_faction)                //
                                     );
+                                    UI_PopStyleBorder();
                                     if (box.click_released) {
-                                        printf("GUID: %s, thread idx: %d\n", node->GUID, thread_idx);
-                                        debug_state->breadcrumbs[thread_idx].node_guids.push(node->GUID);
+                                        debug_state->current_inspecting_frame = previous_frame_idx;
+                                        debug_state->thread_breadcrumbs[thread_idx].push(block_idx);
                                     }
+                                    // TODO: Bug. Since tasks on the thread can change width or order each frame,
+                                    // we might show hover data for the wrong event. I.e. we're lagging 1 frame behind
+                                    // Will have to make it possible to add new elements after the size calculation is
+                                    // done. And maybe mark hovered as last frame?
                                     if (box.hovered) {
                                         vec4 hover_background_color = vec4(0.0f, 0.0f, 0.0f, 0.863f);
                                         UI_ScopedPadding({ 5.0f });
@@ -904,6 +905,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         UI_ScopedZIndex(9000);
                                         UI_ScopedFlexDirection(UI_FlexDirection_Row);
 
+                                        // TODO: Figure out how to move this window to the left if there is space. Some overflow?
                                         UI_Window("Hover window", UI_Fixed((f32)mouse->client_x + 5.0f),
                                             UI_Fixed((f32)mouse->client_y + 15.0f)) {
                                             UI_Text(node->GUID);
@@ -915,6 +917,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     node_idx = node->next_sib_idx;
                                     node = &debug_nodes[node_idx];
                                 }
+                                printf("Block count %d\n", block_idx);
                             }
                         }
                         thread_node = &debug_nodes[thread_node->next_sib_idx];
@@ -925,17 +928,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             RenderGroup ui_render_group{};
             ui_render_group.push_buffer_size = 0;
-            ui_render_group.max_push_buffer_size = MegaBytes(10);
+            ui_render_group.max_push_buffer_size = MegaBytes(64);
             ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
-            ui_render_group.sort_keys.init(g_transient, 2048);
-            ui_render_group.sort_entries_offset.init(g_transient, 2048);
+            ui_render_group.sort_keys.init(g_transient, 2 * 2048);
+            ui_render_group.sort_entries_offset.init(g_transient, 2 * 2048);
             auto* clear = PushRenderElement(&ui_render_group, RenderEntryClear, -1);
             clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
 
             UI_Generate_Render_Commands(&ui_render_group);
-
             BEGIN_BLOCK("gui_render");
-            renderer->render(Platform->work_queue, false, &ui_render_group, state->handle_UI);
+            renderer->render(Platform->work_queue, true, &ui_render_group, state->handle_UI);
             END_BLOCK();
         }
     }
@@ -959,7 +961,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         renderer->apply_framebuffer(state->handle_background, client_width, client_height, 0, 0);
         renderer->apply_framebuffer(state->handle_3D, client_width, client_height, 0, 0);
         renderer->apply_framebuffer(state->handle_UI, client_width, client_height, 0, 0);
-        renderer->get_color(state->handle_3D, 0, 0);
     }
 }
 

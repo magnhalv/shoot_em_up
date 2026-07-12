@@ -101,6 +101,14 @@ auto MemoryArena::allocate_arena(u64 request_size) -> MemoryArena* {
     return new_arena;
 }
 
+auto MemoryArena::clear() -> void {
+    m_size = sizeof(MemorySentinel);
+    MemorySentinel* first_guard = (MemorySentinel*)(m_memory);
+    first_guard->sentinel_pattern = SENTINEL_PATTERN;
+    first_guard->block_size = 0;
+    m_last = first_guard;
+}
+
 auto MemoryArena::clear_to_zero() -> void {
     clear_memory(m_memory, m_capacity);
     m_size = sizeof(MemorySentinel);

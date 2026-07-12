@@ -5,9 +5,8 @@
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
 
-#include <core/memory_arena.hpp>
 #include <core/array.hpp>
-
+#include <core/memory_arena.hpp>
 
 template <typename T> struct List {
 
@@ -85,7 +84,7 @@ template <typename T> struct List {
     }
 
     auto push(T value) -> void {
-        Assert(m_count < m_max_count);
+        AssertLessThan_i32(m_count, m_max_count);
         m_data[m_count++] = value;
     }
 
@@ -133,4 +132,3 @@ template <typename T> struct List {
     i32 m_count;
     T* m_data;
 };
-

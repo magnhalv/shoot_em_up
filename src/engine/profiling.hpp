@@ -3,14 +3,14 @@
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
 
+#include <core/array.hpp>
 #include <core/list.hpp>
 #include <core/memory_arena.hpp>
 #include <core/stack_list.hpp>
-#include <core/array.hpp>
 
 #include <math/vec2.hpp>
 
-enum PrintDebugEventType {
+enum PrintDebugEventType : u8 {
     PrintDebugEventType_Nil = 0,
     PrintDebugEventType_Frame,
     PrintDebugEventType_TimeBlock,
@@ -18,7 +18,6 @@ enum PrintDebugEventType {
 };
 
 struct ProfileNode {
-    PrintDebugEventType kind;
     u64 clock_start;
     u64 clock_end;
     const char* GUID;
@@ -32,13 +31,14 @@ struct ProfileNode {
     u32 first_kid_idx;
     u32 last_kid_idx;
     u32 next_sib_idx;
+    PrintDebugEventType kind;
 };
 
 constexpr u32 Nil_Index = 0;
 constexpr u32 Historic_Frame_Count = 120;
-constexpr u32 PrintEventNode_Count = Historic_Frame_Count * 1000;
+constexpr u32 PrintEventNode_Count = Historic_Frame_Count * 10000;
 struct PrintEventNodeForest {
-    ProfileNode nodes[Historic_Frame_Count * 1000];
+    ProfileNode nodes[PrintEventNode_Count];
     u32 current_idx;
     u32 curr_tree_node_count;
 };
@@ -54,6 +54,7 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
     ProfileNode* new_node = &forest->nodes[forest->current_idx];
     *new_node = {};
     new_node->parent_idx = parent_idx;
+    new_node->next_sib_idx = Nil_Index;
     // I.e. a new tree. Note, we assume you build one tree at a time.
     if (parent_idx == Nil_Index) {
         forest->curr_tree_node_count = 1;
@@ -73,10 +74,6 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
     return forest->current_idx;
 }
 
-struct BreadCrumb {
-    StackList<const char*, 10> node_guids;
-};
-
 struct UnclosedNodeBranch {
     StackList<PrintDebugEventType, 16> kinds;
     StackList<const char*, 16> guids;
@@ -89,8 +86,8 @@ struct DebugState {
     PrintEventNodeForest node_forest;
     u32 historic_frame_indices[Historic_Frame_Count];
 
-    BreadCrumb breadcrumbs[TOTAL_THREAD_COUNT];
-    UnclosedNodeBranch unclosed_nodes[TOTAL_THREAD_COUNT];
+    StackArray<StackList<i32, 10>, TOTAL_THREAD_COUNT> thread_breadcrumbs;
+    StackArray<UnclosedNodeBranch, TOTAL_THREAD_COUNT> unclosed_nodes;
 
     bool is_initialized;
 };

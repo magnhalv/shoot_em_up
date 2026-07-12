@@ -181,12 +181,6 @@ static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i c
     );
 }
 
-static inline auto get_texel(Win32Texture* texture, i32 x, i32 y) -> u32 {
-    x = clamp(x, 0, texture->width - 1);
-    y = clamp(y, 0, texture->width - 1);
-    return *((u8*)texture->data + (y * texture->pitch) + (x * texture->bytes_per_pixel));
-}
-
 auto color_channel_f32_to_u8(f32 channel) {
     u8 result = 0;
     if (channel < 0) {
@@ -201,14 +195,18 @@ auto color_channel_f32_to_u8(f32 channel) {
     return result;
 }
 
-static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, f32 border_thickness,
-    vec4 border_color, Framebuffer* buffer) {
+static auto draw_bitmap(Quadrilateral quad,     //
+    vec2 offset, vec2 scale, f32 rotation,      //
+    vec4 color,                                 //
+    i32 texture_id, ivec2 uv_min, ivec2 uv_max, //
+    f32 border_thickness, vec4 border_color,    //
+    Rectangle2i* clip_rect, Framebuffer* buffer //
+) {
     f32 model_width = (quad.br.x - quad.bl.x);
     f32 model_height = (quad.tr.y - quad.br.y);
 
-    f32 scaled_width = (quad.br.x - quad.bl.x) * scale.x;
-    f32 scaled_height = (quad.tr.y - quad.br.y) * scale.y;
+    f32 screen_space_width = (quad.br.x - quad.bl.x) * scale.x;
+    f32 screen_space_height = (quad.tr.y - quad.br.y) * scale.y;
 
     vec2 translation = offset;
 
@@ -291,8 +289,8 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     f32 tex_range_u = (f32)(u_max - u_min);
     f32 tex_range_v = (f32)(v_max - v_min);
 
-    f32 scaled_du = (scale.x * (f32)tex_range_u) / (scaled_width);
-    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (scaled_height);
+    f32 scaled_du = (scale.x * (f32)tex_range_u) / (screen_space_width);
+    f32 scaled_dv = (scale.y * (f32)tex_range_v) / (screen_space_height);
 
     vec2 ds_dx = vec2(M_c_to_m.xx * scaled_du, M_c_to_m.xy * scaled_dv);
     vec2 ds_dy = vec2(M_c_to_m.yx * scaled_du, M_c_to_m.yy * scaled_dv);
@@ -313,7 +311,7 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
             u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
             u32* pixel = (u32*)dest;
 
-            vec2 camera_point{ (f32)x, (f32)y };
+            vec2 camera_point{ (f32)x + 0.5f, (f32)y + 0.5f };
 
             bool is_inside = true;
             if (rotation != 0.0f) {
@@ -324,19 +322,19 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
                 is_inside = dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0;
             }
 
-            bool is_on_border = false;
-            if (is_inside && border_thickness > 0.0f) {
-                f32 dot1 = dot(camera_point - bl_border_c, edge1_border);
-                f32 dot2 = dot(camera_point - tl_border_c, edge2_border);
-                f32 dot3 = dot(camera_point - tr_border_c, edge3_border);
-                f32 dot4 = dot(camera_point - br_border_c, edge4_border);
-                is_on_border = !(dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0);
-            }
-
             if (is_inside) {
+                bool is_on_border = false;
+                if (border_thickness > 0.0f) {
+                    f32 dot1 = dot(camera_point - bl_border_c, edge1_border);
+                    f32 dot2 = dot(camera_point - tl_border_c, edge2_border);
+                    f32 dot3 = dot(camera_point - tr_border_c, edge3_border);
+                    f32 dot4 = dot(camera_point - br_border_c, edge4_border);
+                    is_on_border = !(dot1 > 0 && dot2 > 0 && dot3 > 0 && dot4 > 0);
+                }
+
                 vec4 src_color_l1;
                 if (is_on_border) {
-                    src_color_l1 = srgb_to_linear1(vec4(255.0f, 0.0f, 0.0f, 255.0f));
+                    src_color_l1 = srgb_to_linear1(border_color);
                 }
                 else {
                     if (texture_id == 0) {
@@ -393,9 +391,14 @@ static auto draw_bitmap(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotatio
     }
 }
 
-static auto draw_bitmap_avx2(Quadrilateral quad, vec2 offset, vec2 scale, f32 rotation, vec4 color, i32 texture_id,
-    ivec2 uv_min, ivec2 uv_max, i32 screen_width, i32 screen_height, Rectangle2i* clip_rect, Framebuffer* buffer) {
-
+static auto draw_bitmap_avx2(                   //
+    Quadrilateral quad,                         //
+    vec2 offset, vec2 scale, f32 rotation,      //
+    vec4 color,                                 //
+    i32 texture_id, ivec2 uv_min, ivec2 uv_max, //
+    f32 border_thickness, vec4 border_color,    //
+    Rectangle2i* clip_rect, Framebuffer* buffer //
+) {
     f32 model_width = (quad.br.x - quad.bl.x);
     f32 model_height = (quad.tr.y - quad.br.y);
 
@@ -723,6 +726,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
     Rectangle2i clip_rect,                                   //
     Framebuffer* framebuffer, MemoryArena& transient) -> void {
 
+    TIMED_BLOCK("execute_render_commands");
     for (i32 i = 0; i < group->sort_keys.count(); i++) {
         u64 base_address = group->sort_entries_offset[command_render_order[i]];
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(group->push_buffer + base_address);
@@ -731,78 +735,89 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         void* data = (u8*)header + sizeof(*header);
         switch (header->type) {
         case RenderCommands_RenderEntryClear: {
+            TIMED_BLOCK("render_entry_clear");
             RenderEntryClear* entry = (RenderEntryClear*)data;
             clear(framebuffer->width, framebuffer->height, entry->color, clip_rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryClearCheckPattern: {
+            TIMED_BLOCK("clear_check_pattern");
             auto* entry = (RenderEntryClearCheckPattern*)data;
             clear_check_pattern(*framebuffer, clip_rect, entry->color1, entry->color2);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryLine: {
+            TIMED_BLOCK("render_entry_line");
             RenderEntryLine* entry = (RenderEntryLine*)data;
             render_line_gambetta(entry->start, entry->end, entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryCircle: {
+            TIMED_BLOCK("render_entry_circle");
             auto entry = (RenderEntryCircle*)data;
             render_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledCircle: {
+            TIMED_BLOCK("render_filled_circle");
             auto entry = (RenderEntryFilledCircle*)data;
             render_filled_circle_bresenham(entry->P, entry->radius, entry->color, clip_rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriangle: {
+            TIMED_BLOCK("render_entry_triangle");
             auto entry = (RenderEntryTriangle*)data;
             render_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledTriangle: {
+            TIMED_BLOCK("render_entry_filled_triangle");
             auto entry = (RenderEntryFilledTriangle*)data;
             render_triangle_filled_gambetta(entry->P0, entry->P1, entry->P2, entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryShadedTriangle: {
+            TIMED_BLOCK("render_entry_shaded_triangle");
             auto entry = (RenderEntryShadedTriangle*)data;
             render_shaded_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->h0, entry->h1, entry->h2,
                 entry->color, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriMesh: {
+            TIMED_BLOCK("render_entry_tri_mesh");
             auto entry = (RenderEntryTriMesh*)data;
-            render_mesh_gambetta(                                                   //
+            render_mesh_gambetta(                                                    //
                 entry->model.vertices, entry->model.triangles, entry->model.normals, //
-                entry->model.colors, //
-                entry->instances,                                                   //
-                entry->world_to_view,                                               //
-                entry->view_to_clip,                                                //
-                entry->camera_position, //
+                entry->model.colors,                                                 //
+                entry->instances,                                                    //
+                entry->world_to_view,                                                //
+                entry->view_to_clip,                                                 //
+                entry->camera_position,                                              //
                 false, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriMeshWireframe: {
+            TIMED_BLOCK("render_entry_wireframe");
             auto entry = (RenderEntryTriMesh*)data;
-            render_mesh_gambetta(                                                   //
+            render_mesh_gambetta(                                                    //
                 entry->model.vertices, entry->model.triangles, entry->model.normals, //
-                entry->model.colors, //
-                entry->instances,                                                   //
-                entry->world_to_view,                                               //
-                entry->view_to_clip,                                                //
-                entry->camera_position, //
+                entry->model.colors,                                                 //
+                entry->instances,                                                    //
+                entry->world_to_view,                                                //
+                entry->view_to_clip,                                                 //
+                entry->camera_position,                                              //
                 true, clip_rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
+            TIMED_BLOCK("render_entry_bitmap");
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(entry->quad, entry->offset,                  //
-                entry->scale, entry->rotation, entry->color,         //
-                entry->texture_id, entry->uv_min, entry->uv_max,     //
-                framebuffer->width, framebuffer->height, &clip_rect, //
-                entry->border_thickness, entry->border_color,        //
-                framebuffer);
+            draw_bitmap(                                                    //
+                entry->quad,                                                //
+                entry->offset, entry->scale, entry->rotation, entry->color, //
+                entry->texture_id, entry->uv_min, entry->uv_max,            //
+                entry->border_thickness, entry->border_color,               //
+                &clip_rect, framebuffer);
             base_address += sizeof(*entry);
         } break;
         default: InvalidCodePath;
@@ -823,71 +838,66 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
 
     Assert(job);
     Assert(job->group);
-    BEGIN_BLOCK("Execute render commands");
 
-    execute_render_commands(job->id, job->group, job->command_render_order, job->clip_rect, job->framebuffer, *transient);
-    END_BLOCK();
+    execute_render_commands(job->id, job->group, job->command_render_order, job->clip_rect, job->framebuffer, context->scratch);
     MemoryBarrier(); // TODO: remove?
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 
     Framebuffer* buffer = &state.framebuffers[handle.v];
+    i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
+
+    printf("Render commands count: %d\n", group->sort_keys.count());
 
     i32 width = buffer->width;
     i32 height = buffer->height;
     if (is_multithreaded) {
-      i32 const tile_count_x = 4;
-      i32 const tile_count_y = 4;
+        i32 const tile_count_x = 4;
+        i32 const tile_count_y = 4;
 
-      Framebuffer* buffer = &state.framebuffers[handle.v];
+        i32 tile_width = width / tile_count_x;
+        i32 tile_height = height / tile_count_y;
 
-      i32 tile_width = width / tile_count_x;
-      i32 tile_height = height / tile_count_y;
+        const i32 sse_width = 8;
+        tile_width = ((tile_width + (sse_width - 1)) / sse_width) * sse_width;
 
-      const i32 sse_width = 8;
-      tile_width = ((tile_width + (sse_width - 1)) / sse_width) * sse_width;
+        RenderTileJob render_tile_jobs[tile_count_x * tile_count_y];
 
-      RenderTileJob render_tile_jobs[tile_count_x * tile_count_y];
+        i32 job_count = 0;
+        for (i32 y = 0; y < tile_count_y; y++) {
+            for (i32 x = 0; x < tile_count_x; x++) {
+                RenderTileJob* job = render_tile_jobs + job_count++;
 
-      i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
+                Rectangle2i rect = {};
+                rect.min_x = (x * tile_width);
+                rect.max_x = rect.min_x + tile_width;
+                if (x == tile_count_x - 1) {
+                    rect.max_x = width;
+                }
 
-      i32 job_count = 0;
-      for (i32 y = 0; y < tile_count_y; y++) {
-          for (i32 x = 0; x < tile_count_x; x++) {
-              RenderTileJob* job = render_tile_jobs + job_count++;
+                rect.min_y = (y * tile_height);
+                rect.max_y = rect.min_y + tile_height;
+                if (y == tile_count_y - 1) {
+                    rect.max_y = height;
+                }
 
-              Rectangle2i rect = {};
-              rect.min_x = (x * tile_width);
-              rect.max_x = rect.min_x + tile_width;
-              if (x == tile_count_x - 1) {
-                  rect.max_x = width;
-              }
+                job->id = job_count;
+                job->clip_rect = rect;
+                job->group = group;
+                job->command_render_order = command_render_order;
+                job->framebuffer = buffer;
 
-              rect.min_y = (y * tile_height);
-              rect.max_y = rect.min_y + tile_height;
-              if (y == tile_count_y - 1) {
-                  rect.max_y = height;
-              }
-
-              job->id = job_count;
-              job->clip_rect = rect;
-              job->group = group;
-              job->command_render_order = command_render_order;
-              job->framebuffer = buffer;
-
-              Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
-          }
-      }
-
-      Platform->complete_all_work(render_queue);
+                Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
+            }
+        }
+        Platform->complete_all_work(render_queue);
     }
     else {
-        i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
         Rectangle2i clip_rect = {};
         clip_rect.max_x = width;
         clip_rect.max_y = height;
-        execute_render_commands(1, group, command_render_order, clip_rect, buffer, *g_transient);
+        execute_render_commands(1, group, command_render_order, clip_rect, buffer, state.transient);
     }
 }
 
@@ -956,8 +966,9 @@ extern "C" __declspec(dllexport) RENDERER_APPLY_FRAMEBUFFER(win32_renderer_apply
             i32 frame_buffer_x = (i32)((x - offset_x) / pixel_size_x);
             u32 src_color = *(src + frame_buffer_x);
             if (src_color > 0) {
-              *dest++ = *(src + frame_buffer_x);
+                *dest = *(src + frame_buffer_x);
             }
+            dest++;
         }
     }
 }

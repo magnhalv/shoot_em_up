@@ -26,13 +26,6 @@ struct PlatformWorkQueue {
     platform_work_queue_entry entries[256];
 };
 
-struct Win32ThreadContext {
-    i32 thread_id;
-    i32 thread_idx;
-    PlatformWorkQueue* queue;
-    MemoryArena arena;
-};
-
 struct win32_loaded_dll {
     LPCWSTR filename;
     LPCWSTR pdb_filename;

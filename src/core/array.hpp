@@ -3,9 +3,11 @@
 #include <cassert>
 #include <cstdio>
 
-#include <core/memory_arena.hpp>
-#include <platform/platform.hpp>
+#include <platform/assert.hpp>
 #include <platform/types.hpp>
+
+#include <core/memory.hpp>
+#include <core/memory_arena.hpp>
 
 #include <math/vec2.hpp>
 #include <math/vec3.hpp>

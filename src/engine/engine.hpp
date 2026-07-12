@@ -47,7 +47,7 @@ struct SoundBuffer {
 
 struct RendererApi;
 #define ENGINE_UPDATE_AND_RENDER(name) \
-    void name(EngineMemory* engine_memory, EngineInput* app_input, RendererApi* renderer)
+    void name(ThreadContext* thread_context, EngineMemory* engine_memory, EngineInput* app_input, RendererApi* renderer)
 typedef ENGINE_UPDATE_AND_RENDER(update_and_render_fn);
 
 #define ENGINE_LOAD(name) void name(PlatformApi* platform_api, EngineMemory* memory)

@@ -10,7 +10,6 @@
 #include <engine/globals.hpp>
 
 #include "assets.hpp"
-#include "engine/hm_assert.hpp"
 #include "engine/hugin_file_formats.hpp"
 #include "math/math.hpp"
 #include "platform/types.hpp"
@@ -27,7 +26,6 @@ struct LoadAssetWork {
 static PLATFORM_WORK_QUEUE_CALLBACK(load_asset_work) {
     LoadAssetWork* work = (LoadAssetWork*)data;
 
-    HM_ASSERT(queue);
     if (work->asset->asset_memory->asset_type == AssetType_Bitmap) {
         Platform->read_file(&work->handle, work->offset, work->size, work->asset->asset_memory->bitmap.data);
         work->asset->state = AssetState_Loaded;
