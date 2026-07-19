@@ -737,7 +737,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                         vec4 white = vec4(0.784f, 0.784f, 0.784f, 1.0f);
                         UI_ScopedPadding({ 0.0f });
                         UI_ScopedFlexDirection(UI_FlexDirection_Column);
-                        UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
+                        UI_WindowFull("Frame window", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                             for (u32 frame_idx = 0; frame_idx < Historic_Frame_Count; frame_idx++) {
                                 vec4 color = frame_idx % 2 == 0 ? grey : white;
 
@@ -801,23 +801,32 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                         }
                     }
 
-                    u64 frame_to_inspect = debug_state->current_inspecting_frame == u64_max ?
+                    u64 inspecting_frame_number = debug_state->current_inspecting_frame == u64_max ?
                         debug_state->processed_frame_count - 1 :
                         debug_state->current_inspecting_frame;
-                    u32 frame_index = debug_state->historic_frame_indices[frame_to_inspect % Historic_Frame_Count];
-                    Assert(frame_index < PrintEventNode_Count);
+
+                    u32 inspecting_frame_index = debug_state->historic_frame_indices[inspecting_frame_number % Historic_Frame_Count];
+                    Assert(inspecting_frame_index < PrintEventNode_Count);
 
                     ProfileNode* debug_nodes = debug_state->node_forest.nodes;
-                    ProfileNode* frame_node = &debug_nodes[frame_index];
+                    ProfileNode* frame_node = &debug_nodes[inspecting_frame_index];
                     Assert(frame_node->kind == PrintDebugEventType_Frame);
-                    u64 frame_cycle_count = frame_node->clock_end - frame_node->clock_start;
-                    f32 full_frame_duration_ms = frame_node->value_v2.v[0];
-                    f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
-                    ProfileNode* thread_node = &debug_nodes[frame_node->first_kid_idx];
 
-                    UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
+                    u64 frame_clock_start = frame_node->clock_start;
+                    u64 frame_clock_end = frame_node->clock_end;
+                    u64 frame_cycle_count = frame_clock_end - frame_clock_start;
+                    f32 full_frame_duration_ms = frame_node->value_v2.v[0];
+                    ProfileNode* thread_node = &debug_nodes[frame_node->first_kid_idx];
+                    {
+                        f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
+                        UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
+                    }
 
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
+                        u64 parent_node_clock_start = frame_node->clock_start;
+                        u64 parent_node_clock_end = frame_node->clock_end;
+                        u64 parent_node_cycle_count = parent_node_clock_end - parent_node_clock_start;
+
                         i32 block_idx = 0;
                         Assert(thread_node->kind == PrintDebugEventType_Thread);
                         u32 node_idx = thread_node->first_kid_idx;
@@ -833,7 +842,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     local_block_idx++;
                                 }
                                 if (curr_node_idx != Nil_Index) {
-                                    node_idx = debug_nodes[curr_node_idx].first_kid_idx;
+                                    ProfileNode* parent_node = &debug_nodes[curr_node_idx];
+                                    node_idx = parent_node->first_kid_idx;
+                                    parent_node_clock_start = parent_node->clock_start;
+                                    parent_node_clock_end = parent_node->clock_end;
+                                    parent_node_cycle_count = parent_node_clock_end - parent_node_clock_start;
+
                                     breadcrumb_guids.push(debug_nodes[curr_node_idx].GUID);
                                 }
                             }
@@ -871,23 +885,23 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                                     u64 node_clock_end = node->clock_end;
                                     if (node_clock_end == 0) {
-                                        node_clock_end = frame_node->clock_end;
+                                        node_clock_end = parent_node_clock_end;
                                     }
+                                    u64 node_cycle_count = node_clock_end - node->clock_start;
 
-                                    u64 node_cycle_count = node->clock_end - node->clock_start;
-                                    f32 node_start_faction = (f32)(node->clock_start - frame_node->clock_start) / frame_cycle_count;
-                                    Assert(frame_cycle_count > node_cycle_count);
-                                    f32 block_fraction = (f32)node_cycle_count / frame_cycle_count;
+                                    f32 node_start_faction = (f32)(node->clock_start - parent_node_clock_start) / parent_node_cycle_count;
+                                    Assert(parent_node_cycle_count > node_cycle_count);
+                                    f32 block_cycle_fraction = (f32)node_cycle_count / parent_node_cycle_count;
 
-                                    f32 ms = full_frame_duration_ms * block_fraction;
+                                    f32 ms = full_frame_duration_ms * ((f32)node_cycle_count / frame_cycle_count);
 
                                     string8 box_id = string8_format(g_transient, "%s_thread_idx_%d_profile_box_%d",
                                         node->GUID, thread_idx, block_idx);
 
                                     UI_PushStyleBorder(1.0f, vec4(0.1f, 0.1f, 0.1f, 1.0f));
-                                    UI_Entity_Status box = UI_Box(box_id.data,                        //
-                                        UI_PercentOfParent(block_fraction), UI_PercentOfParent(1.0f), //
-                                        UI_RelativePercentOfParent(node_start_faction)                //
+                                    UI_Entity_Status box = UI_Box(box_id.data,                              //
+                                        UI_PercentOfParent(block_cycle_fraction), UI_PercentOfParent(1.0f), //
+                                        UI_RelativePercentOfParent(node_start_faction)                      //
                                     );
                                     UI_PopStyleBorder();
                                     if (box.click_released) {
@@ -909,7 +923,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         UI_Window("Hover window", UI_Fixed((f32)mouse->client_x + 5.0f),
                                             UI_Fixed((f32)mouse->client_y + 15.0f)) {
                                             UI_Text(node->GUID);
-                                            UI_Text(string8_format(g_transient, "Fraction: %.2f", block_fraction));
+                                            UI_Text(string8_format(g_transient, "Fraction: %.2f", block_cycle_fraction));
                                             UI_Text(string8_format(g_transient, "%.2f ms", ms));
                                         }
                                     }
@@ -917,7 +931,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                     node_idx = node->next_sib_idx;
                                     node = &debug_nodes[node_idx];
                                 }
-                                printf("Block count %d\n", block_idx);
                             }
                         }
                         thread_node = &debug_nodes[thread_node->next_sib_idx];

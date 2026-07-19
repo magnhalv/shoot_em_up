@@ -1,29 +1,21 @@
+#pragma once
+
 #include <math/math.hpp>
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
 
+#include <core/array.hpp>
 #include <core/color.hpp>
 #include <core/list.hpp>
 #include <core/memory.hpp>
 #include <core/memory_arena.hpp>
 #include <core/util.hpp>
-#include <core/array.hpp>
 
 #include <math/util.hpp>
 #include <math/vec2.hpp>
 #include <math/vec4.hpp>
 
-
 #include "renderer.hpp"
-
-auto inline get_color(Framebuffer& buffer, i32 x, i32 y) -> u32 {
-    u32* result = (u32*)(((u8*)buffer.memory) + (y * buffer.pitch) + (x * buffer.bytes_per_pixel));
-    return *result;
-}
-auto inline set_color(Framebuffer& buffer, u32 color, i32 x, i32 y) -> void {
-    u32* result = (u32*)(((u8*)buffer.memory) + (y * buffer.pitch) + (x * buffer.bytes_per_pixel));
-    *result = color;
-}
 
 auto inline render_line_bresenham_x(
     i32 xs, i32 ys, i32 xe, i32 ye, i32 dx, i32 dy, u32 color, Rectangle2i clip_rect, Framebuffer& buffer) {
@@ -729,15 +721,15 @@ auto inline clip_triangles_against_all_planes(          //
     temp_indices.clear();
 }
 
-auto inline render_mesh_gambetta(                                     //
-    Array<vec4> vertices, Array<ivec3> indices,  Array<vec3> normals, //
-    Array<vec4> colors,                                               // 
-    Array<Transform> instances,                                       //
-    const mat4& world_to_view,                                        //
-    const mat4& view_to_clip,                                         //
-    const vec4& camera_direction,                                         //
-    bool is_wireframe,                                                //
-    Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena    //
+auto inline render_mesh_gambetta(                                    //
+    Array<vec4> vertices, Array<ivec3> indices, Array<vec3> normals, //
+    Array<vec4> colors,                                              //
+    Array<Transform> instances,                                      //
+    const mat4& world_to_view,                                       //
+    const mat4& view_to_clip,                                        //
+    const vec4& camera_direction,                                    //
+    bool is_wireframe,                                               //
+    Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena   //
     ) -> void {
     Assert(indices.count() == colors.count());
 
@@ -747,13 +739,13 @@ auto inline render_mesh_gambetta(                                     //
         vec4 cam_pos_M = camera_direction * W_to_M;
 
         auto not_culled_indices = List<ivec3>::create(indices.count(), arena);
-        for (u32 i= 0; i< normals.count(); i++) {
-          const ivec3 triangle = indices[i];
-          const vec4 a = vertices[triangle.a];
-          const vec3 cam_direction_M = (a - cam_pos_M).xyz();
-          if (dot(cam_direction_M, normals[i]) < 0) {
-            not_culled_indices.push(indices[i]);
-          }
+        for (u32 i = 0; i < normals.count(); i++) {
+            const ivec3 triangle = indices[i];
+            const vec4 a = vertices[triangle.a];
+            const vec3 cam_direction_M = (a - cam_pos_M).xyz();
+            if (dot(cam_direction_M, normals[i]) < 0) {
+                not_culled_indices.push(indices[i]);
+            }
         }
         auto clip_space_vertices = Array<vec4>::create(vertices.count(), arena);
 
@@ -765,7 +757,8 @@ auto inline render_mesh_gambetta(                                     //
 
         auto clipped_vertices = List<vec4>::create(vertices.count() * 100, arena);
         auto clipped_indices = List<ivec3>::create(not_culled_indices.count() * 100, arena);
-        clip_triangles_against_all_planes(clip_space_vertices, not_culled_indices.to_array(), clipped_vertices, clipped_indices, arena);
+        clip_triangles_against_all_planes(
+            clip_space_vertices, not_culled_indices.to_array(), clipped_vertices, clipped_indices, arena);
 
         auto projected_vertices = Array<vec3>::create(clipped_vertices.count(), arena);
         for (i32 i = 0; i < clipped_vertices.count(); i++) {

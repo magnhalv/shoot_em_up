@@ -25,6 +25,7 @@
 #include "core/lib.hpp"
 #include "math/vec3.hpp"
 #include "platform/types.hpp"
+#include "renderer.cpp"
 
 struct WindowDimension {
     i32 width;
@@ -848,8 +849,6 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
     Framebuffer* buffer = &state.framebuffers[handle.v];
     i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
 
-    printf("Render commands count: %d\n", group->sort_keys.count());
-
     i32 width = buffer->width;
     i32 height = buffer->height;
     if (is_multithreaded) {
@@ -938,39 +937,7 @@ extern "C" __declspec(dllexport) RENDERER_CREATE_FRAMEBUFFER(win32_renderer_crea
 }
 
 extern "C" __declspec(dllexport) RENDERER_APPLY_FRAMEBUFFER(win32_renderer_apply_framebuffer) {
-
-    Framebuffer* framebuffer = &state.framebuffers[handle.v];
-    Win32RenderInfo render_info = state.platform_render_info;
-    Assert(render_info.buffer.bytes_per_pixel == framebuffer->bytes_per_pixel);
-
-    f32 pixel_size_x = 1;
-    f32 pixel_size_y = 1;
-    if (width >= framebuffer->width) {
-        pixel_size_x = (f32)width / framebuffer->width;
-    }
-    if (height >= framebuffer->height) {
-        pixel_size_y = (f32)height / framebuffer->height;
-    }
-
-    i32 start_x = hm::max(offset_x, 0);
-    i32 end_x = hm::min(offset_x + width, render_info.buffer.width);
-    i32 start_y = hm::max(offset_y, 0);
-    i32 end_y = hm::min(offset_y + height, render_info.buffer.height);
-
-    for (i32 y = start_y; y < end_y; y++) {
-        u32* dest = render_info.buffer.get_pixel(start_x, y);
-
-        f32 frame_buffer_y = (y - offset_y) / pixel_size_y;
-        u32* src = framebuffer->get_pixel(0, (i32)frame_buffer_y);
-        for (i32 x = start_x; x < end_x; x++) {
-            i32 frame_buffer_x = (i32)((x - offset_x) / pixel_size_x);
-            u32 src_color = *(src + frame_buffer_x);
-            if (src_color > 0) {
-                *dest = *(src + frame_buffer_x);
-            }
-            dest++;
-        }
-    }
+    apply_frame_buffer(&state.framebuffers[handle.v], &state.platform_render_info.buffer, width, height, offset_x, offset_y);
 }
 
 extern "C" __declspec(dllexport) RENDERER_GET_COLOR(win32_renderer_get_color) {

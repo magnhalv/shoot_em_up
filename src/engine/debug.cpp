@@ -35,6 +35,7 @@ DEBUG_FRAME_END(debug_frame_end) {
     u64 array_idx_and_event_count = atomic_exchange_u64(&global_debug_table->event_index, new_event_index);
     u32 array_idx = array_idx_and_event_count >> 32;
     u32 event_count = array_idx_and_event_count & 0xFFFFFFFF;
+    printf("Debug event count: %d\n", event_count);
 
     if (state->current_inspecting_frame != u64_max) {
         return;

@@ -196,6 +196,23 @@ struct Framebuffer {
     }
 };
 
+auto inline set_pixel(Framebuffer* buffer, i32 x, i32 y, u32 color) -> void {
+    Assert(x >= 0 && x < buffer->width);
+    Assert(y >= 0 && y < buffer->height);
+    Assert(sizeof(color) == sizeof(u32));
+    u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
+    *dest = color;
+}
+
+auto inline get_pixel(Framebuffer* buffer, i32 x, i32 y) -> u32* {
+    Assert(x >= 0 && x < buffer->width);
+    Assert(y >= 0 && y < buffer->height);
+    return (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
+}
+
+#define GET_PIXEL(buffer_ptr, x, y) \
+    ((u32*)((u8*)(buffer_ptr)->memory + ((y) * (buffer_ptr)->pitch) + ((x) * (buffer_ptr)->bytes_per_pixel)))
+
 // INTERNAL END
 
 #define PushRenderElement(group, type, sort_key) \
@@ -243,7 +260,8 @@ typedef RENDERER_INIT(renderer_init_fn);
 #define RENDERER_ADD_TEXTURE(name) bool name(i32 texture_id, void* data, i32 width, i32 height, i32 bytes_per_pixel)
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 
-#define RENDERER_RENDER(name) void name(PlatformWorkQueue* render_queue, bool is_multithreaded, RenderGroup* group, FrameBufferHandle handle)
+#define RENDERER_RENDER(name) \
+    void name(PlatformWorkQueue* render_queue, bool is_multithreaded, RenderGroup* group, FrameBufferHandle handle)
 typedef RENDERER_RENDER(renderer_render_fn);
 
 #define RENDERER_BEGIN_FRAME(name) void name(void* context)

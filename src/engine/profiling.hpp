@@ -36,7 +36,7 @@ struct ProfileNode {
 
 constexpr u32 Nil_Index = 0;
 constexpr u32 Historic_Frame_Count = 120;
-constexpr u32 PrintEventNode_Count = Historic_Frame_Count * 10000;
+constexpr u32 PrintEventNode_Count = Historic_Frame_Count * 100000;
 struct PrintEventNodeForest {
     ProfileNode nodes[PrintEventNode_Count];
     u32 current_idx;
@@ -69,8 +69,8 @@ auto inline add_kid(PrintEventNodeForest* forest, u32 parent_idx = Nil_Index) ->
             left_sib->next_sib_idx = forest->current_idx;
         }
         parent_node->last_kid_idx = forest->current_idx;
+        forest->curr_tree_node_count++;
     }
-    forest->curr_tree_node_count++;
     return forest->current_idx;
 }
 
@@ -109,7 +109,7 @@ struct DebugEvent {
     };
 };
 
-constexpr i32 Debug_Max_Event_Count = 1 << 16;
+constexpr u32 Debug_Max_Event_Count = 1 << 18;
 struct DebugTable {
     // We store which table to use in the upmost 32 bits, to make the switch proper atomic, even though we "waste" 31 bits.
     volatile u64 event_index;

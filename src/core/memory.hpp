@@ -21,9 +21,7 @@ auto inline is_aligned(void* memory, u64 alignment) -> bool {
 }
 
 typedef void (*copy_memory_fn)(void*, void*, u64);
-inline void copy_memory_no_init(void* src, void* dest, u64 size) {
-    crash_and_burn("copy_memory has not been initialized. Call initialize_core_lib() first.");
-}
+void copy_memory_no_init(void* src, void* dest, u64 size);
 global_variable copy_memory_fn copy_memory = copy_memory_no_init;
 
 void clear_memory(void* memory, u64 size);

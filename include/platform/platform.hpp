@@ -22,7 +22,7 @@ const i32 CLIENT_HEIGHT = 768 * 2;
 const i32 BYTES_PER_PIXEL = 4;
 
 const u32 MAIN_THREAD_IDX = 0;
-const u32 WORKER_THREAD_COUNT = 1;
+const u32 WORKER_THREAD_COUNT = 3;
 const u32 TOTAL_THREAD_COUNT = WORKER_THREAD_COUNT + 1;
 
 const u32 Gl_Invalid_Id = 0; // TODO: Remove this
@@ -167,7 +167,7 @@ inline void platform_assert_print_stack_trace() {
 
 const u64 Permanent_Memory_Block_Size = MegaBytes(10);
 const u64 Transient_Memory_Block_Size = MegaBytes(128);
-const u64 Debug_Memory_Block_Size = MegaBytes(512);
+const u64 Debug_Memory_Block_Size = GigaBytes(1);
 const u64 Thread_Memory_Block_Size = MegaBytes(64);
 const u64 Total_Memory_Size = Permanent_Memory_Block_Size + Transient_Memory_Block_Size + Debug_Memory_Block_Size;
 const u64 Renderer_Permanent_Memory_Size = MegaBytes(10);
