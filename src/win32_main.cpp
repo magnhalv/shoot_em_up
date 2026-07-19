@@ -1021,16 +1021,16 @@ bool win32_do_next_work_entry(ThreadContext* context) {
     return we_should_sleep;
 }
 
-static void win32_complete_all_work(PlatformWorkQueue* queue) {
-    while (queue->completion_count != queue->completion_goal) {
+static void win32_complete_all_work(ThreadContext* thread_context) {
+    while (thread_context->queue->completion_count != thread_context->queue->completion_goal) {
 
-        // if (!win32_do_next_work_entry(queue)) {
-        // }
-        YieldProcessor();
+        if (!win32_do_next_work_entry(thread_context)) {
+            YieldProcessor();
+        }
     }
 
-    queue->completion_goal = 0;
-    queue->completion_count = 0;
+    thread_context->queue->completion_goal = 0;
+    thread_context->queue->completion_count = 0;
 }
 
 DWORD WINAPI worker_proc(LPVOID lpParameter) {

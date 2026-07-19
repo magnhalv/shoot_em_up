@@ -2,9 +2,11 @@
 #include "doctest.h"
 
 #include <core/lib.hpp>
+#include <renderers/renderer.hpp>
 
 int main(int argc, char** argv) {
     initialize_core_lib();
+    initialize_renderer_lib();
     return doctest::Context(argc, argv).run();
 }
 

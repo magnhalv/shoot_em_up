@@ -125,7 +125,7 @@ typedef PLATFORM_PRINT_STACK_TRACE(platform_print_stack_trace);
 typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
 
 typedef void platform_add_work_queue_entry(PlatformWorkQueue* Queue, platform_work_queue_callback* Callback, void* Data);
-typedef void platform_complete_all_work(PlatformWorkQueue* Queue);
+typedef void platform_complete_all_work(ThreadContext* thread_context);
 
 struct DebugTable;
 struct PlatformApi {

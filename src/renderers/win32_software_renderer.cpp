@@ -653,6 +653,7 @@ static auto draw_bitmap_avx2(                   //
 
 extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     initialize_core_lib();
+    initialize_renderer_lib();
     log_info("Using software renderer.");
 
     // TODO: We should check for need of resizing on every draw call.
@@ -887,10 +888,10 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
                 job->command_render_order = command_render_order;
                 job->framebuffer = buffer;
 
-                Platform->add_work_queue_entry(render_queue, execute_render_tile_job, job);
+                Platform->add_work_queue_entry(thread_context->queue, execute_render_tile_job, job);
             }
         }
-        Platform->complete_all_work(render_queue);
+        Platform->complete_all_work(thread_context);
     }
     else {
         Rectangle2i clip_rect = {};
@@ -936,8 +937,49 @@ extern "C" __declspec(dllexport) RENDERER_CREATE_FRAMEBUFFER(win32_renderer_crea
     return handle;
 }
 
+struct ApplyFramebufferJob {
+    i32 id;
+    Framebuffer* framebuffer;
+    i32 y_start;
+    i32 y_end;
+
+    i32 width;
+    i32 height;
+    i32 offset_x;
+    i32 offset_y;
+};
+static PLATFORM_WORK_QUEUE_CALLBACK(execute_apply_frame_buffer_job) {
+    TIMED_BLOCK("execute_apply_frame_buffer_job");
+    auto job = (ApplyFramebufferJob*)data;
+    Assert(job);
+
+    apply_frame_buffer(                                        //
+        job->framebuffer, &state.platform_render_info.buffer,  //
+        job->width, job->height, job->offset_x, job->offset_y, //
+        job->y_start, job->y_end);                             //
+    MemoryBarrier();                                           // TODO: remove?
+}
+
 extern "C" __declspec(dllexport) RENDERER_APPLY_FRAMEBUFFER(win32_renderer_apply_framebuffer) {
-    apply_frame_buffer(&state.framebuffers[handle.v], &state.platform_render_info.buffer, width, height, offset_x, offset_y);
+    const i32 JOB_COUNT = TOTAL_THREAD_COUNT * 2;
+    Assert(height % JOB_COUNT == 0);
+    const i32 job_y_count = height / JOB_COUNT;
+    ApplyFramebufferJob jobs[JOB_COUNT] = {};
+    for (i32 job_idx = 0; job_idx < JOB_COUNT; job_idx++) {
+        ApplyFramebufferJob* job = jobs + job_idx;
+        job->id = job_idx;
+        job->framebuffer = &state.framebuffers[handle.v];
+        job->y_start = job_idx * job_y_count;
+        job->y_end = (job_idx + 1) * job_y_count;
+
+        job->width = width;
+        job->height = height;
+        job->offset_x = offset_x;
+        job->offset_y = offset_y;
+        Platform->add_work_queue_entry(thread_context->queue, execute_apply_frame_buffer_job, job);
+    }
+
+    Platform->complete_all_work(thread_context);
 }
 
 extern "C" __declspec(dllexport) RENDERER_GET_COLOR(win32_renderer_get_color) {

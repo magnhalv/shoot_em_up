@@ -577,7 +577,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         {
             TIMED_BLOCK("Render_3D");
-            renderer->render(Platform->work_queue, false, &group, state->handle_3D);
+            renderer->render(thread_context, false, &group, state->handle_3D);
         }
         // Here I can inspect framebuffer
     }
@@ -706,7 +706,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         {
             TIMED_BLOCK("game_render");
-            renderer->render(Platform->work_queue, false, &group, state->handle_3D);
+            renderer->render(thread_context, false, &group, state->handle_3D);
         }
     }
 
@@ -950,7 +950,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             UI_Generate_Render_Commands(&ui_render_group);
             BEGIN_BLOCK("gui_render");
-            renderer->render(Platform->work_queue, true, &ui_render_group, state->handle_UI);
+            renderer->render(thread_context, true, &ui_render_group, state->handle_UI);
             END_BLOCK();
         }
     }
@@ -964,16 +964,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         background_group.sort_entries_offset.init(g_transient, 1);
         auto* clear = PushRenderElement(&background_group, RenderEntryClear, 0);
         clear->color = vec4(0.0f, 0.0f, 0.0, 1.0);
-        renderer->render(Platform->work_queue, true, &background_group, state->handle_background);
+        renderer->render(thread_context, true, &background_group, state->handle_background);
     }
 
     {
         TIMED_BLOCK("frame_buffers_apply");
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
-        renderer->apply_framebuffer(state->handle_background, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(state->handle_3D, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(state->handle_UI, client_width, client_height, 0, 0);
+        renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
+        renderer->apply_framebuffer(thread_context, state->handle_3D, client_width, client_height, 0, 0);
+        renderer->apply_framebuffer(thread_context, state->handle_UI, client_width, client_height, 0, 0);
     }
 }
 

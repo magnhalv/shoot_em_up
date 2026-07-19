@@ -12,7 +12,20 @@ auto create_frame_buffer(MemoryArena& arena, i32 width, i32 height) -> Framebuff
     return buffer;
 }
 
-auto apply_frame_buffer(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height, i32 offset_x, i32 offset_y) {
+auto initialize_renderer_lib() -> void {
+    if (cpu_supports_avx512f()) {
+        apply_frame_buffer = apply_frame_buffer_AVX512;
+    }
+    else {
+        apply_frame_buffer = apply_frame_buffer_scalar;
+    }
+}
+
+auto apply_frame_buffer_AVX512(                        //
+    Framebuffer* src_buffer, Framebuffer* dest_buffer, //
+    i32 width, i32 height, i32 offset_x, i32 offset_y, //
+    i32 clip_y_start, i32 clip_y_end                   //
+    ) -> void {
     Assert(dest_buffer->bytes_per_pixel == src_buffer->bytes_per_pixel);
 
     f32 pixel_size_x = 1;
@@ -26,8 +39,8 @@ auto apply_frame_buffer(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 w
 
     const i32 start_x = hm::max(offset_x, 0);
     const i32 end_x = hm::min(offset_x + width, dest_buffer->width);
-    const i32 start_y = hm::max(offset_y, 0);
-    const i32 end_y = hm::min(offset_y + height, dest_buffer->height);
+    const i32 start_y = hm::max(offset_y, clip_y_start);
+    const i32 end_y = hm::min(offset_y + height, clip_y_end);
 
     const i32 LANE_COUNT = 16;
     Assert((end_x - start_x) % LANE_COUNT == 0);
@@ -101,7 +114,11 @@ auto apply_frame_buffer(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 w
     }
 }
 
-auto apply_frame_buffer_scalar(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height, i32 offset_x, i32 offset_y) {
+auto apply_frame_buffer_scalar(                        //
+    Framebuffer* src_buffer, Framebuffer* dest_buffer, //
+    i32 width, i32 height, i32 offset_x, i32 offset_y, //
+    i32 clip_y_start, i32 clip_y_end                   //
+    ) -> void {
     Assert(dest_buffer->bytes_per_pixel == src_buffer->bytes_per_pixel);
 
     f32 pixel_size_x = 1;

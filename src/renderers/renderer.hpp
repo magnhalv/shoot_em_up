@@ -213,6 +213,20 @@ auto inline get_pixel(Framebuffer* buffer, i32 x, i32 y) -> u32* {
 #define GET_PIXEL(buffer_ptr, x, y) \
     ((u32*)((u8*)(buffer_ptr)->memory + ((y) * (buffer_ptr)->pitch) + ((x) * (buffer_ptr)->bytes_per_pixel)))
 
+inline void apply_frame_buffer_no_init(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height,
+    i32 offset_x, i32 offset_y, i32 clip_y_start, i32 clip_y_end) {
+    crash_and_burn("apply_frame_buffer has not been initialized. Call initialize_renderer_lib() first.");
+}
+typedef void (*apply_frame_buffer_fn)(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height,
+    i32 offset_x, i32 offset_y, i32 clip_y_start, i32 clip_y_end);
+global_variable apply_frame_buffer_fn apply_frame_buffer = apply_frame_buffer_no_init;
+
+void apply_frame_buffer_scalar(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height, i32 offset_x,
+    i32 offset_y, i32 clip_y_start, i32 clip_y_end);
+void apply_frame_buffer_AVX512(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height, i32 offset_x,
+    i32 offset_y, i32 clip_y_start, i32 clip_y_end);
+auto initialize_renderer_lib() -> void;
+
 // INTERNAL END
 
 #define PushRenderElement(group, type, sort_key) \
@@ -261,7 +275,7 @@ typedef RENDERER_INIT(renderer_init_fn);
 typedef RENDERER_ADD_TEXTURE(renderer_add_texture_fn);
 
 #define RENDERER_RENDER(name) \
-    void name(PlatformWorkQueue* render_queue, bool is_multithreaded, RenderGroup* group, FrameBufferHandle handle)
+    void name(ThreadContext* thread_context, bool is_multithreaded, RenderGroup* group, FrameBufferHandle handle)
 typedef RENDERER_RENDER(renderer_render_fn);
 
 #define RENDERER_BEGIN_FRAME(name) void name(void* context)
@@ -278,7 +292,7 @@ typedef RENDERER_DELETE_CONTEXT(renderer_delete_context_fn);
 typedef RENDERER_CREATE_FRAMEBUFFER(renderer_create_framebuffer_fn);
 
 #define RENDERER_APPLY_FRAMEBUFFER(name) \
-    void name(FrameBufferHandle handle, i32 width, i32 height, i32 offset_x, i32 offset_y)
+    void name(ThreadContext* thread_context, FrameBufferHandle handle, i32 width, i32 height, i32 offset_x, i32 offset_y)
 typedef RENDERER_APPLY_FRAMEBUFFER(renderer_apply_framebuffer_fn);
 
 #define RENDERER_GET_COLOR(name) Color name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)
