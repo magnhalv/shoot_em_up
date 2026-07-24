@@ -163,5 +163,5 @@ void unset_transient_arena() {
 
 void clear_transient() {
     assert(g_transient != nullptr);
-    g_transient->clear_to_zero();
+    g_transient->clear();
 }

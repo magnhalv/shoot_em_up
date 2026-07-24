@@ -178,8 +178,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    // BEGIN_BLOCK("prepare_frame")
-    //  TODO: Gotta set this on hot reload
+    BEGIN_BLOCK("prepare_frame");
     clear_transient();
     remove_finished_sounds(&state->audio);
 
@@ -198,6 +197,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     time.dt = app_input->dt;
     time.t += time.dt;
     time.num_frames_this_second++;
+    END_BLOCK();
+
+    //  TODO: Gotta set this on hot reload
     // END_BLOCK();
 
     // endregion
@@ -211,7 +213,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 #endif
 
     {
-        // TIMED_BLOCK("game_update");
+        TIMED_BLOCK("game_update");
         auto& input = app_input->input;
 
         camera_update_keyboard(state->camera, app_input->input);
@@ -393,6 +395,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     ///////////////////////////
 
     {
+        TIMED_BLOCK("Render_3D");
         RenderGroup group{};
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
@@ -576,7 +579,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         {
-            TIMED_BLOCK("Render_3D");
             renderer->render(thread_context, false, &group, state->handle_3D);
         }
         // Here I can inspect framebuffer
@@ -983,23 +985,24 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    {
-        RenderGroup background_group = {};
-        background_group.push_buffer_size = 0;
-        background_group.max_push_buffer_size = MegaBytes(1);
-        background_group.push_buffer = allocate<u8>(*g_transient, background_group.max_push_buffer_size);
-        background_group.sort_keys.init(g_transient, 1);
-        background_group.sort_entries_offset.init(g_transient, 1);
-        auto* clear = PushRenderElement(&background_group, RenderEntryClear, 0);
-        clear->color = vec4(0.0f, 0.0f, 0.0, 1.0);
-        renderer->render(thread_context, true, &background_group, state->handle_background);
-    }
+    // {
+    //     TIMED_BLOCK("clear_background");
+    //     RenderGroup background_group = {};
+    //     background_group.push_buffer_size = 0;
+    //     background_group.max_push_buffer_size = MegaBytes(1);
+    //     background_group.push_buffer = allocate<u8>(*g_transient, background_group.max_push_buffer_size);
+    //     background_group.sort_keys.init(g_transient, 1);
+    //     background_group.sort_entries_offset.init(g_transient, 1);
+    //     auto* clear = PushRenderElement(&background_group, RenderEntryClear, 0);
+    //     clear->color = vec4(0.0f, 0.0f, 0.0, 1.0);
+    //     renderer->render(thread_context, true, &background_group, state->handle_background);
+    // }
 
     {
         TIMED_BLOCK("frame_buffers_apply");
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
-        renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
+        // renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
         renderer->apply_framebuffer(thread_context, state->handle_3D, client_width, client_height, 0, 0);
         renderer->apply_framebuffer(thread_context, state->handle_UI, client_width, client_height, 0, 0);
     }

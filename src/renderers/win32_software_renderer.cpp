@@ -208,7 +208,7 @@ static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i c
     u32 color_packed = pack_color_8x4(color);
     for (i32 y = clip_rect.min_y; y < clip_rect.max_y; y++) {
         u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (clip_rect.min_x * buffer->bytes_per_pixel));
-        set_memory_u32(dest, color_packed, clip_rect.max_x - clip_rect.min_x);
+        set_memory_u32_avx512_stream(dest, color_packed, clip_rect.max_x - clip_rect.min_x);
     }
 }
 

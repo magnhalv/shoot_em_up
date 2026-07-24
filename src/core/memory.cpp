@@ -84,6 +84,39 @@ auto set_memory_u32_avx512(u32* dest, u32 value, u64 count) -> void {
     }
 }
 
+auto set_memory_u32_avx512_stream(u32* dest, u32 value, u64 count) -> void {
+    const i32 lane_count = 16;
+    i32x16 value_v16 = _mm512_set1_epi32(value);
+    u64 i = 0;
+
+    // _mm512_stream_si512 requires 64-byte aligned addresses, so scalar-fill
+    // any unaligned head first; the streaming loop below then only ever
+    // stores at aligned addresses.
+    u64 misalignment = (uintptr_t)(dest) & 63;
+    if (misalignment != 0) {
+        u64 head_count = (64 - misalignment) / 4;
+        if (head_count > count) {
+            head_count = count;
+        }
+        for (; i < head_count; i++) {
+            dest[i] = value;
+        }
+    }
+
+    for (; (i + lane_count) <= count; i += lane_count) {
+        _mm512_stream_si512((__m512i*)(dest + i), value_v16);
+    }
+
+    // Streaming stores bypass cache and can be reordered past normal stores,
+    // so fence before the scalar tail (and before any caller relies on the
+    // writes being globally visible).
+    _mm_sfence();
+
+    for (; i < count; i++) {
+        dest[i] = value;
+    }
+}
+
 void DEBUG_print_memory_as_hex(void* memory, u64 size) {
     u32* data = (u32*)memory;
     for (u64 i = 0; i < size; i++) {

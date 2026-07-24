@@ -30,6 +30,7 @@ typedef void (*set_memory_u32_fn)(u32*, u32, u64);
 void set_memory_u32_init(u32* dest, u32 value, u64 count);
 void set_memory_u32_scalar(u32* dest, u32 value, u64 count);
 void set_memory_u32_avx512(u32* dest, u32 value, u64 count);
+void set_memory_u32_avx512_stream(u32* dest, u32 value, u64 count);
 global_variable set_memory_u32_fn set_memory_u32 = set_memory_u32_init;
 
 void clear_memory(void* memory, u64 size);
