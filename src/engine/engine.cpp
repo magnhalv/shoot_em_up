@@ -709,6 +709,34 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             renderer->render(thread_context, false, &group, state->handle_3D);
         }
     }
+    if (false) {
+        if (state->ui_context) {
+            UI_SetContext(state->ui_context);
+            Mouse* mouse = &app_input->input.mouse;
+            UI_Begin(mouse, client_width, client_height);
+            UI_SetLayout({ .layout_direction = UI_Direction_Right });
+            vec4 background_color = vec4(0.114f, 0.125f, 0.294f, 0.706f);
+            UI_ScopedBackgroundColor(background_color);
+            UI_WindowFull("Execution time", UI_Fixed(0.0f), UI_Fixed(50.0f), UI_Pixels(800.0f), UI_Pixels(500.0f)) {
+                UI_Text("Frame profiling");
+            }
+            UI_End();
+
+            RenderGroup ui_render_group{};
+            ui_render_group.push_buffer_size = 0;
+            ui_render_group.max_push_buffer_size = MegaBytes(64);
+            ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
+            ui_render_group.sort_keys.init(g_transient, 2 * 2048);
+            ui_render_group.sort_entries_offset.init(g_transient, 2 * 2048);
+            auto* clear = PushRenderElement(&ui_render_group, RenderEntryClear, -1);
+            clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
+
+            UI_Generate_Render_Commands(&ui_render_group);
+            BEGIN_BLOCK("gui_render");
+            renderer->render(thread_context, true, &ui_render_group, state->handle_UI);
+            END_BLOCK();
+        }
+    }
 
     if (true) {
 

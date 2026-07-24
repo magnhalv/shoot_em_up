@@ -489,20 +489,20 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
 
         vec2 bl = entity->rect.bl;
         vec2 tr = entity->rect.tr;
-        vec2 tl = vec2(bl.x, tr.y);
-        vec2 br = vec2(tr.x, bl.y);
-        auto* render_el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
-        render_el->quad = { .bl = vec2(-0.5f, -0.5f), .tl = vec2(-0.5f, 0.5f), .tr = vec2(0.5f, 0.5f), .br = vec2(0.5f, -0.5f) };
-        render_el->offset = vec2(x + el_width / 2, y - el_height / 2);
-        render_el->scale = vec2(el_width, el_height);
-        render_el->rotation = 0;
-        render_el->texture_id = 0;
+        auto* render_el = PushRenderElement(render_group, RenderEntryQuad, entity->z_index);
+        render_el->quad.min_x = bl.x;
+        render_el->quad.min_y = bl.y;
+        render_el->quad.max_x = tr.x;
+        render_el->quad.max_y = tr.y;
+        // render_el->offset = vec2(x + el_width / 2, y - el_height / 2);
+        // render_el->rotation = 0;
 
+        // render_el->color = entity->background_color;
         if (entity->flags & UI_WidgetFlag_DrawBackground) {
             render_el->color = entity->background_color;
         }
-        render_el->border_thickness = entity->border_thickness;
-        render_el->border_color = entity->border_color;
+        // render_el->border_thickness = entity->border_thickness;
+        // render_el->border_color = entity->border_color;
 
         if (entity->flags & UI_WidgetFlag_DrawText) {
             LoadedFont* font = global_context->font;
@@ -518,7 +518,7 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
                 auto glyph_width = uv_max.x - uv_min.x;
                 auto glyph_height = uv_max.y - uv_min.y;
 
-                auto* char_el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index);
+                auto* char_el = PushRenderElement(render_group, RenderEntryBitmap, entity->z_index + 1);
                 char_el->uv_min = uv_min;
                 char_el->uv_max = uv_max;
 

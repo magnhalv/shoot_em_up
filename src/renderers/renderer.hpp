@@ -1,5 +1,6 @@
 #pragma once
 
+#include "math/util.hpp"
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
 
@@ -36,6 +37,7 @@ enum RenderGroupEntryType {                      //
     RenderCommands_RenderEntryClear,             //
     RenderCommands_RenderEntryClearCheckPattern, //
     RenderCommands_RenderEntryBitmap,            //
+    RenderCommands_RenderEntryQuad,              //
     RenderCommands_RenderEntryLine,              //
     RenderCommands_RenderEntryCircle,            //
     RenderCommands_RenderEntryFilledCircle,      //
@@ -59,17 +61,12 @@ struct RenderEntryClearCheckPattern {
     vec4 color2; // r,g,b,a
 };
 
-struct RenderEntryQuadrilateral {
-    RenderEntityBasis render_basis;
-    Quadrilateral quad;
+struct RenderEntryQuad {
+    Rectangle2f quad;
     vec4 color;
-    vec2 offset;
-    f32 rotation;
-    vec2 scale;
 };
 
 struct RenderEntryBitmap {
-    RenderEntityBasis render_basis;
     Quadrilateral quad;
     Quadrilateral uv;
     vec4 color;

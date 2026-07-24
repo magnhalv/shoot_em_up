@@ -112,16 +112,6 @@ auto square_root(f32 v) -> f32 {
     return sqrtf(v);
 }
 
-inline auto pack4x8(vec4 color) -> u32 {
-    u32 result =                        //
-        ((u32)(color.a + 0.5f)) << 24 | //
-        ((u32)(color.r + 0.5f)) << 16 | //
-        ((u32)(color.g + 0.5f)) << 8 |  //
-        ((u32)(color.b + 0.5f)) << 0;
-
-    return result;
-}
-
 inline auto srgb_to_linear1_2(vec4 color) -> color_v8 {
     color_v8 result = {};
 
@@ -155,6 +145,46 @@ static void draw_rectangle(Framebuffer* buffer, Rectangle2i rect, f32 r, f32 g, 
     }
 }
 
+static void draw_rectangle_new(Rectangle2f rect, vec4 color, Rectangle2i clip_rect, Framebuffer* buffer) {
+    if (color.a <= 0.0f) {
+        return;
+    }
+    vec4 color_l1 = srgb_to_linear1(color);
+    u32 color_packed = pack_color_8x4(color);
+
+    i32 min_x = hm::max(round_f32_to_i32(rect.min_x), 0);
+    i32 max_x = hm::min(round_f32_to_i32(rect.max_x), buffer->width);
+    i32 min_y = hm::max(round_f32_to_i32(rect.min_y), 0);
+    i32 max_y = hm::min(round_f32_to_i32(rect.max_y), buffer->height);
+    min_x = hm::max(clip_rect.min_x, min_x);
+    max_x = hm::min(clip_rect.max_x, max_x);
+    min_y = hm::max(clip_rect.min_y, min_y);
+    max_y = hm::min(clip_rect.max_y, max_y);
+
+    if (color.a < 1.0f) {
+        for (i32 y = min_y; y < max_y; y++) {
+            for (i32 x = min_x; x < max_x; x++) {
+                u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
+
+                vec4 dest_l1 = unpack4x8_srgb255_to_linear1(*dest);
+
+                // Cout = Cf * Af + Cb * (1 - Af)
+                vec4 blended_l1 = color_l1;
+                if (blended_l1.a < 1.0f) {
+                    blended_l1 = color_l1 * color_l1.a + (dest_l1 * (1.0f - color_l1.a));
+                }
+                *dest = linear1_to_packed8x4_srgb255(blended_l1);
+            }
+        }
+    }
+    else if (min_x < max_x) { // Why can this happen? Check how clip_rect is generated.
+        for (i32 y = min_y; y < max_y; y++) {
+            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
+            set_memory_u32(dest, color_packed, max_x - min_x);
+        }
+    }
+}
+
 static void clear_check_pattern(Framebuffer& buffer, Rectangle2i rect, vec4 color1, vec4 color2) {
     u32 packed_color1 = pack_color_8x4(color1);
     u32 packed_color2 = pack_color_8x4(color2);
@@ -174,12 +204,12 @@ static void clear_check_pattern(Framebuffer& buffer, Rectangle2i rect, vec4 colo
     }
 }
 
-static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer) {
-    draw_rectangle(               //
-        &buffer,                  //
-        clip_rect,                //
-        color.r, color.g, color.b //
-    );
+static auto clear(i32 client_width, i32 client_height, vec4 color, Rectangle2i clip_rect, Framebuffer* buffer) {
+    u32 color_packed = pack_color_8x4(color);
+    for (i32 y = clip_rect.min_y; y < clip_rect.max_y; y++) {
+        u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (clip_rect.min_x * buffer->bytes_per_pixel));
+        set_memory_u32(dest, color_packed, clip_rect.max_x - clip_rect.min_x);
+    }
 }
 
 auto color_channel_f32_to_u8(f32 channel) {
@@ -739,7 +769,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryClear: {
             TIMED_BLOCK("render_entry_clear");
             RenderEntryClear* entry = (RenderEntryClear*)data;
-            clear(framebuffer->width, framebuffer->height, entry->color, clip_rect, *framebuffer);
+            clear(framebuffer->width, framebuffer->height, entry->color, clip_rect, framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryClearCheckPattern: {
@@ -822,6 +852,16 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
                 &clip_rect, framebuffer);
             base_address += sizeof(*entry);
         } break;
+        case RenderCommands_RenderEntryQuad: {
+            TIMED_BLOCK("render_entry_quad");
+            auto* entry = (RenderEntryQuad*)data;
+            draw_rectangle_new(        //
+                entry->quad,           //
+                entry->color,          //
+                clip_rect, framebuffer //
+            );
+            base_address += sizeof(*entry);
+        } break;
         default: InvalidCodePath;
         }
     }
@@ -853,8 +893,8 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
     i32 width = buffer->width;
     i32 height = buffer->height;
     if (is_multithreaded) {
-        i32 const tile_count_x = 4;
-        i32 const tile_count_y = 4;
+        i32 const tile_count_x = 8;
+        i32 const tile_count_y = 8;
 
         i32 tile_width = width / tile_count_x;
         i32 tile_height = height / tile_count_y;
@@ -875,6 +915,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
                 if (x == tile_count_x - 1) {
                     rect.max_x = width;
                 }
+                Assert(rect.min_x <= rect.max_x);
 
                 rect.min_y = (y * tile_height);
                 rect.max_y = rect.min_y + tile_height;
