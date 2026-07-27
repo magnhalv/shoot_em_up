@@ -49,7 +49,9 @@ auto MemoryArena::allocate(u64 request_size, ArenaPushParams params) -> void* {
         crash_and_burn("Failed to allocate %s. Only %s remaining.", total_size_formatted.data, remaning_formatted.data);
     }
 
-    memset(m_memory + m_size, 0, total_size);
+    if (params.flags & ArenaPushFlag_ClearToZero) {
+        memset(m_memory + m_size, 0, total_size);
+    }
 
     void* result = (void*)aligned_address;
     m_size += total_size;

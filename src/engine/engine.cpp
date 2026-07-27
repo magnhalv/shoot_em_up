@@ -1003,8 +1003,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
         // renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(thread_context, state->handle_3D, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(thread_context, state->handle_UI, client_width, client_height, 0, 0);
+        renderer->apply_framebuffer(thread_context, state->handle_3D, {4, 4});
+        renderer->apply_framebuffer(thread_context, state->handle_UI, {1, 1});
     }
 }
 

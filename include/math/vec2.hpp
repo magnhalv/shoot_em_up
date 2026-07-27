@@ -26,6 +26,28 @@ inline ivec2 operator+(const ivec2& l, const ivec2& r) {
     return { l.x + r.x, l.y + r.y };
 }
 
+inline ivec2 operator-(const ivec2& l, const ivec2& r) {
+    return { l.x - r.x, l.y - r.y };
+}
+
+inline ivec2 operator*(const ivec2& l, const ivec2& r) {
+    return { l.x * r.x, l.y * r.y };
+}
+
+inline ivec2 operator*(const i32& l, const ivec2& r) {
+    return { l * r.x, l * r.y };
+}
+
+inline ivec2 operator*(const ivec2& l, i32 r) {
+    return { l.x * r, l.y * r };
+}
+
+inline auto ivec2_swap(ivec2& a, ivec2& b) -> void {
+    ivec2 temp = a;
+    a = b;
+    b = temp;
+}
+
 struct vec2 {
     union {
         struct {

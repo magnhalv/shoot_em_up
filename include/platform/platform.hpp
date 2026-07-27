@@ -17,8 +17,8 @@
 #include <core/memory_arena.hpp>
 #include <core/stack_array.hpp>
 
-const i32 CLIENT_WIDTH = 928 * 2;
-const i32 CLIENT_HEIGHT = 768 * 2;
+const i32 CLIENT_WIDTH = 1920;
+const i32 CLIENT_HEIGHT = 1080;
 const i32 BYTES_PER_PIXEL = 4;
 
 const u32 MAIN_THREAD_IDX = 0;

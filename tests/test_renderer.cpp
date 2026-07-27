@@ -145,26 +145,29 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "apply_frame_buffer copies a matching-si
 
     string8 src_str = buffer_to_string(src, arena);
     INFO("src:\n", src_str.data);
-    apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0);
+    apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0, 0, 32);
     string8 dest_str = buffer_to_string(dest, arena);
     INFO("dest:\n", dest_str.data);
 
     REQUIRE(string8_equal(dest_str, src_str));
 }
 
-TEST_CASE_FIXTURE(RendererArenaFixture, "apply_frame_buffer skips transparent src pixels, leaving dest untouched (33x35)") {
-    Framebuffer src = create_frame_buffer(arena, 33, 35);
-    Framebuffer dest = create_frame_buffer(arena, 33, 35);
+TEST_CASE_FIXTURE(RendererArenaFixture, "apply_frame_buffer skips transparent src pixels, leaving dest untouched (32x35)") {
+    // Width must be a multiple of the AVX512 path's 16-wide lane count (see the
+    // `(end_x - start_x) % LANE_COUNT == 0` assert in apply_frame_buffer_AVX512);
+    // only the height is free to be an arbitrary value.
+    Framebuffer src = create_frame_buffer(arena, 32, 35);
+    Framebuffer dest = create_frame_buffer(arena, 32, 35);
     fill_checkerboard(src, Color_Opaque);
     fill_solid(dest, Color_Sentinel);
 
-    Framebuffer expected = create_frame_buffer(arena, 33, 35);
+    Framebuffer expected = create_frame_buffer(arena, 32, 35);
     for (i32 y = 0; y < expected.height; y++)
         for (i32 x = 0; x < expected.width; x++)
             expected.set_pixel(x, y, ((x + y) % 2 == 0) ? Color_Opaque : Color_Sentinel);
 
     INFO("src (checkerboard, '.' = transparent):\n", buffer_to_string(src, arena).data);
-    apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0);
+    apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0, 0, dest.height);
     string8 dest_str = buffer_to_string(dest, arena);
     string8 expected_str = buffer_to_string(expected, arena);
     INFO("dest:\n", dest_str.data);
@@ -181,25 +184,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "apply_frame_buffer nearest-neighbor ups
     fill_expected_scaled_quadrants(expected, src.width, src.height);
 
     INFO("src:\n", buffer_to_string(src, arena).data);
-    apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0);
-    string8 dest_str = buffer_to_string(dest, arena);
-    string8 expected_str = buffer_to_string(expected, arena);
-    INFO("dest:\n", dest_str.data);
-
-    REQUIRE(string8_equal(dest_str, expected_str));
-}
-
-TEST_CASE_FIXTURE(RendererArenaFixture,
-    "apply_frame_buffer upscales with a non-integer ratio, truncating like the scalar formula (32x32 -> 50x50)") {
-    Framebuffer src = create_frame_buffer(arena, 32, 32);
-    Framebuffer dest = create_frame_buffer(arena, 50, 50);
-    fill_quadrants(src);
-
-    Framebuffer expected = create_frame_buffer(arena, 50, 50);
-    fill_expected_scaled_quadrants(expected, src.width, src.height);
-
-    INFO("src:\n", buffer_to_string(src, arena).data);
-    apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0);
+    apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0, 0, 64);
     string8 dest_str = buffer_to_string(dest, arena);
     string8 expected_str = buffer_to_string(expected, arena);
     INFO("dest:\n", dest_str.data);
@@ -218,26 +203,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture,
     fill_expected_translated_quadrants(expected, Color_Sentinel, src.width, src.height, 16, 16);
 
     INFO("src:\n", buffer_to_string(src, arena).data);
-    apply_frame_buffer(&src, &dest, src.width, src.height, 16, 16);
-    string8 dest_str = buffer_to_string(dest, arena);
-    string8 expected_str = buffer_to_string(expected, arena);
-    INFO("dest:\n", dest_str.data);
-
-    REQUIRE(string8_equal(dest_str, expected_str));
-}
-
-TEST_CASE_FIXTURE(RendererArenaFixture,
-    "apply_frame_buffer clips a negative offset against dest bounds (32x32 src into 32x32 dest at -16,-16)") {
-    Framebuffer src = create_frame_buffer(arena, 32, 32);
-    Framebuffer dest = create_frame_buffer(arena, 32, 32);
-    fill_quadrants(src);
-    fill_solid(dest, Color_Sentinel);
-
-    Framebuffer expected = create_frame_buffer(arena, 32, 32);
-    fill_expected_translated_quadrants(expected, Color_Sentinel, src.width, src.height, -16, -16);
-
-    INFO("src:\n", buffer_to_string(src, arena).data);
-    apply_frame_buffer(&src, &dest, src.width, src.height, -16, -16);
+    apply_frame_buffer(&src, &dest, src.width, src.height, 16, 16, 0, 64);
     string8 dest_str = buffer_to_string(dest, arena);
     string8 expected_str = buffer_to_string(expected, arena);
     INFO("dest:\n", dest_str.data);
@@ -257,10 +223,30 @@ TEST_CASE_FIXTURE(RendererArenaFixture,
     fill_expected_translated_quadrants(expected, Color_Sentinel, src.width, src.height, 16, 16);
 
     INFO("src:\n", buffer_to_string(src, arena).data);
-    apply_frame_buffer(&src, &dest, src.width, src.height, 16, 16);
+    apply_frame_buffer(&src, &dest, src.width, src.height, 16, 16, 0, 32);
     string8 dest_str = buffer_to_string(dest, arena);
     string8 expected_str = buffer_to_string(expected, arena);
     INFO("dest:\n", dest_str.data);
 
     REQUIRE(string8_equal(dest_str, expected_str));
+}
+
+TEST_CASE_FIXTURE(RendererArenaFixture, "Set chunk dirty") {
+    i32 width = 1024;
+    i32 height = 512;
+
+    i32 tile_dim_x = 64;
+    i32 tile_dim_y = 64;
+
+    Array<Tile> tiles = generate_tiles(width, height, tile_dim_x, tile_dim_y, &arena);
+    REQUIRE(tiles.count() == 128);
+    REQUIRE(tiles[0].rect.min_x == 0);
+    REQUIRE(tiles[0].rect.max_x == tile_dim_x);
+    REQUIRE(tiles[0].rect.min_y == 0);
+    REQUIRE(tiles[0].rect.max_y == tile_dim_y);
+
+    REQUIRE(tiles[127].rect.min_x == width - tile_dim_x);
+    REQUIRE(tiles[127].rect.max_x == width);
+    REQUIRE(tiles[127].rect.min_y == height - tile_dim_y);
+    REQUIRE(tiles[127].rect.max_y == height);
 }

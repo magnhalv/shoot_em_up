@@ -169,6 +169,12 @@ struct RenderGroup {
 
 // INTERNAL
 
+struct Tile {
+    Rectangle2i rect;
+    bool is_dirty;
+    bool is_initialized;
+};
+
 struct Framebuffer {
     void* memory;
     Array<f32> z_buffer;
@@ -177,6 +183,8 @@ struct Framebuffer {
     i32 height;
     i32 bytes_per_pixel;
     i32 pitch;
+
+    Array<Tile> tiles;
 
     auto inline set_pixel(i32 x, i32 y, u32 color) -> void {
         Assert(x >= 0 && x < width);
@@ -192,6 +200,28 @@ struct Framebuffer {
         return (u32*)((u8*)memory + (y * pitch) + (x * bytes_per_pixel));
     }
 };
+
+auto inline generate_tiles(i32 width, i32 height, i32 tile_dim_x, i32 tile_dim_y, MemoryArena* arena) -> Array<Tile> {
+    Assert(width % tile_dim_x == 0);
+    Assert(height % tile_dim_y == 0);
+    i32 tile_count_x = width / tile_dim_x;
+    i32 tile_count_y = height / tile_dim_y;
+
+    Array<Tile> result = Array<Tile>::create(tile_count_x * tile_count_y, arena);
+    for (i32 y = 0; y < tile_count_y; y++) {
+        for (i32 x = 0; x < tile_count_x; x++) {
+            Rectangle2i rect = {
+                .min_x = x * tile_dim_x,
+                .max_x = (x + 1) * tile_dim_x,
+                .min_y = y * tile_dim_y,
+                .max_y = (y + 1) * tile_dim_y,
+
+            };
+            result[(y * tile_count_x) + x] = { .rect = rect, .is_dirty = false };
+        }
+    }
+    return result;
+}
 
 auto inline set_pixel(Framebuffer* buffer, i32 x, i32 y, u32 color) -> void {
     Assert(x >= 0 && x < buffer->width);
@@ -210,18 +240,14 @@ auto inline get_pixel(Framebuffer* buffer, i32 x, i32 y) -> u32* {
 #define GET_PIXEL(buffer_ptr, x, y) \
     ((u32*)((u8*)(buffer_ptr)->memory + ((y) * (buffer_ptr)->pitch) + ((x) * (buffer_ptr)->bytes_per_pixel)))
 
-inline void apply_frame_buffer_no_init(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height,
-    i32 offset_x, i32 offset_y, i32 clip_y_start, i32 clip_y_end) {
+inline void apply_frame_buffer_no_init(Framebuffer* src_buffer, Tile* tile, Framebuffer* dest_buffer, ivec2 scale) {
     crash_and_burn("apply_frame_buffer has not been initialized. Call initialize_renderer_lib() first.");
 }
-typedef void (*apply_frame_buffer_fn)(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height,
-    i32 offset_x, i32 offset_y, i32 clip_y_start, i32 clip_y_end);
+typedef void (*apply_frame_buffer_fn)(Framebuffer* src_buffer, Tile* tile, Framebuffer* dest_buffer, ivec2 scale);
 global_variable apply_frame_buffer_fn apply_frame_buffer = apply_frame_buffer_no_init;
 
-void apply_frame_buffer_scalar(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height, i32 offset_x,
-    i32 offset_y, i32 clip_y_start, i32 clip_y_end);
-void apply_frame_buffer_AVX512(Framebuffer* src_buffer, Framebuffer* dest_buffer, i32 width, i32 height, i32 offset_x,
-    i32 offset_y, i32 clip_y_start, i32 clip_y_end);
+void apply_frame_buffer_scalar(Framebuffer* src_buffer, Tile* tile, Framebuffer* dest_buffer, ivec2 scale);
+void apply_frame_buffer_AVX512(Framebuffer* src_buffer, Tile* tile, Framebuffer* dest_buffer, ivec2 scale);
 auto initialize_renderer_lib() -> void;
 
 // INTERNAL END
@@ -288,8 +314,7 @@ typedef RENDERER_DELETE_CONTEXT(renderer_delete_context_fn);
 #define RENDERER_CREATE_FRAMEBUFFER(name) FrameBufferHandle name(i32 width, i32 height)
 typedef RENDERER_CREATE_FRAMEBUFFER(renderer_create_framebuffer_fn);
 
-#define RENDERER_APPLY_FRAMEBUFFER(name) \
-    void name(ThreadContext* thread_context, FrameBufferHandle handle, i32 width, i32 height, i32 offset_x, i32 offset_y)
+#define RENDERER_APPLY_FRAMEBUFFER(name) void name(ThreadContext* thread_context, FrameBufferHandle handle, ivec2 scale)
 typedef RENDERER_APPLY_FRAMEBUFFER(renderer_apply_framebuffer_fn);
 
 #define RENDERER_GET_COLOR(name) Color name(FrameBufferHandle handle, i32 offset_x, i32 offset_y)

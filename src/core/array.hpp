@@ -18,6 +18,11 @@ template <typename T> struct Array {
         result.init_arena(arena, count);
         return result;
     }
+    static auto create(size_t count, MemoryArena* arena) -> Array<T> {
+        Array<T> result;
+        result.init_arena(*arena, count);
+        return result;
+    }
 
     Array() : m_count(0), m_data(nullptr) {
     }
