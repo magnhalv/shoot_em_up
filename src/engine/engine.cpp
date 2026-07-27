@@ -975,8 +975,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             ui_render_group.max_push_buffer_size = MegaBytes(1);
             ui_render_group.push_buffer =
                 allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size, DoNotClearArenaParams());
-            ui_render_group.sort_keys.init(g_transient, 1024);
-            ui_render_group.sort_entries_offset.init(g_transient, 1024);
+            ui_render_group.sort_keys.init(g_transient, 2048);
+            ui_render_group.sort_entries_offset.init(g_transient, 2048);
             auto* clear = PushRenderElement(&ui_render_group, RenderEntryClear, -1);
             clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
 
