@@ -26,6 +26,13 @@ auto constexpr DefaultArenaParams() -> ArenaPushParams {
     return result;
 }
 
+auto constexpr DoNotClearArenaParams() -> ArenaPushParams {
+    ArenaPushParams result = {};
+    result.alignment = 4;
+    result.flags = 0;
+    return result;
+}
+
 struct MemoryArena {
     u8* m_memory = nullptr;
     u64 m_size = 0;
@@ -44,12 +51,14 @@ struct MemoryArena {
 #define PushArray(Arena, Count, Type, ...) \
     ((Type*)((Arena)->allocate(sizeof(Type) * (Count)__VA_OPT__(, ) __VA_ARGS__)))
 
-template <typename T> auto inline allocate(MemoryArena& arena, u64 count = 1) -> T* {
-    return static_cast<T*>(arena.allocate(sizeof(T) * count));
+template <typename T>
+auto inline allocate(MemoryArena& arena, u64 count = 1, ArenaPushParams params = DefaultArenaParams()) -> T* {
+    return static_cast<T*>(arena.allocate(sizeof(T) * count, params));
 }
 
-template <typename T> auto inline allocate(MemoryArena* arena, u64 count = 1) -> T* {
-    return static_cast<T*>(arena->allocate(sizeof(T) * count));
+template <typename T>
+auto inline allocate(MemoryArena* arena, u64 count = 1, ArenaPushParams params = DefaultArenaParams()) -> T* {
+    return static_cast<T*>(arena->allocate(sizeof(T) * count, params));
 }
 
 extern MemoryArena* g_transient; // This one is erased every frame.

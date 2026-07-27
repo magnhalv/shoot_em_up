@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <renderers/renderer.hpp>
 
 auto create_frame_buffer(MemoryArena& arena, i32 width, i32 height) -> Framebuffer {

@@ -969,16 +969,20 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 UI_End();
             }
 
-            RenderGroup ui_render_group{};
+            BEGIN_BLOCK("generate_GUI_render_commands")
+            RenderGroup ui_render_group = {};
             ui_render_group.push_buffer_size = 0;
-            ui_render_group.max_push_buffer_size = MegaBytes(64);
-            ui_render_group.push_buffer = allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size);
-            ui_render_group.sort_keys.init(g_transient, 2 * 2048);
-            ui_render_group.sort_entries_offset.init(g_transient, 2 * 2048);
+            ui_render_group.max_push_buffer_size = MegaBytes(1);
+            ui_render_group.push_buffer =
+                allocate<u8>(*g_transient, ui_render_group.max_push_buffer_size, DoNotClearArenaParams());
+            ui_render_group.sort_keys.init(g_transient, 1024);
+            ui_render_group.sort_entries_offset.init(g_transient, 1024);
             auto* clear = PushRenderElement(&ui_render_group, RenderEntryClear, -1);
             clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
 
             UI_Generate_Render_Commands(&ui_render_group);
+            END_BLOCK();
+
             BEGIN_BLOCK("gui_render");
             renderer->render(thread_context, true, &ui_render_group, state->handle_UI);
             END_BLOCK();
@@ -1003,8 +1007,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
         // renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(thread_context, state->handle_3D, {4, 4});
-        renderer->apply_framebuffer(thread_context, state->handle_UI, {1, 1});
+        renderer->apply_framebuffer(thread_context, state->handle_3D, { 4, 4 });
+        renderer->apply_framebuffer(thread_context, state->handle_UI, { 1, 1 });
     }
 }
 

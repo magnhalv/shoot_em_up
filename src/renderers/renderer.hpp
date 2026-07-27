@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/memory.hpp"
 #include "math/util.hpp"
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
@@ -257,15 +258,16 @@ auto initialize_renderer_lib() -> void;
 auto inline push_render_element_(RenderGroup* render_group, u32 size, RenderGroupEntryType type, i32 sort_key) {
     void* result = 0;
 
-    size += sizeof(RenderGroupEntryHeader);
-    if ((render_group->push_buffer_size + size) < render_group->max_push_buffer_size) {
+    u64 total_size = size + sizeof(RenderGroupEntryHeader);
+    if ((render_group->push_buffer_size + total_size) < render_group->max_push_buffer_size) {
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(render_group->push_buffer + render_group->push_buffer_size);
+        ZeroSize(total_size, header);
         header->type = type;
         result = (u8*)(header) + sizeof(*header);
         render_group->sort_entries_offset.push(render_group->push_buffer_size);
         render_group->sort_keys.push(sort_key);
 
-        render_group->push_buffer_size += size;
+        render_group->push_buffer_size += total_size;
     }
     else {
         // TODO: return a null struct perhaps?

@@ -23,7 +23,7 @@ template <typename T> struct List {
     ~List() = default;
 
     auto init(MemoryArena* arena, i32 max_count) -> void {
-        m_data = allocate<T>(arena, max_count);
+        m_data = allocate<T>(arena, max_count, DoNotClearArenaParams());
         m_count = 0;
         m_max_count = max_count;
     }
@@ -56,7 +56,7 @@ template <typename T> struct List {
 
     auto clear() -> void {
         m_count = 0;
-        memset(m_data, 0, m_max_count * sizeof(T));
+        // memset(m_data, 0, m_max_count * sizeof(T));
     }
 
     auto is_empty() -> bool {
@@ -71,7 +71,9 @@ template <typename T> struct List {
     auto pushi(i32* index) -> T* {
         assert(m_count < m_max_count);
         *index = m_count++;
-        return &m_data[*index];
+        T* result = &m_data[*index];
+        *result = {};
+        return result;
     }
 
     auto last() -> T* {
