@@ -54,27 +54,17 @@ auto copy_memory_AVX2(void* src, void* dest, u64 size) -> void {
     }
 }
 
-auto set_memory_u32_init(u32* dest, u32 value, u64 count) -> void {
-    if (cpu_supports_avx512f()) {
-        set_memory_u32 = &set_memory_u32_avx512;
-    }
-    else {
-        set_memory_u32 = &set_memory_u32_scalar;
-    }
-    set_memory_u32(dest, value, count);
-}
-
-auto set_memory_u32_scalar(u32* dest, u32 value, u64 count) -> void {
+auto set_memory_u32_scalar(u32* dest, u32 value, i64 count) -> void {
     u32* dest_u32 = (u32*)dest;
-    for (u64 i = 0; i < count; i++) {
+    for (i64 i = 0; i < count; i++) {
         dest_u32[i] = value;
     }
 }
 
-auto set_memory_u32_avx512(u32* dest, u32 value, u64 count) -> void {
+auto set_memory_u32_avx512(u32* dest, u32 value, i64 count) -> void {
     const i32 lane_count = 16;
     i32x16 value_v16 = _mm512_set1_epi32(value);
-    u64 i = 0;
+    i64 i = 0;
     for (; (i + lane_count) <= count; i += lane_count) {
         _mm512_storeu_si512((__m512i*)(dest + i), value_v16);
     }
@@ -84,6 +74,33 @@ auto set_memory_u32_avx512(u32* dest, u32 value, u64 count) -> void {
     }
 }
 
+auto set_memory_u32_avx2(u32* dest, u32 value, i64 count) -> void {
+    const i32 lane_count = 8;
+    i32x8 value_v8 = _mm256_set1_epi32(value);
+    i64 i = 0;
+    for (; (i + lane_count) <= count; i += lane_count) {
+        _mm256_storeu_si256((__m256i*)(dest + i), value_v8);
+    }
+
+    for (; i < count; i++) {
+        *(dest + i) = value;
+    }
+}
+
+auto set_memory_u32_init(u32* dest, u32 value, i64 count) -> void {
+    if (cpu_supports_avx512f()) {
+        set_memory_u32 = &set_memory_u32_avx512;
+    }
+    else if (cpu_supports_avx2()) {
+        set_memory_u32 = &set_memory_u32_avx2;
+    }
+    else {
+        set_memory_u32 = &set_memory_u32_scalar;
+    }
+    set_memory_u32(dest, value, count);
+}
+
+// LLM suggested. Look into later.
 auto set_memory_u32_avx512_stream(u32* dest, u32 value, u64 count) -> void {
     const i32 lane_count = 16;
     i32x16 value_v16 = _mm512_set1_epi32(value);

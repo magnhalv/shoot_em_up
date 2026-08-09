@@ -578,9 +578,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
         }
 
-        {
-            renderer->render(thread_context, false, &group, state->handle_3D);
-        }
+        { renderer->render(thread_context, false, &group, state->handle_3D); }
         // Here I can inspect framebuffer
     }
     if (false) {
@@ -851,6 +849,22 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                         f32 frame_duration_before_sleep_ms = frame_node->value_v2.v[1];
                         UI_Text(string8_format(g_transient, "Frame duration: %.2f ms", frame_duration_before_sleep_ms));
                     }
+                    // Average frame duration
+                    {
+                        if (current_frame_idx == 0) {
+                            debug_state->avg_frame_duration_ms = 0.0f;
+                            for (u32 i = 0; i < Historic_Frame_Count; i++) {
+                                u32 historic_index = debug_state->historic_frame_indices[i];
+                                if (historic_index != Nil_Index) {
+                                    ProfileNode* historic_node = &debug_state->node_forest.nodes[historic_index];
+                                    debug_state->avg_frame_duration_ms += historic_node->value_v2.v[1];
+                                }
+                            }
+                            debug_state->avg_frame_duration_ms /= Historic_Frame_Count;
+                            printf("Avg frame duration: %.2f\n", debug_state->avg_frame_duration_ms);
+                        }
+                        UI_Text(string8_format(g_transient, "Avg frame duration: %.2f ms", debug_state->avg_frame_duration_ms));
+                    }
 
                     for (u32 thread_idx = 0; thread_idx < TOTAL_THREAD_COUNT; thread_idx++) {
                         u64 parent_node_clock_start = frame_node->clock_start;
@@ -886,6 +900,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                         UI_ScopedBackgroundColor(red);
                         UI_WindowFull("Block1", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
                             {
+                                UI_ScopedBackgroundColor(EMPTY_COLOR);
                                 UI_ScopedFlexDirection(UI_FlexDirection_Column);
                                 UI_ScopedPadding({ 0.0f });
                                 UI_WindowFull("Block2", {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {

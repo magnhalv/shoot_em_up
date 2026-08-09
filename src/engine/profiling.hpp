@@ -89,6 +89,8 @@ struct DebugState {
     StackArray<StackList<i32, 10>, TOTAL_THREAD_COUNT> thread_breadcrumbs;
     StackArray<UnclosedNodeBranch, TOTAL_THREAD_COUNT> unclosed_nodes;
 
+    f32 avg_frame_duration_ms;
+
     bool is_initialized;
 };
 
@@ -148,8 +150,10 @@ inline auto record_debug_event(DebugTable* debug_table, const char* GUID, DebugE
 
 #define RECORD_DEBUG_EVENT_(GUID, EventType) record_debug_event(global_debug_table, GUID, EventType);
 
-#define BEGIN_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
-#define END_BLOCK_(GUID) { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
+#define BEGIN_BLOCK_(GUID) \
+    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_BeginBlock) }
+#define END_BLOCK_(GUID) \
+    { RECORD_DEBUG_EVENT_(GUID, DebugEventType_EndBlock) }
 
 #define BEGIN_BLOCK(Name) BEGIN_BLOCK_(DEBUG_NAME(Name))
 #define END_BLOCK() END_BLOCK_("END_BLOCK_")

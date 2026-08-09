@@ -489,20 +489,20 @@ auto UI_Generate_Render_Commands(RenderGroup* render_group) -> void {
 
         vec2 bl = entity->rect.bl;
         vec2 tr = entity->rect.tr;
-        auto* render_el = PushRenderElement(render_group, RenderEntryQuad, entity->z_index);
-        render_el->quad.min_x = bl.x;
-        render_el->quad.min_y = bl.y;
-        render_el->quad.max_x = tr.x;
-        render_el->quad.max_y = tr.y;
         // render_el->offset = vec2(x + el_width / 2, y - el_height / 2);
         // render_el->rotation = 0;
 
         // render_el->color = entity->background_color;
         if (entity->flags & UI_WidgetFlag_DrawBackground) {
+            auto* render_el = PushRenderElement(render_group, RenderEntryQuad, entity->z_index);
+            render_el->quad.min_x = bl.x;
+            render_el->quad.min_y = bl.y;
+            render_el->quad.max_x = tr.x;
+            render_el->quad.max_y = tr.y;
             render_el->color = entity->background_color;
+            render_el->border_thickness = entity->border_thickness;
+            render_el->border_color = entity->border_color;
         }
-        // render_el->border_thickness = entity->border_thickness;
-        // render_el->border_color = entity->border_color;
 
         if (entity->flags & UI_WidgetFlag_DrawText) {
             LoadedFont* font = global_context->font;

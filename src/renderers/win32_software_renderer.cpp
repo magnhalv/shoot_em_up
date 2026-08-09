@@ -128,40 +128,43 @@ inline auto srgb_to_linear1_2(vec4 color) -> color_v8 {
     return result;
 }
 
-static void draw_rectangle(Framebuffer* buffer, Tile* tile, f32 r, f32 g, f32 b) {
-    u32 color = (round_f32_to_i32(r * 255.0f) << 16) | (round_f32_to_i32(g * 255.0f) << 8) | (round_f32_to_i32(b * 255.0f));
-
-    u32 min_x = hm::max(tile->rect.min_x, 0);
-    u32 max_x = hm::min(tile->rect.max_x, buffer->width);
-    u32 min_y = hm::max(tile->rect.min_y, 0);
-    u32 max_y = hm::min(tile->rect.max_y, buffer->height);
-
-    for (u32 y = min_y; y < max_y; y++) {
-        for (u32 x = min_x; x < max_x; x++) {
-            u8* dest = ((u8*)buffer->memory + (y * buffer->pitch) + (x * buffer->bytes_per_pixel));
-            u32* pixel = (u32*)dest;
-            *pixel = color;
-        }
-    }
-}
-
-static void draw_rectangle_new(Rectangle2f rect, vec4 color, Tile* tile, Framebuffer* buffer) {
+static void draw_rectangle(Rectangle2f rect, vec4 color, f32 border_thickness, vec4 border_color, Tile* tile, Framebuffer* buffer) {
     if (color.a <= 0.0f) {
         return;
     }
     vec4 color_l1 = srgb_to_linear1(color);
     u32 color_packed = pack_color_8x4(color);
 
-    i32 min_x = hm::max(round_f32_to_i32(rect.min_x), 0);
-    i32 max_x = hm::min(round_f32_to_i32(rect.max_x), buffer->width);
-    i32 min_y = hm::max(round_f32_to_i32(rect.min_y), 0);
-    i32 max_y = hm::min(round_f32_to_i32(rect.max_y), buffer->height);
+    i32 min_x = round_f32_to_i32(rect.min_x);
+    i32 max_x = round_f32_to_i32(rect.max_x);
+    i32 min_y = round_f32_to_i32(rect.min_y);
+    i32 max_y = round_f32_to_i32(rect.max_y);
+
+    i32 border_min_x = min_x;
+    i32 border_max_x = max_x;
+    i32 border_min_y = min_y;
+    i32 border_max_y = max_y;
+
+    min_x += round_f32_to_i32(border_thickness);
+    max_x -= round_f32_to_i32(border_thickness);
+    min_y += round_f32_to_i32(border_thickness);
+    max_y -= round_f32_to_i32(border_thickness);
+
     min_x = hm::max(tile->rect.min_x, min_x);
     max_x = hm::min(tile->rect.max_x, max_x);
     min_y = hm::max(tile->rect.min_y, min_y);
     max_y = hm::min(tile->rect.max_y, max_y);
 
-    if (min_y < max_y && min_x < max_x) {
+    border_min_x = hm::max(tile->rect.min_x, border_min_x);
+    border_max_x = hm::min(tile->rect.max_x, border_max_x);
+    border_min_y = hm::max(tile->rect.min_y, border_min_y);
+    border_max_y = hm::min(tile->rect.max_y, border_max_y);
+
+    i32 left_border_count = hm::max(min_x - border_min_x, 0);
+    i32 x_count = hm::max(max_x - min_x, 0);
+    i32 right_border_count = hm::max(border_max_x - max_x, 0);
+
+    if (border_min_y < border_max_y && border_min_x < border_max_x) {
         tile->is_dirty = true;
     }
     else {
@@ -177,17 +180,36 @@ static void draw_rectangle_new(Rectangle2f rect, vec4 color, Tile* tile, Framebu
 
                 // Cout = Cf * Af + Cb * (1 - Af)
                 vec4 blended_l1 = color_l1;
-                if (blended_l1.a < 1.0f) {
-                    blended_l1 = color_l1 * color_l1.a + (dest_l1 * (1.0f - color_l1.a));
-                }
+                blended_l1 = color_l1 * color_l1.a + (dest_l1 * (1.0f - color_l1.a));
                 *dest = linear1_to_packed8x4_srgb255(blended_l1);
             }
         }
     }
     else {
+        u32 border_color_packed = pack_color_8x4(border_color);
+        for (i32 y = border_min_y; y < min_y; y++) {
+            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
+            set_memory_u32(dest, border_color_packed, border_max_x - border_min_x);
+        }
         for (i32 y = min_y; y < max_y; y++) {
-            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
-            set_memory_u32(dest, color_packed, max_x - min_x);
+            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
+            {
+                Assert(border_min_x <= min_x);
+                set_memory_u32(dest, border_color_packed, left_border_count);
+                dest += left_border_count;
+            }
+            {
+                set_memory_u32(dest, color_packed, x_count);
+                dest += x_count;
+            }
+            {
+                Assert(max_x <= border_max_x);
+                set_memory_u32(dest, border_color_packed, right_border_count);
+            }
+        }
+        for (i32 y = max_y; y < border_max_y; y++) {
+            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
+            set_memory_u32(dest, border_color_packed, border_max_x - border_min_x);
         }
     }
 }
@@ -224,7 +246,7 @@ static auto clear(i32 client_width, i32 client_height, vec4 color, Tile* tile, F
 
     for (i32 y = tile->rect.min_y; y < tile->rect.max_y; y++) {
         u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (tile->rect.min_x * buffer->bytes_per_pixel));
-        set_memory_u32_avx512_stream(dest, color_packed, tile->rect.max_x - tile->rect.min_x);
+        set_memory_u32(dest, color_packed, tile->rect.max_x - tile->rect.min_x);
     }
 
     tile->is_dirty = false;
@@ -733,7 +755,7 @@ extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_c
 }
 
 extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture) {
-    HM_ASSERT(texture_id != 0);
+    Assert(texture_id != 0);
     if (texture_id >= MaxTextureId) {
         // TODO: Return empty texture
         log_error("Max texture id is %d, %d provided.", MaxTextureId, texture_id);
@@ -776,7 +798,6 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
     Tile* tile,                                              //
     Framebuffer* framebuffer, MemoryArena& transient) -> void {
 
-    TIMED_BLOCK("execute_render_commands");
     for (i32 i = 0; i < group->sort_keys.count(); i++) {
         u64 base_address = group->sort_entries_offset[command_render_order[i]];
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(group->push_buffer + base_address);
@@ -862,7 +883,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryBitmap: {
             TIMED_BLOCK("render_entry_bitmap");
             auto* entry = (RenderEntryBitmap*)data;
-            draw_bitmap(                                                    //
+            draw_bitmap_avx2(                                               //
                 entry->quad,                                                //
                 entry->offset, entry->scale, entry->rotation, entry->color, //
                 entry->texture_id, entry->uv_min, entry->uv_max,            //
@@ -873,10 +894,11 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryQuad: {
             TIMED_BLOCK("render_entry_quad");
             auto* entry = (RenderEntryQuad*)data;
-            draw_rectangle_new(   //
-                entry->quad,      //
-                entry->color,     //
-                tile, framebuffer //
+            draw_rectangle(                                   //
+                entry->quad,                                  //
+                entry->color,                                 //
+                entry->border_thickness, entry->border_color, //
+                tile, framebuffer                             //
             );
             base_address += sizeof(*entry);
         } break;
@@ -899,6 +921,7 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
     Assert(job);
     Assert(job->group);
 
+    TIMED_BLOCK("execute_render_commands");
     execute_render_commands(job->id, job->group, job->command_render_order, job->tile, job->framebuffer, context->scratch);
     MemoryBarrier(); // TODO: remove?
 }

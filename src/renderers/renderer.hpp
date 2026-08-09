@@ -65,6 +65,8 @@ struct RenderEntryClearCheckPattern {
 struct RenderEntryQuad {
     Rectangle2f quad;
     vec4 color;
+    f32 border_thickness;
+    vec4 border_color;
 };
 
 struct RenderEntryBitmap {

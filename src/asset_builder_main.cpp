@@ -504,9 +504,9 @@ static auto write_bitmaps() -> void {
     add_bitmap_asset(assets, "assets/bitmaps/test.png");
     end_asset_group(assets);
 
-    begin_asset_group(assets, AssetGroupId_TestStripes);
-    add_bitmap_asset(assets, "assets/bitmaps/test_stripes.png");
-    end_asset_group(assets);
+    // begin_asset_group(assets, AssetGroupId_TestStripes);
+    // add_bitmap_asset(assets, "assets/bitmaps/test_stripes.png");
+    // end_asset_group(assets);
 
     AddAssetGroup(assets, AssetGroupId_Explosion) {
         add_bitmap_asset(assets, "assets/bitmaps/explosion-1.png");

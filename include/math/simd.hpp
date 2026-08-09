@@ -9,6 +9,9 @@
 typedef __m512 f32x16;
 typedef __m512i i32x16;
 
+typedef __m256 f32x8;
+typedef __m256i i32x8;
+
 const i32 AVX512_LANE_COUNT = 16;
 const i32 AVX2_LANE_COUNT = 8;
 

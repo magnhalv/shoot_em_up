@@ -1509,16 +1509,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
         BEGIN_BLOCK("spin_wait");
         ticks_used_this_frame = win32_get_tick() - last_tick;
         if (ticks_used_this_frame > ticks_per_frame) {
-            if (did_sleep) {
-                printf("Failed hitting frame target WITH SLEEP:\n");
-            }
-            else {
-                printf("Failed hitting frame target\n");
-            }
-            printf("  Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
+            // if (did_sleep) {
+            //     printf("Failed hitting frame target WITH SLEEP:\n");
+            // }
+            // else {
+            //     printf("Failed hitting frame target\n");
+            // }
+            // printf("  Target: %f. Actual: %lld.\n", ticks_per_frame, ticks_used_this_frame);
         }
         else {
-            // TODO: Not very power friendly, should probably sleep.
+            // TODO: Not very power friendly, should probably yield?
             while (ticks_used_this_frame < ticks_per_frame) {
                 ticks_used_this_frame = win32_get_tick() - last_tick;
             }
