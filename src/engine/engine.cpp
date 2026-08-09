@@ -218,6 +218,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         camera_update_keyboard(state->camera, app_input->input);
 
+        // Debug based input
+        {
+            if (input.tab.is_pressed_this_frame()) {
+                state->show_profile_window = !state->show_profile_window;
+            }
+        }
         // Update based on input
         {
             if (input.space.is_pressed_this_frame()) {
@@ -527,7 +533,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             model->colors[10] = CYAN;
             model->colors[11] = CYAN;
 
-            mesh->instances = Array<Transform>::create(2, *g_transient);
+            mesh->instances = Array<Transform>::create(3, *g_transient);
 
             const vec3 up(0.0f, 1.0f, 0.0f);
             mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
@@ -538,8 +544,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->instances[1].position = vec3(1.5f, 1.0f, 4.0f);
             mesh->instances[1].rotation = angle_axis(0, up);
 
+            mesh->instances[2].scale = vec3(0.1f, 0.1f, 0.1f);
+            mesh->instances[2].position = vec3(-3.0f, 2.0f, 2.0f);
+            mesh->instances[2].rotation = angle_axis(0, up);
+
             mesh->world_to_view = camera_get_view(state->camera);
-            mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
+            mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
             mesh->camera_position = vec4(state->camera.m_position, 1.0f);
         }
         if (false) {
@@ -575,7 +585,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->instances[1].rotation = angle_axis(0, up);
 
             mesh->world_to_view = camera_get_view(state->camera);
-            mesh->view_to_clip = perspective(75.0f, aspect_ratio, 0.1, 1000.0);
+            mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
         }
 
         { renderer->render(thread_context, false, &group, state->handle_3D); }
@@ -738,8 +748,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
     }
 
-    if (true) {
-
+    if (state->show_profile_window) {
         DebugState* debug_state = (DebugState*)engine_memory->debug.data;
         if (state->ui_context && debug_state->is_initialized) {
             {

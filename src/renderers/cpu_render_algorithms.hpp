@@ -502,7 +502,7 @@ auto inline viewport_to_canvas(f32 x, f32 y, f32 z, i32 window_width, i32 window
 }
 
 auto inline project_vertex(vec4 v, i32 window_width, i32 window_height) -> vec3 {
-    return viewport_to_canvas(v.x / v.w, v.y / v.w, v.z, window_width, window_height);
+    return viewport_to_canvas(v.x / v.w, v.y / v.w, v.w, window_width, window_height);
 }
 
 auto inline is_inside_view(vec4 p) -> bool {

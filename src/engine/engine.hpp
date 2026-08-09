@@ -189,6 +189,7 @@ struct EngineState {
     Camera camera;
 
     UI_Context* ui_context;
+    bool show_profile_window;
 };
 
 extern "C" __declspec(dllexport) ENGINE_UPDATE_AND_RENDER(update_and_render);

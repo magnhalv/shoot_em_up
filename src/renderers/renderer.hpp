@@ -23,6 +23,7 @@ enum RendererType : i32 {
     RendererType_OpenGL    //
 };
 
+// TODO: delete
 typedef struct {
     vec2 bl;
     vec2 tl;
@@ -30,8 +31,18 @@ typedef struct {
     vec2 br;
 } Quadrilateral;
 
-struct RenderEntityBasis {
-    vec2 offset;
+struct PointLight {
+    vec4 P;
+    vec4 color;
+};
+
+struct AmbientLight {
+    vec4 color;
+};
+
+struct DirectionalLight {
+    vec4 L;
+    vec4 color;
 };
 
 enum RenderGroupEntryType {                      //

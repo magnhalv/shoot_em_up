@@ -186,30 +186,39 @@ static void draw_rectangle(Rectangle2f rect, vec4 color, f32 border_thickness, v
         }
     }
     else {
-        u32 border_color_packed = pack_color_8x4(border_color);
-        for (i32 y = border_min_y; y < min_y; y++) {
-            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
-            set_memory_u32(dest, border_color_packed, border_max_x - border_min_x);
-        }
-        for (i32 y = min_y; y < max_y; y++) {
-            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
-            {
-                Assert(border_min_x <= min_x);
-                set_memory_u32(dest, border_color_packed, left_border_count);
-                dest += left_border_count;
+        if (border_thickness > 0) {
+            u32 border_color_packed = pack_color_8x4(border_color);
+            for (i32 y = border_min_y; y < min_y; y++) {
+                u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
+                set_memory_u32(dest, border_color_packed, border_max_x - border_min_x);
             }
-            {
+            for (i32 y = min_y; y < max_y; y++) {
+                u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
+                {
+                    Assert(border_min_x <= min_x);
+                    set_memory_u32(dest, border_color_packed, left_border_count);
+                    dest += left_border_count;
+                }
+                {
+                    set_memory_u32(dest, color_packed, x_count);
+                    dest += x_count;
+                }
+                {
+                    Assert(max_x <= border_max_x);
+                    set_memory_u32(dest, border_color_packed, right_border_count);
+                }
+            }
+            for (i32 y = max_y; y < border_max_y; y++) {
+                u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
+                set_memory_u32(dest, border_color_packed, border_max_x - border_min_x);
+            }
+        }
+        else {
+
+            for (i32 y = min_y; y < max_y; y++) {
+                u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (min_x * buffer->bytes_per_pixel));
                 set_memory_u32(dest, color_packed, x_count);
-                dest += x_count;
             }
-            {
-                Assert(max_x <= border_max_x);
-                set_memory_u32(dest, border_color_packed, right_border_count);
-            }
-        }
-        for (i32 y = max_y; y < border_max_y; y++) {
-            u32* dest = (u32*)((u8*)buffer->memory + (y * buffer->pitch) + (border_min_x * buffer->bytes_per_pixel));
-            set_memory_u32(dest, border_color_packed, border_max_x - border_min_x);
         }
     }
 }
