@@ -155,6 +155,10 @@ struct TriMesh {
     Array<vec4> vertices;
     Array<ivec3> triangles;
     Array<vec3> normals;
+};
+
+struct MeshInstance {
+    Transform transform;
     Array<vec4> colors;
 };
 
@@ -163,7 +167,7 @@ struct RenderEntryTriMesh {
     mat4 world_to_view;
     mat4 view_to_clip;
     TriMesh model;
-    Array<Transform> instances;
+    Array<MeshInstance> instances;
 };
 
 struct RenderEntryPolygonInstances {

@@ -723,18 +723,15 @@ auto inline clip_triangles_against_all_planes(          //
 
 auto inline render_mesh_gambetta(                                    //
     Array<vec4> vertices, Array<ivec3> indices, Array<vec3> normals, //
-    Array<vec4> colors,                                              //
-    Array<Transform> instances,                                      //
+    Array<MeshInstance> instances,                                   //
     const mat4& world_to_view,                                       //
     const mat4& view_to_clip,                                        //
     const vec4& camera_direction,                                    //
     bool is_wireframe,                                               //
     Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena   //
     ) -> void {
-    Assert(indices.count() == colors.count());
-
     for (const auto& instance : instances) {
-        mat4 M_to_W = instance.to_mat4();
+        mat4 M_to_W = instance.transform.to_mat4();
         mat4 W_to_M = inverse(M_to_W);
         vec4 cam_pos_M = camera_direction * W_to_M;
 
@@ -772,11 +769,11 @@ auto inline render_mesh_gambetta(                                    //
             vec3 c = projected_vertices[index.z];
             if (is_wireframe) {
                 render_triangle_writeframe_gambetta( //
-                    a, b, c, global_color_palette[i % Global_Color_Palette_Count], clip_rect, buffer, arena);
+                    a, b, c, instance.colors[i % instance.colors.count()], clip_rect, buffer, arena);
             }
             else {
                 render_triangle_filled_gambetta( //
-                    a, b, c, global_color_palette[i % Global_Color_Palette_Count], clip_rect, buffer, arena);
+                    a, b, c, instance.colors[i % instance.colors.count()], clip_rect, buffer, arena);
             }
         }
     }

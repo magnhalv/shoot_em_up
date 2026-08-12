@@ -410,8 +410,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.sort_entries_offset.init(g_transient, 1024);
 
         auto* clear = PushRenderElement(&group, RenderEntryClearCheckPattern, 0);
-        clear->color1 = MEDIUM_GREY;
-        clear->color2 = LIGHT_GREY;
+        clear->color1 = REALLY_DARK_GREY;
+        clear->color2 = DARK_GREY;
 
         if (false) {
             vec3 center = vec3(app_input->client_width / 2.0f, app_input->client_height / 2.0f, 0.0f);
@@ -436,7 +436,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 center,
             };
 
-            Assert(ArrayCount(global_color_palette) >= ArrayCount(end_points));
+            Assert(global_color_palette.count() >= ArrayCount(end_points));
 
             for (u32 i = 0; i < ArrayCount(end_points); i++) {
                 auto* line = PushRenderElement(&group, RenderEntryLine, 0);
@@ -488,108 +488,35 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (true) {
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
-            TriMesh* model = &mesh->model;
-            model->vertices = Array<vec4>::create(8, *g_transient);
-            model->triangles = Array<ivec3>::create(12, *g_transient);
-            model->colors = Array<vec4>::create(12, *g_transient);
 
-            // front
-            model->vertices[0] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            model->vertices[1] = vec4(-1.0f, 1.0f, 1.0f, 1.0f);
-            model->vertices[2] = vec4(-1.0f, -1.0f, 1.0f, 1.0f);
-            model->vertices[3] = vec4(1.0f, -1.0f, 1.0f, 1.0f);
+            generate_cube_mesh(&mesh->model, g_transient);
 
-            // back
-            model->vertices[4] = vec4(1.0f, 1.0f, -1.0f, 1.0f);
-            model->vertices[5] = vec4(-1.0f, 1.0f, -1.0f, 1.0f);
-            model->vertices[6] = vec4(-1.0f, -1.0f, -1.0f, 1.0f);
-            model->vertices[7] = vec4(1.0f, -1.0f, -1.0f, 1.0f);
-
-            model->triangles[0] = ivec3(0, 1, 2);
-            model->triangles[1] = ivec3(0, 2, 3);
-            model->triangles[2] = ivec3(4, 0, 3);
-            model->triangles[3] = ivec3(4, 3, 7);
-            model->triangles[4] = ivec3(5, 4, 7);
-            model->triangles[5] = ivec3(5, 7, 6);
-            model->triangles[6] = ivec3(1, 5, 6);
-            model->triangles[7] = ivec3(1, 6, 2);
-            model->triangles[8] = ivec3(4, 5, 1);
-            model->triangles[9] = ivec3(4, 1, 0);
-            model->triangles[10] = ivec3(2, 6, 7);
-            model->triangles[11] = ivec3(2, 7, 3);
-
-            model->normals = calculate_face_normals(model->vertices, model->triangles, *g_transient);
-
-            model->colors[0] = RED;
-            model->colors[1] = RED;
-            model->colors[2] = GREEN;
-            model->colors[3] = GREEN;
-            model->colors[4] = BLUE;
-            model->colors[5] = BLUE;
-            model->colors[6] = YELLOW;
-            model->colors[7] = YELLOW;
-            model->colors[8] = PURPLE;
-            model->colors[9] = PURPLE;
-            model->colors[10] = CYAN;
-            model->colors[11] = CYAN;
-
-            mesh->instances = Array<Transform>::create(3, *g_transient);
+            mesh->instances = Array<MeshInstance>::create(3, g_transient);
 
             const vec3 up(0.0f, 1.0f, 0.0f);
-            mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[0].position = vec3(-1.5, 0, 4);
-            mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
+            mesh->instances[0].transform.scale = vec3(1.0f, 1.0f, 1.0f);
+            mesh->instances[0].transform.position = vec3(-1.5, 0, 4);
+            mesh->instances[0].transform.rotation = angle_axis((f32)app_input->t * 0.5f, up);
+            mesh->instances[0].colors = global_color_palette.to_array();
 
-            mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[1].position = vec3(1.5f, 1.0f, 4.0f);
-            mesh->instances[1].rotation = angle_axis(0, up);
+            mesh->instances[1].transform.scale = vec3(1.0f, 1.0f, 1.0f);
+            mesh->instances[1].transform.position = vec3(1.5f, 1.0f, 4.0f);
+            mesh->instances[1].transform.rotation = angle_axis(0, up);
+            mesh->instances[1].colors = global_color_palette.to_array();
 
-            mesh->instances[2].scale = vec3(0.1f, 0.1f, 0.1f);
-            mesh->instances[2].position = vec3(-3.0f, 2.0f, 2.0f);
-            mesh->instances[2].rotation = angle_axis(0, up);
+            auto colors = Array<vec4>::create(1, *g_transient);
+            colors[0] = WHITE;
+            mesh->instances[2].transform.scale = vec3(0.1f, 0.1f, 0.1f);
+            mesh->instances[2].transform.position = vec3(-3.0f, 2.0f, 2.0f);
+            mesh->instances[2].transform.rotation = angle_axis(0, up);
+            mesh->instances[2].colors = colors;
 
             mesh->world_to_view = camera_get_view(state->camera);
             mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
             mesh->camera_position = vec4(state->camera.m_position, 1.0f);
         }
-        if (false) {
-            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
-            auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
-            TriMesh* model = &mesh->model;
-            model->vertices = Array<vec4>::create(4, *g_transient);
-            model->triangles = Array<ivec3>::create(2, *g_transient);
-            model->colors = Array<vec4>::create(2, *g_transient);
-
-            // front
-            model->vertices[0] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-            model->vertices[1] = vec4(1.0f, -1.0f, 1.0f, 1.0f);
-            model->vertices[2] = vec4(-1.0f, -1.0f, 1.0f, 1.0f);
-            model->vertices[3] = vec4(-1.0f, 1.0f, 1.0f, 1.0f);
-
-            model->triangles[0] = ivec3(0, 1, 2);
-            model->triangles[1] = ivec3(0, 2, 3);
-
-            model->colors[0] = RED;
-            model->colors[1] = RED;
-
-            mesh->instances = Array<Transform>::create(2, *g_transient);
-
-            const vec3 up(0.0f, 1.0f, 0.0f);
-            mesh->instances[0].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[0].position = vec3(-1.5, 0, 2.0f);
-            // mesh->instances[0].rotation = angle_axis((f32)app_input->t * 0.5f, up);
-            mesh->instances[0].rotation = angle_axis(0, up);
-
-            mesh->instances[1].scale = vec3(1.0f, 1.0f, 1.0f);
-            mesh->instances[1].position = vec3(1.5f, 1.0f, 2.0f);
-            mesh->instances[1].rotation = angle_axis(0, up);
-
-            mesh->world_to_view = camera_get_view(state->camera);
-            mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
-        }
 
         { renderer->render(thread_context, false, &group, state->handle_3D); }
-        // Here I can inspect framebuffer
     }
     if (false) {
         // TIMED_BLOCK("render_game");

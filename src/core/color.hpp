@@ -127,7 +127,7 @@ inline auto linear1_to_packed8x4_srgb255(vec4 color) -> u32 {
 }
 
 global_variable const i32 Global_Color_Palette_Count = 32;
-global_variable vec4 global_color_palette[Global_Color_Palette_Count] = {
+global_variable StackArray<vec4, Global_Color_Palette_Count> global_color_palette = {
     vec4(0.902f, 0.098f, 0.294f, 1.0f), // vivid red
     vec4(0.235f, 0.706f, 0.294f, 1.0f), // green
     vec4(1.000f, 0.882f, 0.098f, 1.0f), // yellow
@@ -164,6 +164,7 @@ global_variable vec4 global_color_palette[Global_Color_Palette_Count] = {
 };
 
 global_variable const vec4 EMPTY_COLOR = vec4(0.0, 0.0, 0.0, 0.0);
+global_variable const vec4 WHITE = vec4(1.0, 1.0, 1.0, 1.0);
 global_variable const vec4 BLACK = vec4(0.0, 0.0, 0.0, 1.0);
 global_variable const vec4 RED = vec4(1.0, 0.0, 0.0, 1.0);
 global_variable const vec4 GREEN = vec4(0.0, 1.0, 0.0, 1.0);
@@ -171,6 +172,8 @@ global_variable const vec4 BLUE = vec4(0.0, 0.0, 1.0, 1.0);
 global_variable const vec4 YELLOW = vec4(1.0, 1.0, 0.0, 1.0);
 global_variable const vec4 PURPLE = vec4(0.5, 0.0, 0.5, 1.0);
 global_variable const vec4 CYAN = vec4(0.0, 1.0, 1.0, 1.0);
+global_variable const vec4 REALLY_DARK_GREY = vec4(0.267f, 0.267f, 0.267f, 1.0f);
+global_variable const vec4 DARK_GREY = vec4(0.467f, 0.467f, 0.467f, 1.0f);
 global_variable const vec4 MEDIUM_GREY = vec4(0.667f, 0.667f, 0.667f, 1.0f);
 global_variable const vec4 LIGHT_GREY = vec4(0.922f, 0.922f, 0.922f, 1.0f);
 global_variable const vec4 MAGNETA = vec4(1.0f, 0.0f, 1.0f, 1.0f);

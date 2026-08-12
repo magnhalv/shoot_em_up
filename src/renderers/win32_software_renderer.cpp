@@ -868,7 +868,6 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
             auto entry = (RenderEntryTriMesh*)data;
             render_mesh_gambetta(                                                    //
                 entry->model.vertices, entry->model.triangles, entry->model.normals, //
-                entry->model.colors,                                                 //
                 entry->instances,                                                    //
                 entry->world_to_view,                                                //
                 entry->view_to_clip,                                                 //
@@ -881,7 +880,6 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
             auto entry = (RenderEntryTriMesh*)data;
             render_mesh_gambetta(                                                    //
                 entry->model.vertices, entry->model.triangles, entry->model.normals, //
-                entry->model.colors,                                                 //
                 entry->instances,                                                    //
                 entry->world_to_view,                                                //
                 entry->view_to_clip,                                                 //

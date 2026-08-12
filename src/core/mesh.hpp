@@ -30,7 +30,6 @@ auto inline calculate_face_normals(Array<vec4> vertices, Array<ivec3> triangles,
 auto inline generate_cube_mesh(TriMesh* cube, MemoryArena* arena) -> void {
     cube->vertices = Array<vec4>::create(8, arena);
     cube->triangles = Array<ivec3>::create(12, arena);
-    cube->colors = Array<vec4>::create(12, arena);
 
     // front
     cube->vertices[0] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -58,17 +57,4 @@ auto inline generate_cube_mesh(TriMesh* cube, MemoryArena* arena) -> void {
     cube->triangles[11] = ivec3(2, 7, 3);
 
     cube->normals = calculate_face_normals(cube->vertices, cube->triangles, *g_transient);
-
-    cube->colors[0] = RED;
-    cube->colors[1] = RED;
-    cube->colors[2] = GREEN;
-    cube->colors[3] = GREEN;
-    cube->colors[4] = BLUE;
-    cube->colors[5] = BLUE;
-    cube->colors[6] = YELLOW;
-    cube->colors[7] = YELLOW;
-    cube->colors[8] = PURPLE;
-    cube->colors[9] = PURPLE;
-    cube->colors[10] = CYAN;
-    cube->colors[11] = CYAN;
 }
