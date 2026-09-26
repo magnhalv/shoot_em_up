@@ -95,6 +95,14 @@ inline f32 floor_f32(f32 value) {
     return (f32)temp;
 }
 
+inline i32 floor_f32_to_i32(f32 value) {
+    i32 temp = (i32)value;
+    if (value < 0 && value != (f32)temp) {
+        temp -= 1;
+    }
+    return temp;
+}
+
 inline f32 get_fraction_f32(f32 value) {
     return value - floor_f32(value);
 }

@@ -1,5 +1,7 @@
 #include <cstdlib>
 
+#include <platform/platform.hpp>
+
 #include "logger.hpp"
 
 char global_crash_message[512] = {};

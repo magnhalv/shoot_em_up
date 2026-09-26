@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
 
 #include "memory_arena_test.cpp"
 #include "structs/test_swap_back_list.cpp"
+#include "test_array.cpp"
 #include "test_mat2.cpp"
 #include "test_mat3.cpp"
 #include "test_mat4.cpp"

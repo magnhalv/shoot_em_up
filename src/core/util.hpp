@@ -2,8 +2,8 @@
 
 #include <platform/types.hpp>
 
-#include <core/string8.hpp>
 #include <core/array.hpp>
+#include <core/string8.hpp>
 
 #include "macros.hpp"
 
@@ -39,12 +39,12 @@ auto inline count_digits(i32 n) -> i32 {
 }
 
 auto inline fill_inc(Array<i32>& arr, i32 start = 0) {
-    for (size_t i = 0; i < arr.count(); i++) {
+    for (Size i = 0; i < arr.count(); i++) {
         arr[i] = start + (i32)i;
     }
 }
 
-auto inline format_bytes(u64 bytes, MemoryArena& arena) -> string8 {
+auto inline format_bytes(u64 bytes, MemoryArena& arena) -> CString8 {
     u64 gb = GigaBytes(1);
     u64 mb = MegaBytes(1);
     u64 kb = KiloBytes(1);

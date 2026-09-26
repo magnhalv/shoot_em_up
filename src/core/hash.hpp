@@ -4,7 +4,7 @@
 
 #define XOR ^
 
-auto inline fnv_1a_32bit(string8 s) -> u32 {
+auto inline fnv_1a_32bit(CString8 s) -> u32 {
     const u32 FNV_offset_basis = 0x811c9dc5;
     const u32 FNV_prime = 0x01000193;
 
@@ -18,7 +18,7 @@ auto inline fnv_1a_32bit(string8 s) -> u32 {
     return hash;
 }
 
-auto inline fnv_1a_64bit(string8 s) -> u64 {
+auto inline fnv_1a_64bit(CString8 s) -> u64 {
     const u64 FNV_offset_basis = 0xcbf29ce484222325;
     const u64 FNV_prime = 0x00000100000001b3;
 
@@ -33,11 +33,11 @@ auto inline fnv_1a_64bit(string8 s) -> u64 {
     return hash;
 }
 
-auto inline hash32(string8 s) {
+auto inline hash32(CString8 s) {
     return fnv_1a_32bit(s);
 }
 
-auto inline hash64(string8 s) {
+auto inline hash64(CString8 s) {
     return fnv_1a_64bit(s);
 }
 

@@ -20,7 +20,7 @@ auto inline is_aligned(void* memory, u64 alignment) -> bool {
     return (((uintptr_t)memory) & (alignment - 1)) == 0;
 }
 
-typedef void (*copy_memory_fn)(void*, void*, u64);
+typedef void (*copy_memory_fn)(void* src, void* dest, u64 size);
 void copy_memory_no_init(void* src, void* dest, u64 size);
 global_variable copy_memory_fn copy_memory = copy_memory_no_init;
 void copy_memory_AVX2(void* src, void* dest, u64 size);
@@ -34,5 +34,7 @@ void set_memory_u32_avx512_stream(u32* dest, u32 value, i64 count);
 global_variable set_memory_u32_fn set_memory_u32 = set_memory_u32_init;
 
 void clear_memory(void* memory, u64 size);
+
+auto is_memory_equal(void* a, void* b, u64 size) -> bool;
 
 void DEBUG_print_memory_as_hex(void* memory, u64 size);

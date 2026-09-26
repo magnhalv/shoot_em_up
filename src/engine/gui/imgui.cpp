@@ -29,7 +29,7 @@ auto UI_GetCodePointsTotalLength(List<CodePoint>* code_points) -> f32 {
     return result;
 }
 
-auto UI_GetCodePoints(string8 str, LoadedFont* font, MemoryArena* arena) -> List<CodePoint> {
+auto UI_GetCodePoints(CString8 str, LoadedFont* font, MemoryArena* arena) -> List<CodePoint> {
     List<CodePoint> result;
     result.init(arena, (i32)str.size);
     for (Size i = 0; i < str.size; i++) {
@@ -603,7 +603,7 @@ auto make_element(UI_Entity* entity, UI_Entity_Status* status, UI_Position x = {
     entity->border_thickness = global_context->style->border_thickness;
 }
 
-auto UI_PushWindow(string8 text, UI_Position x, UI_Position y, UI_Size width, UI_Size height) -> void {
+auto UI_PushWindow(CString8 text, UI_Position x, UI_Position y, UI_Size width, UI_Size height) -> void {
     UI_Entity* window = allocate<UI_Entity>(global_context->frame_arena(), 1);
     window->id = hash64(text);
     window->name = text.data;
@@ -627,7 +627,7 @@ const vec4 Button_Color = BLUE;
 const vec4 Hover_Button_Color = GREEN;
 const vec4 Clicked_Button_Color = RED;
 
-auto UI_Button(string8 text) -> UI_Entity_Status {
+auto UI_Button(CString8 text) -> UI_Entity_Status {
     UI_Entity* button = allocate<UI_Entity>(global_context->frame_arena(), 1);
     UI_Entity_Status result = {};
 
@@ -679,7 +679,7 @@ auto UI_Button(string8 text) -> UI_Entity_Status {
     return result;
 }
 
-auto UI_Text(string8 text) -> UI_Entity_Status {
+auto UI_Text(CString8 text) -> UI_Entity_Status {
     UI_Entity* entity = allocate<UI_Entity>(global_context->frame_arena(), 1);
     UI_Entity_Status result = {};
 
@@ -706,7 +706,7 @@ auto UI_Text(string8 text) -> UI_Entity_Status {
     return result;
 }
 
-auto UI_Box(string8 id, UI_Size width, UI_Size height, UI_Position x, UI_Position y) -> UI_Entity_Status {
+auto UI_Box(CString8 id, UI_Size width, UI_Size height, UI_Position x, UI_Position y) -> UI_Entity_Status {
     UI_Entity* box = allocate<UI_Entity>(global_context->frame_arena(), 1);
     UI_Entity_Status result = {};
 

@@ -1,3 +1,4 @@
+#include "platform/assert.hpp"
 #include <cstdio>
 #include <renderers/renderer.hpp>
 
@@ -66,7 +67,7 @@ auto apply_frame_buffer_AVX512(           //
             u32* dest = GET_PIXEL(dest_buffer, dest_start.x, y);
 
             u32* src = GET_PIXEL(src_buffer, src_start.x, (i32)(src_start.y + offset_y));
-            for (i32 x = dest_start.x; x < dest_end.x; x += 16) {
+            for (i32 x = dest_start.x; x < dest_end.x; x += LANE_COUNT) {
                 __m128i src_v4 = _mm_load_si128((__m128i const*)(src));
                 __m512i src_colors_v16 = _mm512_permutexvar_epi32(repeat_v16, _mm512_castsi128_si512(src_v4));
                 // Store all values that are not 0
@@ -74,6 +75,24 @@ auto apply_frame_buffer_AVX512(           //
                 _mm512_mask_storeu_epi32((void*)dest, mask16, src_colors_v16);
                 dest += LANE_COUNT;
                 src += dx;
+            }
+            offset_y += dy;
+        }
+    }
+    else if (scale.x == 16) {
+        f32 dy = 1.0f / 16.0f;
+        f32 offset_y = 0;
+        for (i32 y = dest_start.y; y < dest_end.y; y++) {
+            u32* dest = GET_PIXEL(dest_buffer, dest_start.x, y);
+
+            u32* src = GET_PIXEL(src_buffer, src_start.x, (i32)(src_start.y + offset_y));
+            for (i32 x = dest_start.x; x < dest_end.x; x += LANE_COUNT) {
+                __m512i src_v16 = _mm512_set1_epi32((i32)*src);
+                // Store all values that are not 0
+                __mmask16 mask16 = _mm512_cmpgt_epu32_mask(src_v16, _mm512_setzero_si512());
+                _mm512_mask_storeu_epi32((void*)dest, mask16, src_v16);
+                dest += LANE_COUNT;
+                src++;
             }
             offset_y += dy;
         }

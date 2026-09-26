@@ -5,10 +5,10 @@
 #include "util.hpp"
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "string8: concat") {
-    string8 a = "test";
-    string8 b = "_string";
+    CString8 a = "test";
+    CString8 b = "_string";
 
-    string8 c = string8_concat(a, b, &arena);
+    CString8 c = string8_concat(a, b, &arena);
 
     CHECK_EQ(c[0], 't');
     CHECK_EQ(c[1], 'e');
@@ -30,10 +30,10 @@ TEST_CASE("c_string_length") {
 }
 
 TEST_CASE_FIXTURE(SingleArenaFixture, "string8_format") {
-    string8 str = string8_format(&arena, "test %d", 1);
+    CString8 str = string8_format(&arena, "test %d", 1);
 
     REQUIRE_EQ(str.size, 6);
 
-    string8 str2 = string8_format(&arena, "test %d %.1f", 2, 2.0f);
+    CString8 str2 = string8_format(&arena, "test %d %.1f", 2, 2.0f);
     REQUIRE_EQ(str2.size, 10);
 }

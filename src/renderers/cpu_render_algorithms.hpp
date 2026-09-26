@@ -233,7 +233,7 @@ auto inline interpolate_i32(i32 i0, i32 d0, i32 i1, i32 d1, MemoryArena& arena) 
     return result;
 }
 
-/// @brief: Moving from i0 to i1, this function will return all the "d"s for every discrete value of i between i0 and i1
+/// @brief: Moving from i-1 to i1, this function will return all the "d"s for every discrete value of i between i0 and i1
 auto inline interpolate_f32(i32 i0, f32 d0, i32 i1, f32 d1, MemoryArena& arena) -> Array<f32> {
     // Assert(i0 <= i1);
     if (i0 == i1) {
@@ -334,7 +334,7 @@ auto inline render_triangle_writeframe_gambetta(
     render_line_gambetta(P2, P0, color, clip_rect, buffer, arena);
 }
 
-auto inline render_triangle_filled_gambetta(
+auto inline render_triangle_filled_gambetta_old(
     vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
 
     if (P1.y < P0.y) {
@@ -408,6 +408,90 @@ auto inline render_triangle_filled_gambetta(
         i32 x_r = x_right[y_idx];
         Array<f32> z_l_to_r = interpolate_f32(x_l, z_left[y_idx], x_r, z_right[y_idx], arena);
         for (i32 x = x_l; x < x_r; x++) {
+            set_pixel_with_z_buffer(x, y, z_l_to_r[x - x_l], packed_color, clip_rect, buffer);
+        }
+    }
+
+    // Hmm, gotta figure out what to do about this
+    // render_line_gambetta_internal(P-1, P1, packed_color, clip_rect, buffer, arena);
+    // render_line_gambetta_internal(P1, P2, packed_color, clip_rect, buffer, arena);
+    // render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
+}
+auto inline render_triangle_filled_gambetta(
+    vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
+
+    // P0 on the bottom, P2 on top
+    if (P1.y < P0.y) {
+        vec3_swap(P0, P1);
+    }
+    if (P2.y < P0.y) {
+        vec3_swap(P0, P2);
+    }
+    if (P2.y < P1.y) {
+        vec3_swap(P1, P2);
+    }
+
+    u32 packed_color = pack_color_8x4(color);
+
+    i32 x0 = floor_f32_to_i32(P0.x);
+    i32 y0 = floor_f32_to_i32(P0.y);
+    f32 z0 = P0.z;
+    i32 x1 = floor_f32_to_i32(P1.x);
+    i32 y1 = floor_f32_to_i32(P1.y);
+    f32 z1 = P1.z;
+    i32 x2 = floor_f32_to_i32(P2.x);
+    i32 y2 = floor_f32_to_i32(P2.y);
+    f32 z2 = P2.z;
+
+    Array<i32> x01 = interpolate_i32(y0, x0, y1, x1, arena);
+    Array<f32> z01 = interpolate_f32(y0, z0, y1, z1, arena);
+    Array<i32> x12 = interpolate_i32(y1, x1, y2, x2, arena);
+    Array<f32> z12 = interpolate_f32(y1, z1, y2, z2, arena);
+
+    x01 = span(x01, 0, x01.count() - 1);
+    z01 = span(z01, 0, z01.count() - 1);
+    Array<i32> x012 = concat(x01, x12, arena);
+    Array<f32> z012 = concat(z01, z12, arena);
+
+    Array<i32> x02 = interpolate_i32(y0, x0, y2, x2, arena);
+    Array<f32> z02 = interpolate_f32(y0, z0, y2, z2, arena);
+
+    Array<i32> x_left;
+    Array<i32> x_right;
+    Array<f32> z_left;
+    Array<f32> z_right;
+    {
+        i32 m = (i32)((x012.count() - 1) / 2);
+        if (x02[m] < x012[m]) {
+            x_left = x02;
+            x_right = x012;
+
+            z_left = z02;
+            z_right = z012;
+        }
+        else {
+            x_right = x02;
+            x_left = x012;
+
+            z_right = z02;
+            z_left = z012;
+        }
+    }
+
+    {
+        i32 m = (i32)((z012.count() - 1) / 2);
+        if (z02[m] < z012[m]) {
+        }
+        else {
+        }
+    }
+
+    for (i32 y = y0; y <= y2; y++) {
+        i32 y_idx = y - y0;
+        i32 x_l = x_left[y_idx];
+        i32 x_r = x_right[y_idx];
+        Array<f32> z_l_to_r = interpolate_f32(x_l, z_left[y_idx], x_r, z_right[y_idx], arena);
+        for (i32 x = x_l; x <= x_r; x++) {
             set_pixel_with_z_buffer(x, y, z_l_to_r[x - x_l], packed_color, clip_rect, buffer);
         }
     }
@@ -735,33 +819,40 @@ auto inline render_mesh_gambetta(                                    //
         mat4 W_to_M = inverse(M_to_W);
         vec4 cam_pos_M = camera_direction * W_to_M;
 
+        // Backface culling
         auto not_culled_indices = List<ivec3>::create(indices.count(), arena);
+        auto not_culled_normals = List<vec3>::create(indices.count(), arena);
         for (u32 i = 0; i < normals.count(); i++) {
             const ivec3 triangle = indices[i];
             const vec4 a = vertices[triangle.a];
             const vec3 cam_direction_M = (a - cam_pos_M).xyz();
             if (dot(cam_direction_M, normals[i]) < 0) {
                 not_culled_indices.push(indices[i]);
+                not_culled_normals.push(normals[i]);
             }
         }
-        auto clip_space_vertices = Array<vec4>::create(vertices.count(), arena);
 
+        // Transform to clip space
+        auto clip_space_vertices = Array<vec4>::create(vertices.count(), arena);
         mat4 M_to_C = M_to_W * world_to_view;
         mat4 M_to_Clip = M_to_C * view_to_clip;
         for (u32 i = 0; i < vertices.count(); i++) {
             clip_space_vertices[i] = vertices[i] * M_to_Clip;
         }
 
+        // Clip triangles
         auto clipped_vertices = List<vec4>::create(vertices.count() * 100, arena);
         auto clipped_indices = List<ivec3>::create(not_culled_indices.count() * 100, arena);
         clip_triangles_against_all_planes(
             clip_space_vertices, not_culled_indices.to_array(), clipped_vertices, clipped_indices, arena);
 
+        // Projection
         auto projected_vertices = Array<vec3>::create(clipped_vertices.count(), arena);
         for (i32 i = 0; i < clipped_vertices.count(); i++) {
             projected_vertices[i] = project_vertex(clipped_vertices[i], buffer.width, buffer.height);
         }
 
+        // Rasterize
         for (i32 i = 0; i < clipped_indices.count(); i++) {
             ivec3 index = clipped_indices[i];
             vec3 a = projected_vertices[index.x];

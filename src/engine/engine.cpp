@@ -151,7 +151,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 app_input->client_width,                             //
                 app_input->client_height                             //
             );
-            const i32 pixel_size = 4;
+            const i32 pixel_size = 16;
             state->handle_3D = renderer->create_framebuffer( //
                 app_input->client_width / pixel_size,        //
                 app_input->client_height / pixel_size        //
@@ -462,13 +462,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             circle->radius = 16.0f;
             circle->color = global_color_palette[0];
         }
-        if (false) {
+        if (true) {
             vec3 center = { app_input->client_width / 16.0f, app_input->client_height / 16.0f, 0.0f };
             auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
-            f32 t = (f32)app_input->t;
-            triangle->vertices[0] = center;
-            triangle->vertices[1] = (vec3(cosf(t), sinf(t), 0.0f) * 10) + center;
-            triangle->vertices[2] = vec3(10.0f, 0.0f, 0.0f) + center;
+            triangle->vertices[0] = vec3(5.0f, 1.0f, 1.0f);
+            triangle->vertices[1] = vec3(10.0f, 0.0f, 1.0f);
+            triangle->vertices[2] = vec3(15.0f, 0.0f, 1.0f);
             triangle->color = global_color_palette[0];
         }
         if (false) {
@@ -485,7 +484,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             triangle->color = global_color_palette[0];
         }
 
-        if (true) {
+        if (false) {
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
 
@@ -494,6 +493,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->instances = Array<MeshInstance>::create(3, g_transient);
 
             const vec3 up(0.0f, 1.0f, 0.0f);
+            const vec3 right(1.0f, 0.0f, 0.0f);
             mesh->instances[0].transform.scale = vec3(1.0f, 1.0f, 1.0f);
             mesh->instances[0].transform.position = vec3(-1.5, 0, 4);
             mesh->instances[0].transform.rotation = angle_axis((f32)app_input->t * 0.5f, up);
@@ -501,7 +501,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
             mesh->instances[1].transform.scale = vec3(1.0f, 1.0f, 1.0f);
             mesh->instances[1].transform.position = vec3(1.5f, 1.0f, 4.0f);
-            mesh->instances[1].transform.rotation = angle_axis(0, up);
+            mesh->instances[1].transform.rotation = angle_axis((f32)app_input->t * 0.5f, right);
             mesh->instances[1].colors = global_color_palette.to_array();
 
             auto colors = Array<vec4>::create(1, *g_transient);
@@ -510,13 +510,16 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->instances[2].transform.position = vec3(-3.0f, 2.0f, 2.0f);
             mesh->instances[2].transform.rotation = angle_axis(0, up);
             mesh->instances[2].colors = colors;
+            // mesh->instances[2].colors = global_color_palette.to_array();
 
             mesh->world_to_view = camera_get_view(state->camera);
             mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
             mesh->camera_position = vec4(state->camera.m_position, 1.0f);
         }
 
-        { renderer->render(thread_context, false, &group, state->handle_3D); }
+        {
+            renderer->render(thread_context, false, &group, state->handle_3D);
+        }
     }
     if (false) {
         // TIMED_BLOCK("render_game");
@@ -725,7 +728,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                 else if ((debug_state->processed_frame_count - 1) % Historic_Frame_Count == frame_idx) {
                                     color = vec4(0.039f, 0.498f, 0.078f, 1.0f);
                                 }
-                                string8 id = string8_format(g_transient, "frame_block_%d", frame_idx);
+                                CString8 id = string8_format(g_transient, "frame_block_%d", frame_idx);
                                 UI_ScopedBackgroundColor(color);
                                 /*if (UI_Box(id, UI_Grow(1.0f), UI_Grow(1.0f)).click_released) {*/
                                 /*    if (debug_state->current_inspecting_frame =frame_idx i) {*/
@@ -738,8 +741,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                                 UI_ScopedFlexDirection(UI_FlexDirection_Row);
                                 UI_WindowFull(id, {}, {}, UI_Grow(1.0f), UI_Grow(1.0f)) {
-                                    string8 id1 = string8_format(g_transient, "frame_block_1_%d", frame_idx);
-                                    string8 id2 = string8_format(g_transient, "frame_block_2_%d", frame_idx);
+                                    CString8 id1 = string8_format(g_transient, "frame_block_1_%d", frame_idx);
+                                    CString8 id2 = string8_format(g_transient, "frame_block_2_%d", frame_idx);
                                     bool click_released =
                                         UI_Box(id1, UI_Grow(1.0f), UI_PercentOfParent(1.0f - fraction)).click_released;
                                     if (fraction > 0.0f) {
@@ -847,7 +850,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                                         UI_Text(string8_format(g_transient, "Thread %d (%d)", thread_idx, thread_node->value_u32));
                                     }
                                     for (auto& guid : breadcrumb_guids) {
-                                        i32 delim_idx = cstr_find_last('|', guid);
+                                        Size delim_idx = cstr_find_last('|', guid);
                                         if (delim_idx != -1) {
                                             UI_Text(string8_format(g_transient, ">%s", guid + delim_idx + 1));
                                         }
@@ -876,7 +879,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                                     f32 ms = full_frame_duration_ms * ((f32)node_cycle_count / frame_cycle_count);
 
-                                    string8 box_id = string8_format(g_transient, "%s_thread_idx_%d_profile_box_%d",
+                                    CString8 box_id = string8_format(g_transient, "%s_thread_idx_%d_profile_box_%d",
                                         node->GUID, thread_idx, block_idx);
 
                                     UI_PushStyleBorder(1.0f, vec4(0.1f, 0.1f, 0.1f, 1.0f));
@@ -958,7 +961,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
         // renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(thread_context, state->handle_3D, { 4, 4 });
+        renderer->apply_framebuffer(thread_context, state->handle_3D, { 16, 16 });
         renderer->apply_framebuffer(thread_context, state->handle_UI, { 1, 1 });
     }
 }

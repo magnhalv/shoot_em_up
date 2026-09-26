@@ -4,7 +4,7 @@
 #include <cstdarg>
 #include <cstdio>
 
-#include <platform/platform.hpp>
+#include <platform/types.hpp>
 
 extern char global_crash_message[512];
 extern bool global_has_crashed;

@@ -144,3 +144,16 @@ void DEBUG_print_memory_as_hex(void* memory, u64 size) {
 void copy_memory_no_init(void* src, void* dest, u64 size) {
     crash_and_burn("copy_memory has not been initialized. Call initialize_core_lib() first.");
 }
+
+auto is_memory_equal(void* a, void* b, Size size) -> bool {
+    // Consider just return if zero and below
+    Assert(size > 0);
+    u8* left = (u8*)a;
+    u8* right = (u8*)b;
+    for (i32 i = 0; i < size; i++) {
+        if ((*(left++) != *(right++))) {
+            return false;
+        }
+    }
+    return true;
+}

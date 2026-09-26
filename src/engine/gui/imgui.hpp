@@ -313,11 +313,11 @@ auto UI_End() -> void;
 auto UI_SetLayout(UI_Layout layout) -> void;
 auto UI_SetFont(i32 texture_id, LoadedFont* font) -> void;
 
-auto UI_PushWindow(string8 text, UI_Position x = {}, UI_Position y = {}, UI_Size width = {}, UI_Size height = {}) -> void;
+auto UI_PushWindow(CString8 text, UI_Position x = {}, UI_Position y = {}, UI_Size width = {}, UI_Size height = {}) -> void;
 auto UI_PopWindow() -> void;
-auto UI_Button(string8 text) -> UI_Entity_Status;
-auto UI_Box(string8 id, UI_Size width = {}, UI_Size height = {}, UI_Position x = {}, UI_Position y = {}) -> UI_Entity_Status;
-auto UI_Text(string8 text) -> UI_Entity_Status;
+auto UI_Button(CString8 text) -> UI_Entity_Status;
+auto UI_Box(CString8 id, UI_Size width = {}, UI_Size height = {}, UI_Position x = {}, UI_Position y = {}) -> UI_Entity_Status;
+auto UI_Text(CString8 text) -> UI_Entity_Status;
 
 // Styling
 auto UI_PushStyleSize(UI_Size* x, UI_Size* y) -> void;

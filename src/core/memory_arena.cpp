@@ -44,8 +44,8 @@ auto MemoryArena::allocate(u64 request_size, ArenaPushParams params) -> void* {
 
     if (m_capacity < m_size + total_size) {
         MemoryArena local_debug_arena = debug_arena();
-        string8 total_size_formatted = format_bytes(total_size, local_debug_arena);
-        string8 remaning_formatted = format_bytes(m_capacity - m_size, local_debug_arena);
+        CString8 total_size_formatted = format_bytes(total_size, local_debug_arena);
+        CString8 remaning_formatted = format_bytes(m_capacity - m_size, local_debug_arena);
         crash_and_burn("Failed to allocate %s. Only %s remaining.", total_size_formatted.data, remaning_formatted.data);
     }
 

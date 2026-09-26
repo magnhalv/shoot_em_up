@@ -13,12 +13,12 @@
 #include <math/vec3.hpp>
 
 template <typename T> struct Array {
-    static auto create(size_t count, MemoryArena& arena) -> Array<T> {
+    static auto create(Size count, MemoryArena& arena) -> Array<T> {
         Array<T> result;
         result.init_arena(arena, count);
         return result;
     }
-    static auto create(size_t count, MemoryArena* arena) -> Array<T> {
+    static auto create(Size count, MemoryArena* arena) -> Array<T> {
         Array<T> result;
         result.init_arena(*arena, count);
         return result;
@@ -27,12 +27,12 @@ template <typename T> struct Array {
     Array() : m_count(0), m_data(nullptr) {
     }
 
-    Array(T* values, size_t size) : m_data{ values }, m_count{ size } {
+    Array(T* values, Size size) : m_data{ values }, m_count{ size } {
     }
 
     ~Array() = default;
 
-    auto init(T* values, size_t size) -> void {
+    auto init(T* values, Size size) -> void {
         m_data = values;
         m_count = size;
     }
@@ -42,12 +42,12 @@ template <typename T> struct Array {
         m_count = size;
     }
 
-    T& operator[](size_t index) {
+    T& operator[](Size index) {
         Assert(index < m_count);
         return m_data[index];
     }
 
-    const T& operator[](size_t index) const {
+    const T& operator[](Size index) const {
         assert(index < m_count);
         return m_data[index];
     }
@@ -56,11 +56,11 @@ template <typename T> struct Array {
         return m_data;
     }
 
-    [[nodiscard]] auto inline constexpr count() const -> size_t {
+    [[nodiscard]] auto inline constexpr count() const -> Size {
         return m_count;
     }
 
-    [[nodiscard]] auto inline size() const -> size_t {
+    [[nodiscard]] auto inline size() const -> Size {
         return m_count * sizeof(T);
     }
 
@@ -94,7 +94,7 @@ template <typename T> struct Array {
         return ArrayIterator(m_data + m_count);
     }
 
-    size_t m_count;
+    Size m_count;
     T* m_data;
 };
 
@@ -106,10 +106,7 @@ template <typename T> auto inline concat(Array<T>& arr1, Array<T>& arr2, MemoryA
     return result;
 }
 
-template <typename T> auto inline span(Array<T>& arr, size_t start, size_t end = 0) -> Array<T> {
-    if (end == 0) {
-        end = arr.count();
-    }
+template <typename T> auto inline span(Array<T>& arr, Size start, Size end) -> Array<T> {
     assert(start >= 0 && (start < end || (end == 0 && start == 0)));
     assert(end <= arr.count());
 

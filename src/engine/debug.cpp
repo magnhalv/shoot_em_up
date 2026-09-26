@@ -66,8 +66,8 @@ DEBUG_FRAME_END(debug_frame_end) {
         u32 current_node_idx = current_thread_node_indexes[i];
         UnclosedNodeBranch* branch = &state->unclosed_nodes[i];
         for (Size branch_idx = 0; branch_idx < branch->guids.count(); branch_idx++) {
-            const char* GUID = branch->guids[branch_idx];
-            PrintDebugEventType kind = branch->kinds[branch_idx];
+            const char* GUID = branch->guids[(i32)branch_idx];
+            PrintDebugEventType kind = branch->kinds[(i32)branch_idx];
 
             u32 new_node_idx = add_kid(&state->node_forest, current_node_idx);
             ProfileNode* new_node = &state->node_forest.nodes[new_node_idx];

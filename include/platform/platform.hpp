@@ -19,6 +19,8 @@
 
 // const i32 CLIENT_WIDTH = 1920;
 // const i32 CLIENT_HEIGHT = 1080;
+// const i32 CLIENT_WIDTH = 1280;
+// const i32 CLIENT_HEIGHT = 720;
 const i32 CLIENT_WIDTH = 1280;
 const i32 CLIENT_HEIGHT = 720;
 const i32 BYTES_PER_PIXEL = 4;
