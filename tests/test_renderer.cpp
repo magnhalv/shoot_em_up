@@ -172,8 +172,8 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle") {
         .min_y = 0,
         .max_y = height,
     };
-    render_triangle_filled_gambetta(                                            //
-        vec3(0.0f, 0.0f, 1.0f), vec3(1.0f, 1.0f, 1.0f), vec3(2.0f, 0.0f, 1.0f), //
+    rasterize_triangle(                                                         //
+        vec3(0.0f, 0.0f, 1.0f), vec3(1.5f, 2.0f, 1.0f), vec3(3.0f, 0.0f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
         clip, fb, arena);
 
@@ -199,13 +199,13 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle2") {
         .min_y = 0,
         .max_y = height,
     };
-    render_triangle_filled_gambetta(                                            //
-        vec3(0.5f, 1.5f, 1.0f), vec3(4.5f, 0.5f, 1.0f), vec3(5.5f, 0.5f, 1.0f), //
+    rasterize_triangle(                                                         //
+        vec3(0.0f, 2.0f, 1.0f), vec3(3.0f, 0.0f, 1.0f), vec3(6.0f, 0.0f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
         clip, fb, arena);
 
-    CString8 expected = "XXX000"
-                        "000XXX";
+    CString8 expected = "0X0000"
+                        "00XXX0";
     CString8 actual = fb_to_string(&fb, &arena);
 
     REQUIRE_EQ(actual.size, expected.size);

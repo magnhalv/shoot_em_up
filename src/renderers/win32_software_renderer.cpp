@@ -853,7 +853,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryFilledTriangle: {
             TIMED_BLOCK("render_entry_filled_triangle");
             auto entry = (RenderEntryFilledTriangle*)data;
-            render_triangle_filled_gambetta(entry->P0, entry->P1, entry->P2, entry->color, tile->rect, *framebuffer, transient);
+            rasterize_triangle(entry->P0, entry->P1, entry->P2, entry->color, tile->rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryShadedTriangle: {

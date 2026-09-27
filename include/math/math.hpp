@@ -103,6 +103,14 @@ inline i32 floor_f32_to_i32(f32 value) {
     return temp;
 }
 
+inline i32 ceil_f32_to_i32(f32 value) {
+    i32 temp = (i32)value;
+    if ((f32)temp < value) {
+        return temp + 1;
+    }
+    return temp;
+}
+
 inline f32 get_fraction_f32(f32 value) {
     return value - floor_f32(value);
 }

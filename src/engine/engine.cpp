@@ -462,7 +462,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             circle->radius = 16.0f;
             circle->color = global_color_palette[0];
         }
-        if (true) {
+        if (false) {
             vec3 center = { app_input->client_width / 16.0f, app_input->client_height / 16.0f, 0.0f };
             auto* triangle = PushRenderElement(&group, RenderEntryFilledTriangle, 0);
             triangle->vertices[0] = vec3(5.0f, 1.0f, 1.0f);
@@ -484,7 +484,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             triangle->color = global_color_palette[0];
         }
 
-        if (false) {
+        if (true) {
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
 

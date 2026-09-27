@@ -502,6 +502,55 @@ auto inline render_triangle_filled_gambetta(
     // render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
 }
 
+auto inline rasterize_triangle(
+    vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
+
+    u32 packed_color = pack_color_8x4(color);
+
+    const i32 x_min = floor_f32_to_i32(hm::min(P0.x, P1.x, P2.x));
+    const i32 y_min = floor_f32_to_i32(hm::min(P0.y, P1.y, P2.y));
+    const i32 x_max = ceil_f32_to_i32(hm::max(P0.x, P1.x, P2.x));
+    const i32 y_max = ceil_f32_to_i32(hm::max(P0.y, P1.y, P2.y));
+
+    const f32 x0 = P0.x;
+    const f32 y0 = P0.y;
+    const f32 x1 = P1.x;
+    const f32 y1 = P1.y;
+    const f32 x2 = P2.x;
+    const f32 y2 = P2.y;
+
+    const f32 f12_x0y0 = ((y1 - y2) * x0) + ((x2 - x1) * y0) + (x1 * y2) - (x2 * y1);
+    const f32 f20_x1y1 = ((y2 - y0) * x1) + ((x0 - x2) * y1) + (x2 * y0) - (x0 * y2);
+    const f32 f01_x2y2 = ((y0 - y1) * x2) + ((x1 - x0) * y2) + (x0 * y1) - (x1 * y0);
+    for (i32 y = y_min; y < y_max; y++) {
+        for (i32 x = x_min; x < x_max; x++) {
+            // Check if the center of the pixel fits the coverage
+            f32 sx = (f32)x + 0.5f;
+            f32 sy = (f32)y + 0.5f;
+            f32 a = 0; // 12
+            {
+                f32 f12_xy = ((y1 - y2) * sx) + ((x2 - x1) * sy) + (x1 * y2) - (x2 * y1);
+                a = f12_xy / f12_x0y0;
+            }
+            f32 b = 0; // 20
+            {
+                f32 f20_xy = ((y2 - y0) * sx) + ((x0 - x2) * sy) + (x2 * y0) - (x0 * y2);
+                b = f20_xy / f20_x1y1;
+            }
+            f32 g = 0; // 01
+            {
+                f32 f01_xy = ((y0 - y1) * sx) + ((x1 - x0) * sy) + (x0 * y1) - (x1 * y0);
+                g = f01_xy / f01_x2y2;
+            }
+
+            if (a >= -1 && b >= 0 && g >= 0) {
+                f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
+                set_pixel_with_z_buffer(x, y, z, packed_color, clip_rect, buffer);
+            }
+        }
+    }
+}
+
 auto inline render_shaded_triangle_gambetta(vec3 P0, vec3 P1, vec3 P2, f32 h0, f32 h1, f32 h2, vec4 color,
     Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
 
