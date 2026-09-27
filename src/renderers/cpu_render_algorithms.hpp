@@ -522,6 +522,16 @@ auto inline rasterize_triangle(
     const f32 f12_x0y0 = ((y1 - y2) * x0) + ((x2 - x1) * y0) + (x1 * y2) - (x2 * y1);
     const f32 f20_x1y1 = ((y2 - y0) * x1) + ((x0 - x2) * y1) + (x2 * y0) - (x0 * y2);
     const f32 f01_x2y2 = ((y0 - y1) * x2) + ((x1 - x0) * y2) + (x0 * y1) - (x1 * y0);
+
+    // Offscreen-point. Used to determine whether the triangel should draw its edge or not, Useful when shared with another triangle.
+    const f32 f12_osp = ((y1 - y2) * -1.0f) + ((x2 - x1) * -1.0f) + (x1 * y2) - (x2 * y1);
+    const f32 f20_osp = ((y2 - y0) * -1.0f) + ((x0 - x2) * -1.0f) + (x2 * y0) - (x0 * y2);
+    const f32 f01_osp = ((y0 - y1) * -1.0f) + ((x1 - x0) * -1.0f) + (x0 * y1) - (x1 * y0);
+
+    const f32 f12_check = f12_x0y0 * f12_osp;
+    const f32 f20_check = f20_x1y1 * f20_osp;
+    const f32 f01_check = f01_x2y2 * f01_osp;
+
     for (i32 y = y_min; y < y_max; y++) {
         for (i32 x = x_min; x < x_max; x++) {
             // Check if the center of the pixel fits the coverage
@@ -543,9 +553,14 @@ auto inline rasterize_triangle(
                 g = f01_xy / f01_x2y2;
             }
 
-            if (a >= -1 && b >= 0 && g >= 0) {
-                f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
-                set_pixel_with_z_buffer(x, y, z, packed_color, clip_rect, buffer);
+            if (a >= 0 && b >= 0 && g >= 0) {
+                if ((a > 0 || f12_check > 0) && //
+                    (b > 0 || f20_check > 0) && //
+                    (g > 0 || f01_check > 0)    //
+                ) {
+                    f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
+                    set_pixel_with_z_buffer(x, y, z, packed_color, clip_rect, buffer);
+                }
             }
         }
     }
@@ -912,7 +927,7 @@ auto inline render_mesh_gambetta(                                    //
                     a, b, c, instance.colors[i % instance.colors.count()], clip_rect, buffer, arena);
             }
             else {
-                render_triangle_filled_gambetta( //
+                rasterize_triangle( //
                     a, b, c, instance.colors[i % instance.colors.count()], clip_rect, buffer, arena);
             }
         }

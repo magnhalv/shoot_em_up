@@ -151,7 +151,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 app_input->client_width,                             //
                 app_input->client_height                             //
             );
-            const i32 pixel_size = 16;
+            const i32 pixel_size = 1;
             state->handle_3D = renderer->create_framebuffer( //
                 app_input->client_width / pixel_size,        //
                 app_input->client_height / pixel_size        //
@@ -961,7 +961,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
         // renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
-        renderer->apply_framebuffer(thread_context, state->handle_3D, { 16, 16 });
+        renderer->apply_framebuffer(thread_context, state->handle_3D, { 1, 1 });
         renderer->apply_framebuffer(thread_context, state->handle_UI, { 1, 1 });
     }
 }
