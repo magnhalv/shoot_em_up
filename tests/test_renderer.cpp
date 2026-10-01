@@ -226,7 +226,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle3") {
         .min_y = 0,
         .max_y = height,
     };
-    render_triangle_filled_gambetta(                                            //
+    rasterize_triangle_filled_gambetta(                                         //
         vec3(1.5f, 1.5f, 1.0f), vec3(4.5f, 3.5f, 1.0f), vec3(2.5f, 5.5f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
         clip, fb, arena);

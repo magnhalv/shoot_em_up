@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/memory.hpp"
+#include "core/stack_list.hpp"
 #include "math/util.hpp"
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
@@ -31,19 +32,40 @@ typedef struct {
     vec2 br;
 } Quadrilateral;
 
-struct PointLight {
-    vec4 P;
-    vec4 color;
+enum LightKind : i32 {
+    LightKind__Point = 0,
+    LightKind__Ambient,
+    LightKind__Directional,
 };
 
-struct AmbientLight {
-    vec4 color;
+struct Light {
+    LightKind kind;
+    f32 I;
+    union {
+        struct {
+            vec3 P;
+        } point = {};
+
+        struct {
+            vec3 L;
+        } directional;
+
+        struct {
+        } ambient;
+    };
 };
 
-struct DirectionalLight {
-    vec4 L;
-    vec4 color;
-};
+auto inline PointLight(vec3 P, f32 I) -> Light {
+    return Light{ .kind = LightKind__Point, .I = I, .point = { .P = P } };
+}
+
+auto inline DirectionalLight(vec3 L, f32 I) -> Light {
+    return Light{ .kind = LightKind__Directional, .I = I, .directional = { .L = L } };
+}
+
+auto inline AmbientLight(f32 I) -> Light {
+    return Light{ .kind = LightKind__Ambient, .I = I, .ambient = {} };
+}
 
 enum RenderGroupEntryType {                      //
     RenderCommands_RenderEntryClear,             //
@@ -179,6 +201,8 @@ struct RenderEntryPolygonInstances {
 struct RenderGroup {
     List<u64> sort_entries_offset;
     List<i32> sort_keys;
+
+    StackList<Light, 5> lights;
 
     u64 max_push_buffer_size;
     u64 push_buffer_size;

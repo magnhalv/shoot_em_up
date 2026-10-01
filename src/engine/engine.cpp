@@ -144,7 +144,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         init_audio_system(&state->audio, &state->permanent);
 
-        state->camera = camera_init(90.0f, 0.0f, vec3());
+        state->camera = camera_init(90.0f, 0.0f, vec3(0.0f, 0.0f, -2.0f));
 
         {
             state->handle_background = renderer->create_framebuffer( //
@@ -402,7 +402,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
     {
         TIMED_BLOCK("Render_3D");
-        RenderGroup group{};
+        RenderGroup group = {};
         group.push_buffer_size = 0;
         group.max_push_buffer_size = MegaBytes(4);
         group.push_buffer = allocate<u8>(*g_transient, group.max_push_buffer_size);
@@ -487,7 +487,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         if (true) {
             vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
-
             generate_cube_mesh(&mesh->model, g_transient);
 
             mesh->instances = Array<MeshInstance>::create(3, g_transient);
@@ -504,12 +503,18 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->instances[1].transform.rotation = angle_axis((f32)app_input->t * 0.5f, right);
             mesh->instances[1].colors = global_color_palette.to_array();
 
-            auto colors = Array<vec4>::create(1, *g_transient);
-            colors[0] = WHITE;
-            mesh->instances[2].transform.scale = vec3(0.1f, 0.1f, 0.1f);
-            mesh->instances[2].transform.position = vec3(-3.0f, 2.0f, 2.0f);
-            mesh->instances[2].transform.rotation = angle_axis(0, up);
-            mesh->instances[2].colors = colors;
+            // Light
+            {
+                auto colors = Array<vec4>::create(1, *g_transient);
+                colors[0] = WHITE;
+                vec3 P = vec3(-3.0f, 2.0f, 2.0f);
+                mesh->instances[2].transform.scale = vec3(0.1f, 0.1f, 0.1f);
+                mesh->instances[2].transform.position = P;
+                mesh->instances[2].transform.rotation = angle_axis(0, up);
+                mesh->instances[2].colors = colors;
+                *group.lights.push() = PointLight(P, 1.0f);
+            }
+
             // mesh->instances[2].colors = global_color_palette.to_array();
 
             mesh->world_to_view = camera_get_view(state->camera);

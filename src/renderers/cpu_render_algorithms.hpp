@@ -253,7 +253,7 @@ auto inline interpolate_f32(i32 i0, f32 d0, i32 i1, f32 d1, MemoryArena& arena) 
     return result;
 }
 
-auto inline render_line_gambetta_internal(
+auto inline rasterize_line_gambetta_internal(
     vec3 P0, vec3 P1, u32 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
     if (abs(P1.x - P0.x) > abs(P1.y - P0.y)) {
         if (P0.x > P1.x) {
@@ -324,100 +324,17 @@ auto inline render_line_gambetta_intensity_internal(vec3 P0, vec3 P1, f32 h0, f3
 auto inline render_line_gambetta(vec3 P0, vec3 P1, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena)
     -> void {
     u32 c = pack_color_8x4(color);
-    render_line_gambetta_internal(P0, P1, c, clip_rect, buffer, arena);
+    rasterize_line_gambetta_internal(P0, P1, c, clip_rect, buffer, arena);
 }
 
-auto inline render_triangle_writeframe_gambetta(
+auto inline rasterize_triangle_writeframe_gambetta(
     vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
     render_line_gambetta(P0, P1, color, clip_rect, buffer, arena);
     render_line_gambetta(P1, P2, color, clip_rect, buffer, arena);
     render_line_gambetta(P2, P0, color, clip_rect, buffer, arena);
 }
 
-auto inline render_triangle_filled_gambetta_old(
-    vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
-
-    if (P1.y < P0.y) {
-        vec3_swap(P0, P1);
-    }
-    if (P2.y < P0.y) {
-        vec3_swap(P0, P2);
-    }
-    if (P2.y < P1.y) {
-        vec3_swap(P1, P2);
-    }
-
-    u32 packed_color = pack_color_8x4(color);
-
-    i32 x0 = round_f32_to_i32(P0.x);
-    i32 y0 = round_f32_to_i32(P0.y);
-    f32 z0 = P0.z;
-    i32 x1 = round_f32_to_i32(P1.x);
-    i32 y1 = round_f32_to_i32(P1.y);
-    f32 z1 = P1.z;
-    i32 x2 = round_f32_to_i32(P2.x);
-    i32 y2 = round_f32_to_i32(P2.y);
-    f32 z2 = P2.z;
-
-    Array<i32> x01 = interpolate_i32(y0, x0, y1, x1, arena);
-    Array<f32> z01 = interpolate_f32(y0, z0, y1, z1, arena);
-    Array<i32> x12 = interpolate_i32(y1, x1, y2, x2, arena);
-    Array<f32> z12 = interpolate_f32(y1, z1, y2, z2, arena);
-
-    x01 = span(x01, 0, x01.count() - 1);
-    z01 = span(z01, 0, z01.count() - 1);
-    Array<i32> x012 = concat(x01, x12, arena);
-    Array<f32> z012 = concat(z01, z12, arena);
-
-    Array<i32> x02 = interpolate_i32(y0, x0, y2, x2, arena);
-    Array<f32> z02 = interpolate_f32(y0, z0, y2, z2, arena);
-
-    Array<i32> x_left;
-    Array<i32> x_right;
-    Array<f32> z_left;
-    Array<f32> z_right;
-    {
-        i32 m = (i32)((x012.count() - 1) / 2);
-        if (x02[m] < x012[m]) {
-            x_left = x02;
-            x_right = x012;
-
-            z_left = z02;
-            z_right = z012;
-        }
-        else {
-            x_right = x02;
-            x_left = x012;
-
-            z_right = z02;
-            z_left = z012;
-        }
-    }
-
-    {
-        i32 m = (i32)((z012.count() - 1) / 2);
-        if (z02[m] < z012[m]) {
-        }
-        else {
-        }
-    }
-
-    for (i32 y = y0; y < y2; y++) {
-        i32 y_idx = y - y0;
-        i32 x_l = x_left[y_idx];
-        i32 x_r = x_right[y_idx];
-        Array<f32> z_l_to_r = interpolate_f32(x_l, z_left[y_idx], x_r, z_right[y_idx], arena);
-        for (i32 x = x_l; x < x_r; x++) {
-            set_pixel_with_z_buffer(x, y, z_l_to_r[x - x_l], packed_color, clip_rect, buffer);
-        }
-    }
-
-    // Hmm, gotta figure out what to do about this
-    // render_line_gambetta_internal(P-1, P1, packed_color, clip_rect, buffer, arena);
-    // render_line_gambetta_internal(P1, P2, packed_color, clip_rect, buffer, arena);
-    // render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
-}
-auto inline render_triangle_filled_gambetta(
+auto inline rasterize_triangle_filled_gambetta(
     vec3 P0, vec3 P1, vec3 P2, vec4 color, Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
 
     // P0 on the bottom, P2 on top
@@ -566,7 +483,7 @@ auto inline rasterize_triangle(
     }
 }
 
-auto inline render_shaded_triangle_gambetta(vec3 P0, vec3 P1, vec3 P2, f32 h0, f32 h1, f32 h2, vec4 color,
+auto inline rasterize_shaded_triangle_gambetta(vec3 P0, vec3 P1, vec3 P2, f32 h0, f32 h1, f32 h2, vec4 color,
     Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena) -> void {
 
     if (P1.y < P0.y) {
@@ -869,14 +786,39 @@ auto inline clip_triangles_against_all_planes(          //
     temp_indices.clear();
 }
 
+auto inline compute_lighting(vec3 point, vec3 normal, Array<Light> lights) {
+    f32 I = 0.0f;
+    vec3 L;
+    for (const Light& light : lights) {
+        if (light.kind == LightKind__Ambient) {
+            I += light.I;
+        }
+        else {
+            if (light.kind == LightKind__Directional) {
+                L = light.directional.L;
+            }
+            else {
+                L = light.point.P - point;
+            }
+
+            f32 n_dot_l = dot(normal, L);
+            if (n_dot_l > 0) {
+                I += (light.I * (n_dot_l / (len(normal) * len(L))));
+            }
+        }
+    }
+    return I;
+}
+
 auto inline render_mesh_gambetta(                                    //
     Array<vec4> vertices, Array<ivec3> indices, Array<vec3> normals, //
     Array<MeshInstance> instances,                                   //
-    const mat4& world_to_view,                                       //
-    const mat4& view_to_clip,                                        //
-    const vec4& camera_direction,                                    //
-    bool is_wireframe,                                               //
-    Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena   //
+    Array<Light> lights,
+    const mat4& world_to_view,                                     //
+    const mat4& view_to_clip,                                      //
+    const vec4& camera_direction,                                  //
+    bool is_wireframe,                                             //
+    Rectangle2i clip_rect, Framebuffer& buffer, MemoryArena& arena //
     ) -> void {
     for (const auto& instance : instances) {
         mat4 M_to_W = instance.transform.to_mat4();
@@ -922,13 +864,16 @@ auto inline render_mesh_gambetta(                                    //
             vec3 a = projected_vertices[index.x];
             vec3 b = projected_vertices[index.y];
             vec3 c = projected_vertices[index.z];
+            vec3 normal = not_culled_normals[i]; // TODO: Not sure whether I can use this
+            f32 I = compute_lighting(clipped_vertices[index.x].xyz(), normal, lights);
+            vec4 color = color_with_intensitity(I, instance.colors[i % instance.colors.count()]);
             if (is_wireframe) {
-                render_triangle_writeframe_gambetta( //
-                    a, b, c, instance.colors[i % instance.colors.count()], clip_rect, buffer, arena);
+                rasterize_triangle_writeframe_gambetta( //
+                    a, b, c, color, clip_rect, buffer, arena);
             }
             else {
                 rasterize_triangle( //
-                    a, b, c, instance.colors[i % instance.colors.count()], clip_rect, buffer, arena);
+                    a, b, c, color, clip_rect, buffer, arena);
             }
         }
     }

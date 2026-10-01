@@ -4,8 +4,8 @@
 
 #include <platform/types.hpp>
 
+#include <core/array.hpp>
 #include <core/memory_arena.hpp>
-#include <core/span.hpp>
 
 template <typename T, u32 Capacity> struct StackList {
     T& operator[](i32 index) {
@@ -63,8 +63,8 @@ template <typename T, u32 Capacity> struct StackList {
         m_count -= num;
     }
 
-    auto as_span() -> Span<T> {
-        return Span{ m_data, m_count };
+    auto to_array() -> Array<T> {
+        return Array{ m_data, m_count };
     }
 
     struct iterator {

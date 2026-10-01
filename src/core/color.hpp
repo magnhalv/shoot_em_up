@@ -126,6 +126,10 @@ inline auto linear1_to_packed8x4_srgb255(vec4 color) -> u32 {
     return result;
 }
 
+inline auto color_with_intensitity(f32 I, vec4 color) -> vec4 {
+   return { color.r * I, color.g * I, color.b * I, color.a};
+}
+
 global_variable const i32 Global_Color_Palette_Count = 32;
 global_variable StackArray<vec4, Global_Color_Palette_Count> global_color_palette = {
     vec4(0.902f, 0.098f, 0.294f, 1.0f), // vivid red

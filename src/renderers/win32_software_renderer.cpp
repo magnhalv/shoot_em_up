@@ -847,7 +847,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryTriangle: {
             TIMED_BLOCK("render_entry_triangle");
             auto entry = (RenderEntryTriangle*)data;
-            render_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, tile->rect, *framebuffer, transient);
+            rasterize_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, tile->rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledTriangle: {
@@ -859,7 +859,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryShadedTriangle: {
             TIMED_BLOCK("render_entry_shaded_triangle");
             auto entry = (RenderEntryShadedTriangle*)data;
-            render_shaded_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->h0, entry->h1, entry->h2,
+            rasterize_shaded_triangle_gambetta(entry->P0, entry->P1, entry->P2, entry->h0, entry->h1, entry->h2,
                 entry->color, tile->rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
@@ -869,9 +869,10 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
             render_mesh_gambetta(                                                    //
                 entry->model.vertices, entry->model.triangles, entry->model.normals, //
                 entry->instances,                                                    //
-                entry->world_to_view,                                                //
-                entry->view_to_clip,                                                 //
-                entry->camera_position,                                              //
+                group->lights.to_array(),
+                entry->world_to_view,   //
+                entry->view_to_clip,    //
+                entry->camera_position, //
                 false, tile->rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
@@ -881,9 +882,10 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
             render_mesh_gambetta(                                                    //
                 entry->model.vertices, entry->model.triangles, entry->model.normals, //
                 entry->instances,                                                    //
-                entry->world_to_view,                                                //
-                entry->view_to_clip,                                                 //
-                entry->camera_position,                                              //
+                group->lights.to_array(),
+                entry->world_to_view,   //
+                entry->view_to_clip,    //
+                entry->camera_position, //
                 true, tile->rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;

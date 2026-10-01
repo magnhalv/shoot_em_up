@@ -6,7 +6,6 @@
 #include <core/list.hpp>
 #include <core/memory.hpp>
 #include <core/memory_arena.hpp>
-#include <core/span.hpp>
 
 #include <third-party/stb_sprintf.hpp>
 // https://graphics.stanford.edu/~seander/bithacks.html
