@@ -8,9 +8,9 @@ auto initialize_memory_lib() -> void;
 
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
 #define ZeroArray(Count, Pointer) ZeroSize(Count * sizeof((Pointer)[0]), Pointer)
-inline void ZeroSize(memory_index Size, void* Ptr) {
-    u8* Byte = (u8*)Ptr;
-    while (Size--) {
+inline void ZeroSize(Size size, void* ptr) {
+    u8* Byte = (u8*)ptr;
+    while (size--) {
         *Byte++ = 0;
     }
 }

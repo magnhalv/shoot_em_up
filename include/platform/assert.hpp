@@ -16,9 +16,9 @@ void platform_assert_print_stack_trace();
     }
 
 #define AssertLessThan_i32(a, b)                                                                            \
-    i32 _a = (a);                                                                                            \
-    i32 _b = (b);                                                                                            \
-    if (!(_a < _b)) {                                                                                          \
+    i32 _a = (a);                                                                                           \
+    i32 _b = (b);                                                                                           \
+    if (!(_a < _b)) {                                                                                       \
         platform_assert_print_stack_trace();                                                                \
         printf("Assert failed: %s < %s, %d !< %d, file %s, line %d\n", #a, #b, _a, _b, __FILE__, __LINE__); \
         abort();                                                                                            \

@@ -22,7 +22,7 @@ auto inline thread_idx_to_id(u32 thread_idx) -> u32 {
 
 DEBUG_FRAME_END(debug_frame_end) {
     Assert(sizeof(DebugState) <= engine_memory->debug.size);
-    DebugState* state = (DebugState*)engine_memory->debug.data;
+    DebugState* state = (DebugState*)engine_memory->debug.memory;
 
     if (!state->is_initialized) {
         state->is_initialized = true;

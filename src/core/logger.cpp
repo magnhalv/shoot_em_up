@@ -33,7 +33,9 @@ void crash_and_burn(const char* msg, ...) {
     int msg_length = vsnprintf(NULL, 0, msg, args_copy);
     vsnprintf(global_crash_message, msg_length + 1, msg, args);
     global_has_crashed = true;
-    longjmp(*crash_jump, 1);
+    if (crash_jump) {
+        longjmp(*crash_jump, 1);
+    }
 #endif
     va_end(args_copy);
     va_end(args);

@@ -16,7 +16,7 @@ struct RendererArenaFixture {
     }
 
     ~RendererArenaFixture() {
-        free(arena.m_memory);
+        free(arena.memory);
     }
 
     MemoryArena arena;
@@ -175,7 +175,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle") {
     rasterize_triangle(                                                         //
         vec3(0.0f, 0.0f, 1.0f), vec3(1.5f, 2.0f, 1.0f), vec3(3.0f, 0.0f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
-        clip, fb, arena);
+        clip, fb, &arena);
 
     CString8 expected = "0X0"
                         "XXX";
@@ -202,7 +202,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle2") {
     rasterize_triangle(                                                         //
         vec3(0.0f, 2.0f, 1.0f), vec3(3.0f, 0.0f, 1.0f), vec3(6.0f, 0.0f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
-        clip, fb, arena);
+        clip, fb, &arena);
 
     CString8 expected = "0X0000"
                         "00XXX0";
@@ -229,7 +229,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle3") {
     rasterize_triangle_filled_gambetta(                                         //
         vec3(1.5f, 1.5f, 1.0f), vec3(4.5f, 3.5f, 1.0f), vec3(2.5f, 5.5f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
-        clip, fb, arena);
+        clip, fb, &arena);
 
     CString8 expected = "00X000"
                         "00XX00"

@@ -14,6 +14,7 @@
 #include "types.hpp"
 #include "user_input.hpp"
 
+#include <core/base_thread_context.hpp>
 #include <core/memory_arena.hpp>
 #include <core/stack_array.hpp>
 
@@ -88,14 +89,6 @@ inline int cpu_supports_avx512f(void) {
 }
 
 enum PlatformFileType : u32 { PlatformFileType_AssetFile, PlatformFileType_Count };
-
-struct PlatformWorkQueue;
-struct ThreadContext {
-    i32 thread_id;
-    i32 thread_idx;
-    MemoryArena scratch;
-    PlatformWorkQueue* queue;
-};
 
 // Platform API
 #define PLATFORM_GET_FILE_LAST_MODIFIED(name) u64 name(const char* file_path)

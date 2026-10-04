@@ -22,6 +22,7 @@
 
 #include "../core/lib.cpp"
 #include "../math/unit.cpp"
+#include "core/base_thread_context.hpp"
 #include "core/lib.hpp"
 #include "math/vec3.hpp"
 #include "platform/types.hpp"
@@ -742,8 +743,8 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     log_info("Resolution: %d x %d", CLIENT_WIDTH, CLIENT_HEIGHT);
 
     HM_ASSERT(memory != nullptr);
-    HM_ASSERT(memory->data != nullptr);
-    state.permanent.init(memory->data, memory->size);
+    HM_ASSERT(memory->memory != nullptr);
+    state.permanent.init(memory->memory, memory->size);
     state.transient = *state.permanent.allocate_arena(MegaBytes(10));
 
     Platform = platform_api;
@@ -805,8 +806,9 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
 auto execute_render_commands(i32 job_id, RenderGroup* group, //
     i32* command_render_order,                               //
     Tile* tile,                                              //
-    Framebuffer* framebuffer, MemoryArena& transient) -> void {
+    Framebuffer* framebuffer) -> void {
 
+    MemoryArena* transient = tctx_get_scratch(nullptr, 0);
     for (i32 i = 0; i < group->sort_keys.count(); i++) {
         u64 base_address = group->sort_entries_offset[command_render_order[i]];
         RenderGroupEntryHeader* header = (RenderGroupEntryHeader*)(group->push_buffer + base_address);
@@ -931,11 +933,12 @@ static PLATFORM_WORK_QUEUE_CALLBACK(execute_render_tile_job) {
     Assert(job->group);
 
     TIMED_BLOCK("execute_render_commands");
-    execute_render_commands(job->id, job->group, job->command_render_order, job->tile, job->framebuffer, context->scratch);
+    execute_render_commands(job->id, job->group, job->command_render_order, job->tile, job->framebuffer);
     MemoryBarrier(); // TODO: remove?
 }
 
 extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
+    set_tctx_selected(thread_context);
 
     Framebuffer* buffer = &state.framebuffers[handle.v];
     i32* command_render_order = merge_sort_indices(group->sort_keys.data(), group->sort_keys.count(), &state.transient);
@@ -963,7 +966,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
         clip_rect.max_y = height;
         Tile tile = {};
         tile.rect = clip_rect;
-        execute_render_commands(1, group, command_render_order, &tile, buffer, state.transient);
+        execute_render_commands(1, group, command_render_order, &tile, buffer);
 
         for (u32 i = 0; i < buffer->tiles.count(); i++) {
             buffer->tiles[i].is_dirty = true;

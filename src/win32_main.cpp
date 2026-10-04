@@ -1009,7 +1009,9 @@ bool win32_do_next_work_entry(ThreadContext* context) {
 
         if (index == original_next_entry_to_read) {
             platform_work_queue_entry entry = queue->entries[index];
-            context->scratch.clear();
+            // TODO: Fix arena
+            context->arenas[0]->clear();
+            context->arenas[1]->clear();
             entry.Callback(context, entry.Data);
             InterlockedIncrement((LONG volatile*)&queue->completion_count);
         }
@@ -1066,7 +1068,12 @@ static void win32_make_queue(PlatformApi* platform, Array<ThreadContext> context
         ThreadContext* context = &contexts[i];
 
         context->thread_idx = i;
-        context->scratch.init((u8*)memory_blocks[i].data, memory_blocks[i].size);
+        {
+            Size memory_size = memory_blocks[i].size / 2;
+            Assert(memory_blocks[i].size % 2 == 0);
+            context->arenas[0] = allocate_arena(memory_blocks[i].memory, memory_size);
+            context->arenas[1] = allocate_arena(memory_blocks[i].memory + memory_size, memory_size);
+        }
         context->queue = queue;
         if (i == MAIN_THREAD_IDX) {
             context->thread_id = platform->main_thread_id;
@@ -1215,9 +1222,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     MemoryBlock renderer_memory = {};
     renderer_memory.size = Renderer_Total_Memory_Size;
-    renderer_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
+    renderer_memory.memory = (u8*)VirtualAlloc(nullptr, // TODO: Might want to set this
         (SIZE_T)renderer_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (renderer_memory.data == nullptr) {
+    if (renderer_memory.memory == nullptr) {
         auto error = GetLastError();
         printf("Unable to allocate renderer memory: %lu", error);
         return -1;
@@ -1225,9 +1232,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
     MemoryBlock debug_memory = {};
     debug_memory.size = Debug_Memory_Block_Size;
-    debug_memory.data = VirtualAlloc(nullptr, // TODO: Might want to set this
+    debug_memory.memory = (u8*)VirtualAlloc(nullptr, // TODO: Might want to set this
         (SIZE_T)debug_memory.size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (debug_memory.data == nullptr) {
+    if (debug_memory.memory == nullptr) {
         auto error = GetLastError();
         printf("Unable to allocate debug memory: %lu", error);
         return -1;
@@ -1237,9 +1244,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     for (u32 i = 0; i < thread_memory_blocks.count(); i++) {
 
         thread_memory_blocks[i].size = Thread_Memory_Block_Size;
-        thread_memory_blocks[i].data = VirtualAlloc(nullptr, // TODO: Might want to set this
+        thread_memory_blocks[i].memory = (u8*)VirtualAlloc(nullptr, // TODO: Might want to set this
             (SIZE_T)thread_memory_blocks[i].size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-        if (thread_memory_blocks[i].data == nullptr) {
+        if (thread_memory_blocks[i].memory == nullptr) {
             auto error = GetLastError();
             printf("Unable to allocate thead memory: %lu", error);
             return -1;
@@ -1381,7 +1388,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
             if (current_input->o.is_pressed_this_frame()) {
                 global_is_reloading_renderer = true;
 
-                ZeroSize(Renderer_Total_Memory_Size, renderer_memory.data);
+                ZeroSize(Renderer_Total_Memory_Size, renderer_memory.memory);
                 // renderer_type = renderer_type == RendererType_Software ? RendererType_OpenGL : RendererType_Software;
 
                 // NOTE: We destroy and recreate he window, since OpenGL will

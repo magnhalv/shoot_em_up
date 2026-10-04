@@ -144,7 +144,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         init_audio_system(&state->audio, &state->permanent);
 
-        state->camera = camera_init(90.0f, 0.0f, vec3(0.0f, 0.0f, -2.0f));
+        state->camera = camera_init(90.0f, 0.0f, vec3(0.0f, 0.0f, -3.0f));
 
         {
             state->handle_background = renderer->create_framebuffer( //
@@ -203,14 +203,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     // END_BLOCK();
 
     // endregion
-
-#if HOMEMADE_DEBUG
-    {
-        TIMED_BLOCK("debug_checks");
-        state->permanent.check_integrity();
-        state->transient.check_integrity();
-    }
-#endif
 
     {
         TIMED_BLOCK("game_update");
@@ -684,7 +676,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
     }
 
     if (state->show_profile_window) {
-        DebugState* debug_state = (DebugState*)engine_memory->debug.data;
+        DebugState* debug_state = (DebugState*)engine_memory->debug.memory;
         if (state->ui_context && debug_state->is_initialized) {
             {
                 TIMED_BLOCK("gui_create");

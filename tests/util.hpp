@@ -3,6 +3,7 @@
 #include <csetjmp>
 #include <cstdlib>
 
+#include "core/stack_array.hpp"
 #include "doctest.h"
 
 #include <core/memory_arena.hpp>
@@ -15,11 +16,28 @@ struct SingleArenaFixture {
     }
 
     ~SingleArenaFixture() {
-        free(arena.m_memory);
+        free(arena.memory);
     }
 
     public:
     MemoryArena arena;
+};
+
+struct TwoArenaFixture {
+    TwoArenaFixture() {
+        for (MemoryArena& arena : arenas) {
+            arena.init(malloc(default_size), default_size);
+        }
+    }
+
+    ~TwoArenaFixture() {
+        for (MemoryArena& arena : arenas) {
+            free(arena.memory);
+        }
+    }
+
+    public:
+    StackArray<MemoryArena, 4> arenas;
 };
 
 struct TransientFixture {
@@ -31,8 +49,8 @@ struct TransientFixture {
 
     ~TransientFixture() {
         unset_transient_arena();
-        free(local.m_memory);
-        free(transient.m_memory);
+        free(local.memory);
+        free(transient.memory);
     }
 
     public:

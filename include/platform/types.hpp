@@ -54,8 +54,6 @@ using Size = i64;
 #define f64_min (-DBL_MAX)
 #define f64_max DBL_MAX
 
-using memory_index = size_t;
-
 const u64 us_in_second = 1000000;
 const u64 ms_in_second = 1000;
 
@@ -78,7 +76,7 @@ constexpr u64 GigaBytes(u64 num_gb) noexcept {
 }
 
 struct MemoryBlock {
-    void* data;
+    u8* memory;
     u32 size;
 };
 
