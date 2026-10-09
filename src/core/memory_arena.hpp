@@ -70,7 +70,6 @@ auto inline temp_begin(MemoryArena* arena) -> Temp {
     temp.arena = arena;
     temp.size = arena->size;
     temp.arena->temp_count++;
-    printf("Howdy\n");
     return temp;
 }
 

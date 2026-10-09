@@ -24,14 +24,6 @@ inline auto tctx_selected() -> ThreadContext* {
     return thread_tcxt;
 }
 
-inline auto scratch_begin(MemoryArena** conflicts = {}, Size count = 0) -> Temp {
-    return {};
-}
-
-inline auto scratch_end(MemoryArena** conflicts = {}, Size count = 0) -> Temp {
-    return {};
-}
-
 inline auto tctx_get_scratch(MemoryArena** conflicts, Size count) -> MemoryArena* {
     ThreadContext* tcxt = tctx_selected();
     Assert(tcxt);
@@ -51,4 +43,13 @@ inline auto tctx_get_scratch(MemoryArena** conflicts, Size count) -> MemoryArena
     }
 
     return nullptr;
+}
+
+inline auto scratch_begin(MemoryArena** conflicts = {}, Size count = 0) -> Temp {
+    MemoryArena* arena = tctx_get_scratch(conflicts, count);
+    return temp_begin(arena);
+}
+
+inline auto scratch_end(Temp temp) -> void {
+    temp_end(temp);
 }

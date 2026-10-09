@@ -30,10 +30,8 @@ auto MemoryArena::allocate(u64 request_size, ArenaPushParams params) -> void* {
     Assert(memory);
 
     Size alignment_mask = params.alignment - 1;
-    const Size padding_size = 1;
     Size base = (Size)memory + size;
-    Size base_with_padding = base + padding_size;
-    Size aligned_address = (base_with_padding + alignment_mask) & ~(alignment_mask);
+    Size aligned_address = (base + alignment_mask) & ~(alignment_mask);
     Size padding = aligned_address - base;
 
     Size block_size = padding + request_size;
@@ -51,11 +49,6 @@ auto MemoryArena::allocate(u64 request_size, ArenaPushParams params) -> void* {
 
     void* result = (void*)aligned_address;
     size += block_size;
-
-    // Store how much padding was added in the byte previous to the returned address.
-    u8* padding_address = (u8*)(aligned_address)-1;
-    Assert(padding <= 254);
-    *padding_address = (u8)padding;
 
     return result;
 }
