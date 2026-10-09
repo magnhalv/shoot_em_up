@@ -37,7 +37,7 @@ struct TwoArenaFixture {
     }
 
     public:
-    StackArray<MemoryArena, 4> arenas;
+    StackArray<MemoryArena, 2> arenas;
 };
 
 struct TransientFixture {

@@ -873,8 +873,8 @@ auto inline render_mesh_gambetta(                                    //
             vec3 b = projected_vertices[index.y];
             vec3 c = projected_vertices[index.z];
             // printf("Index %d, Count %lld\n", index.x, intensities.count());
-            //  vec4 color = color_with_intensitity(intensities[index.x], instance.colors[i % instance.colors.count()]);
-            vec4 color = instance.colors[i % instance.colors.count()];
+            vec4 color = color_with_intensitity(intensities[index.x], instance.colors[i % instance.colors.count()]);
+            // vec4 color = instance.colors[i % instance.colors.count()];
             if (is_wireframe) {
                 rasterize_triangle_writeframe_gambetta( //
                     a, b, c, color, clip_rect, buffer, arena);

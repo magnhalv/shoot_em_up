@@ -21,12 +21,12 @@ inline auto set_tctx_selected(ThreadContext* context) -> void {
 }
 
 inline auto tctx_selected() -> ThreadContext* {
+    Assert(thread_tcxt);
     return thread_tcxt;
 }
 
 inline auto tctx_get_scratch(MemoryArena** conflicts, Size count) -> MemoryArena* {
     ThreadContext* tcxt = tctx_selected();
-    Assert(tcxt);
     for (MemoryArena* candiate : tcxt->arenas) {
         bool has_conflict = false;
 

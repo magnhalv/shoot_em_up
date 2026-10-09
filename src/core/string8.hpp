@@ -9,7 +9,7 @@
 
 #include <third-party/stb_sprintf.hpp>
 // https://graphics.stanford.edu/~seander/bithacks.html
-#define HAS_ZERO_BYTE (v)(((v) - 0x01010101UL) & ~(v) & 0x80808080UL)
+#define HAS_ZERO_BYTE (v)(((v)-0x01010101UL) & ~(v) & 0x80808080UL)
 auto inline c_string_length(const char* str) -> Size {
     Size counter = 0;
     while ((*str++) != '\0') {
@@ -113,7 +113,7 @@ auto inline string8_equal(CString8 a, CString8 b) -> bool {
 }
 
 auto inline string8_format(MemoryArena* arena, const char* format, ...) -> String8 {
-    const u32 buffer_size = 512;
+    const i32 buffer_size = 512;
     char* buffer = allocate<char>(arena, buffer_size);
 
     va_list args;
@@ -121,6 +121,7 @@ auto inline string8_format(MemoryArena* arena, const char* format, ...) -> Strin
     i32 str_length = stbsp_vsnprintf(buffer, buffer_size, format, args);
     va_end(args);
 
+    Assert(buffer_size > str_length);
     arena->shrink(buffer, buffer_size - str_length - 1);
     String8 result;
     result.data = buffer;

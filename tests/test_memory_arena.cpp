@@ -83,7 +83,36 @@ TEST_CASE_FIXTURE(TwoArenaFixture, "scratch_arenas") {
     }
     set_tctx_selected(&context);
 
-    Temp temp = scratch_begin();
+    MemoryArena* result_arena = &arenas[0];
+    Array<u8> result_arr = {};
+    {
+        Temp temp = scratch_begin(&result_arena, 1);
+        auto temp_arr = Array<u8>::create(4, temp.arena);
+        temp_arr[0] = 'b';
+        temp_arr[1] = 'e';
+        temp_arr[2] = 'a';
+        temp_arr[3] = 'r';
 
-    scratch_end(temp);
+        result_arr = Array<u8>::create(4, result_arena);
+        result_arr[0] = 'h';
+        result_arr[1] = 'e';
+        result_arr[2] = 'r';
+        result_arr[3] = 'e';
+
+        auto temp_arr2 = Array<u8>::create(4, temp.arena);
+        temp_arr2[0] = 'r';
+        temp_arr2[1] = 'a';
+        temp_arr2[2] = 'w';
+        temp_arr2[3] = 'r';
+
+        scratch_end(temp);
+    }
+
+    // By the end, only the result_arena contains the result data.
+    // Temp data was allocated to the other arena
+    REQUIRE_EQ(result_arr[0], 'h');
+    REQUIRE_EQ(result_arr[1], 'e');
+    REQUIRE_EQ(result_arr[2], 'r');
+    REQUIRE_EQ(result_arr[3], 'e');
+    REQUIRE_EQ(result_arena->size, 4);
 }
