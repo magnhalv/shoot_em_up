@@ -98,17 +98,6 @@ ENGINE_GET_SOUND_SAMPLES(get_sound_samples) {
     return buffer;
 }
 
-auto sine_behaviour(f32 x) {
-    return sin(x);
-}
-
-auto sine_movement(f32 base, f32 amp, f32 frequency, f32 time) {
-    return base + amp * sin(frequency * time);
-}
-auto noise(f32 x) {
-    return sin(2 * x) + sin(PI * x);
-}
-
 ENGINE_UPDATE_AND_RENDER(update_and_render) {
     auto* state = (EngineState*)engine_memory->permanent;
     // const f32 ratio = static_cast<f32>(app_input->client_width) / static_cast<f32>(app_input->client_height);
@@ -324,7 +313,6 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             auto& enemy = state->enemies[i];
             enemy.P.y += -400.0f * time.dt;
             enemy.progress += time.dt;
-            enemy.P.x = sine_movement(100.0, 100.0, 3.0, enemy.progress);
 
             if (enemy.P.y + enemy.scale.y <= 0.0) {
                 state->enemies.remove(i);
@@ -514,9 +502,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->camera_position = vec4(state->camera.m_position, 1.0f);
         }
 
-        {
-            renderer->render(thread_context, false, &group, state->handle_3D);
-        }
+        { renderer->render(thread_context, false, &group, state->handle_3D); }
     }
     if (false) {
         // TIMED_BLOCK("render_game");

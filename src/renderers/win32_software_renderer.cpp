@@ -875,7 +875,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
                 entry->world_to_view,   //
                 entry->view_to_clip,    //
                 entry->camera_position, //
-                false, tile->rect, *framebuffer, transient);
+                false, tile->rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryTriMeshWireframe: {
@@ -888,7 +888,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
                 entry->world_to_view,   //
                 entry->view_to_clip,    //
                 entry->camera_position, //
-                true, tile->rect, *framebuffer, transient);
+                true, tile->rect, *framebuffer);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryBitmap: {
