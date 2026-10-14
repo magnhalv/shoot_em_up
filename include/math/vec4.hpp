@@ -33,7 +33,7 @@ struct vec4 {
     inline explicit vec4(vec3 xyz, f32 _w) : x(xyz.x), y(xyz.y), z(xyz.z), w(_w) {
     }
 
-    inline auto xyz() -> vec3 {
+    inline auto xyz() const -> vec3 {
         return vec3(x, y, z);
     }
 };

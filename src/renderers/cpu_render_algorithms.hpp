@@ -593,15 +593,18 @@ enum PlaneDirection : i8 {
 };
 
 auto inline clip_triangle_against_plane(                 //
-    List<vec4>& vertices, Array<ivec3> in_indices,       //
-    List<ivec3>& out_indices,                            //
+    List<vec4>& vertices,                                //
+    Array<ivec3> in_indices, List<ivec3>& out_indices,   //
+    Array<f32> Is, List<f32>& out_Is,                    //
     PlaneIdx plane_index, PlaneDirection plane_direction //
 ) {
     Assert(plane_index >= 0 && plane_index < PlaneIdx_Count);
     Assert(plane_direction == 1 || plane_direction == -1);
 
     f32 dir = (f32)plane_direction;
-    for (auto triangle_indices : in_indices) {
+    for (Size t_idx = 0; t_idx < in_indices.count(); t_idx++) {
+        ivec3 triangle_indices = in_indices[t_idx];
+        f32 I = Is[t_idx];
         vec4 v0 = vertices[triangle_indices.x];
         vec4 v1 = vertices[triangle_indices.y];
         vec4 v2 = vertices[triangle_indices.z];
@@ -629,6 +632,7 @@ auto inline clip_triangle_against_plane(                 //
 
         if (out_count == 0) {
             out_indices.push(triangle_indices);
+            out_Is.push(I);
         }
         else if (out_count == 1) {
             i32 a_idx = out_idx[0];
@@ -674,6 +678,8 @@ auto inline clip_triangle_against_plane(                 //
             out_indices.push(ab_b_c_indices);
             // // ac -> ab -> c;
             out_indices.push(ac_ab_c_indices);
+            out_Is.push(I);
+            out_Is.push(I);
         }
         else if (out_count == 2) {
             i32 a_idx = in_idx[0];
@@ -711,68 +717,88 @@ auto inline clip_triangle_against_plane(                 //
                 start_idx + 2  //
             };
             out_indices.push(a_bNew_cNew_indices);
+            out_Is.push(I);
         }
         else if (out_count == 3) {
         }
     }
 }
 
-auto inline clip_triangles_against_all_planes(     //
-    List<vec4>& vertices, Array<ivec3> in_indices, //
-    List<ivec3>& out_indices                       //
+auto inline clip_triangles_against_z_planes(            //
+    List<vec4>& vertices,                               //
+    Array<ivec3> indices, List<ivec3>& clipped_indices, //
+    Array<f32> Is, List<f32>& clipped_Is                //
 ) {
     Temp temp = scratch_begin();
-    auto temp_indices = List<ivec3>::create(out_indices.max_count(), temp.arena);
+    auto temp_indices = List<ivec3>::create(clipped_indices.max_count(), temp.arena);
+    auto temp_Is = List<f32>::create(clipped_Is.max_count(), temp.arena);
+    // auto temp_I = List<ivec3>::create(clipped_intensities.max_count(), temp.arena);
+
+    // {
+    //     clip_triangle_against_plane(           //
+    //         vertices,                          //
+    //         indices, temp_indices,             //
+    //         PlaneIdx_X, PlaneDirection_Forward //
+    //     );
+    //     clipped_indices.clear();
+    //     clip_triangle_against_plane(             //
+    //         vertices, temp_indices.to_array(),   //
+    //         clipped_indices,                     //
+    //         PlaneIdx_X, PlaneDirection_Backwards //
+    //     );
+    // }
+    //
+    // {
+    //
+    //     temp_indices.clear();
+    //     clip_triangle_against_plane(              //
+    //         vertices, clipped_indices.to_array(), //
+    //         temp_indices,                         //
+    //         PlaneIdx_Y, PlaneDirection_Forward    //
+    //     );
+    //     clipped_indices.clear();
+    //     clip_triangle_against_plane(             //
+    //         vertices, temp_indices.to_array(),   //
+    //         clipped_indices,                     //
+    //         PlaneIdx_Y, PlaneDirection_Backwards //
+    //     );
+    // }
+
+    // {
+    //
+    //     temp_indices.clear();
+    //     clip_triangle_against_plane(              //
+    //         vertices, clipped_indices.to_array(), //
+    //         temp_indices,                         //
+    //         PlaneIdx_Z, PlaneDirection_Forward    //
+    //     );
+    //     clipped_indices.clear();
+    //     clip_triangle_against_plane(             //
+    //         vertices, temp_indices.to_array(),   //
+    //         clipped_indices,                     //
+    //         PlaneIdx_Z, PlaneDirection_Backwards //
+    //     );
+    // }
 
     {
         clip_triangle_against_plane(           //
-            vertices, in_indices,              //
-            temp_indices,                      //
-            PlaneIdx_X, PlaneDirection_Forward //
-        );
-        out_indices.clear();
-        clip_triangle_against_plane(             //
-            vertices, temp_indices.to_array(),   //
-            out_indices,                         //
-            PlaneIdx_X, PlaneDirection_Backwards //
-        );
-    }
-
-    {
-
-        temp_indices.clear();
-        clip_triangle_against_plane(           //
-            vertices, out_indices.to_array(),  //
-            temp_indices,                      //
-            PlaneIdx_Y, PlaneDirection_Forward //
-        );
-        out_indices.clear();
-        clip_triangle_against_plane(             //
-            vertices, temp_indices.to_array(),   //
-            out_indices,                         //
-            PlaneIdx_Y, PlaneDirection_Backwards //
-        );
-    }
-
-    {
-
-        temp_indices.clear();
-        clip_triangle_against_plane(           //
-            vertices, out_indices.to_array(),  //
-            temp_indices,                      //
+            vertices,                          //
+            indices, temp_indices,             //
+            Is, temp_Is,                       //
             PlaneIdx_Z, PlaneDirection_Forward //
         );
-        out_indices.clear();
-        clip_triangle_against_plane(             //
-            vertices, temp_indices.to_array(),   //
-            out_indices,                         //
-            PlaneIdx_Z, PlaneDirection_Backwards //
+        clipped_indices.clear();
+        clip_triangle_against_plane(                  //
+            vertices,                                 //
+            temp_indices.to_array(), clipped_indices, //
+            temp_Is.to_array(), clipped_Is,           //
+            PlaneIdx_Z, PlaneDirection_Backwards      //
         );
     }
     scratch_end(temp);
 }
 
-auto inline compute_lighting(vec3 point, vec3 normal, Array<Light> lights) {
+auto inline compute_lighting(vec3 point, vec3 normal, Array<Light> lights, mat4 W_to_M) {
     f32 I = 0.0f;
     vec3 L;
     for (const Light& light : lights) {
@@ -781,10 +807,11 @@ auto inline compute_lighting(vec3 point, vec3 normal, Array<Light> lights) {
         }
         else {
             if (light.kind == LightKind__Directional) {
-                L = light.directional.L;
+
+                L = (vec4(light.directional.L, 0.0f) * W_to_M).xyz();
             }
             else {
-                L = light.point.P - point;
+                L = (vec4(light.point.P, 1.0f) * W_to_M).xyz() - point;
             }
 
             f32 n_dot_l = dot(normal, L);
@@ -801,10 +828,11 @@ struct TriangleAttribute {
 };
 
 const Size MAX_VERTEX_COUNT = 1024;
+const Size MAX_TRIANGLE_COUNT = 512;
 
-auto inline render_mesh_gambetta(                                    //
-    Array<vec4> vertices, Array<ivec3> indices, Array<vec3> normals, //
-    Array<MeshInstance> instances,                                   //
+auto inline render_mesh_gambetta(                                      //
+    Array<vec4> vertices, Array<ivec3> triangles, Array<vec3> normals, //
+    Array<MeshInstance> instances,                                     //
     Array<Light> lights,
     const mat4& world_to_view,                 //
     const mat4& view_to_clip,                  //
@@ -812,6 +840,7 @@ auto inline render_mesh_gambetta(                                    //
     bool is_wireframe,                         //
     Rectangle2i clip_rect, Framebuffer& buffer //
     ) -> void {
+    i32 triangles_rasterized = 0;
     Temp temp = scratch_begin();
     for (const auto& instance : instances) {
         mat4 M_to_W = instance.transform.to_mat4();
@@ -819,19 +848,19 @@ auto inline render_mesh_gambetta(                                    //
         vec4 cam_pos_M = camera_direction * W_to_M;
 
         // Backface culling
-        auto not_culled_indices = List<ivec3>::create(indices.count(), temp.arena);
-        auto not_culled_normals = List<vec3>::create(indices.count(), temp.arena);
-        auto intensities = Array<f32>::create(vertices.count(), temp.arena);
+        auto not_culled_triangles = List<ivec3>::create(triangles.count(), temp.arena);
+        auto not_culled_normals = List<vec3>::create(triangles.count(), temp.arena);
+        auto intensities = List<f32>::create(triangles.count(), temp.arena);
         for (u32 i = 0; i < normals.count(); i++) {
-            const ivec3 triangle = indices[i];
-            const vec4 a = vertices[triangle.a];
-            const vec3 cam_direction_M = (a - cam_pos_M).xyz();
+            const ivec3 triangle = triangles[i];
+            const i32 sampe_vertex_idx = triangle.x;
+            const vec4 sample_vertex = vertices[sampe_vertex_idx];
+            const vec3 cam_direction_M = (sample_vertex - cam_pos_M).xyz();
             if (dot(cam_direction_M, normals[i]) < 0) {
-                not_culled_indices.push(indices[i]);
+                not_culled_triangles.push(triangles[i]);
                 not_culled_normals.push(normals[i]);
-                i32 vertex_index = indices[i].x;
-                f32 I = compute_lighting(vertices[vertex_index].xyz(), normals[i], lights);
-                intensities[vertex_index] = I;
+                f32 I = compute_lighting(sample_vertex.xyz(), normals[i], lights, W_to_M);
+                intensities.push(I);
             }
         }
 
@@ -844,8 +873,13 @@ auto inline render_mesh_gambetta(                                    //
         }
 
         // Clip triangles
-        auto clipped_triangles = List<ivec3>::create(not_culled_indices.count() * 100, temp.arena);
-        clip_triangles_against_all_planes(clip_space_vertices, not_culled_indices.to_array(), clipped_triangles);
+        auto clipped_triangles = List<ivec3>::create(MAX_TRIANGLE_COUNT, temp.arena);
+        auto clipped_intensities = List<f32>::create(MAX_TRIANGLE_COUNT, temp.arena);
+        clip_triangles_against_z_planes(                        //
+            clip_space_vertices,                                //
+            not_culled_triangles.to_array(), clipped_triangles, //
+            intensities.to_array(), clipped_intensities         //
+        );
 
         // Projection
         auto projected_vertices = Array<vec3>::create(clip_space_vertices.count(), temp.arena);
@@ -860,8 +894,8 @@ auto inline render_mesh_gambetta(                                    //
             vec3 b = projected_vertices[index.y];
             vec3 c = projected_vertices[index.z];
             // printf("Index %d, Count %lld\n", index.x, intensities.count());
-            // vec4 color = color_with_intensitity(intensities[index.x], instance.colors[i % instance.colors.count()]);
-            vec4 color = instance.colors[i % instance.colors.count()];
+            vec4 color = color_with_intensitity(intensities[i], instance.colors[i % instance.colors.count()]);
+            // vec4 color = instance.colors[i % instance.colors.count()];
             if (is_wireframe) {
                 rasterize_triangle_writeframe_gambetta( //
                     a, b, c, color, clip_rect, buffer, temp.arena);
@@ -871,6 +905,8 @@ auto inline render_mesh_gambetta(                                    //
                     a, b, c, color, clip_rect, buffer, temp.arena);
             }
         }
+        triangles_rasterized += clipped_triangles.count();
         scratch_end(temp);
     }
+    printf("Rasterized triangles: %d\n", triangles_rasterized);
 }
