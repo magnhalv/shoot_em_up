@@ -162,7 +162,7 @@ inline void platform_assert_print_stack_trace() {
     }
 }
 
-const u64 Permanent_Memory_Block_Size = MegaBytes(10);
+const u64 Permanent_Memory_Block_Size = MegaBytes(32);
 const u64 Transient_Memory_Block_Size = MegaBytes(128);
 const u64 Debug_Memory_Block_Size = GigaBytes(1);
 const u64 Thread_Memory_Block_Size = MegaBytes(64);

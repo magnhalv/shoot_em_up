@@ -1,3 +1,4 @@
+#include "core/color.hpp"
 #include <platform/types.hpp>
 
 #include <cstdio>
@@ -240,15 +241,30 @@ auto load_bitmap_stbi(const char* path) -> Bitmap {
         InvalidCodePath;
     }
 
-    if (num_channels != 4) {
+    result.pitch = result.width * 4;
+    auto stbi_data_size = result.width * result.height * num_channels; // 1 byte per channel
+    if (num_channels == 3) {
+        InvalidCodePath;
+        // u32 result_data_size = result.width * result.height * 4;
+        // result.data = malloc(result_data_size);
+        // u32* result_data = (u32*)result.data;
+        // u32 result_i = 0;
+        // for (i32 i = 0; i < stbi_data_size; i += num_channels) {
+        //     u8 r = stbi_data[i];
+        //     u8 g = stbi_data[i + 1];
+        //     u8 b = stbi_data[i + 2];
+        //     u8 a = 255;
+        //     result_data[result_i++] = pack_color_8x4(b, g, r, a);
+        // }
+    }
+    else if (num_channels == 4) {
+        result.data = malloc(stbi_data_size);
+        memcpy(result.data, stbi_data, stbi_data_size);
+    }
+    else {
+        printf("Num channels: %d\n", num_channels);
         InvalidCodePath;
     }
-
-    result.pitch = result.width * num_channels;
-    auto size = result.width * result.height * num_channels; // 1 byte per channel
-
-    result.data = malloc(size);
-    memcpy(result.data, stbi_data, size);
 
     stbi_image_free(stbi_data);
 
@@ -525,6 +541,10 @@ static auto write_bitmaps() -> void {
         add_tag(assets, AssetTag_ExplosionProgress, 6.0 / 7.0);
         add_bitmap_asset(assets, "assets/bitmaps/explosion-8.png");
         add_tag(assets, AssetTag_ExplosionProgress, 7.0 / 7.0);
+    }
+
+    AddAssetGroup(assets, AssetGroupId_WoodenCrate) {
+        add_bitmap_asset(assets, "assets/bitmaps/wooden_crate.png");
     }
 
     AddAssetGroup(assets, AssetGroupId_Fonts_Ubuntu) {

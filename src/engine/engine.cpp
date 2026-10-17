@@ -112,6 +112,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         TaskSystem* task_system = &state->task_system;
         for (u32 i = 0; i < array_length(task_system->tasks); i++) {
             TaskWithMemory* task = task_system->tasks + i;
+            // TODO: Look into this? I think this is old and can be removed
             task->memory = state->permanent.allocate_arena(KiloBytes(1));
         }
 
@@ -487,7 +488,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             {
                 auto colors = Array<vec4>::create(1, *g_transient);
                 colors[0] = WHITE;
-                vec3 P = vec3(-3.0f, 2.0f, 2.0f);
+                vec3 P = vec3(sin((f32)app_input->t) * 3.0f, 2.0f, 2.0f);
                 mesh->instances[2].transform.scale = vec3(0.1f, 0.1f, 0.1f);
                 mesh->instances[2].transform.position = P;
                 mesh->instances[2].transform.rotation = angle_axis(0, up);
@@ -504,7 +505,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
         { renderer->render(thread_context, false, &group, state->handle_3D); }
     }
-    if (false) {
+    if (true) {
         // TIMED_BLOCK("render_game");
         RenderGroup group{};
         group.push_buffer_size = 0;
@@ -513,8 +514,8 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         group.sort_keys.init(g_transient, 1024);
         group.sort_entries_offset.init(g_transient, 1024);
 
-        auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
-        clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
+        // auto* clear = PushRenderElement(&group, RenderEntryClear, 0);
+        // clear->color = vec4(0.0f, 0.0f, 0.0, 0.0);
 
         {
             f32 direction = clamp(state->player.speed.x, -1.0, 1.0);
@@ -522,8 +523,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             // state->player.rotation += app_input->dt;
             state->player.scale = vec2(1.0f, 1.0f);
             state->player.P = vec2(24.0f, 29.0f);
-            auto bitmap_id =
-                get_closest_bitmap_id(state->assets, AssetGroupId_PlayerSpaceShip, AssetTag_SpaceShipDirection, direction);
+            auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_WoodenCrate);
             auto bitmap = get_bitmap(state->assets, bitmap_id);
             if (bitmap) {
                 i32 width = bitmap->width;
@@ -534,15 +534,17 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 auto& player = state->player;
                 auto* render_bm = PushRenderElement(&group, RenderEntryBitmap, 0);
                 render_bm->quad = {
-                    .bl = player.vertices[0],
-                    .tl = player.vertices[1],
-                    .tr = player.vertices[2],
-                    .br = player.vertices[3],
+                    .bl = {0, 0},
+                    .tl = {0, 600},
+                    .tr = {600, 600},
+                    .br = {600, 0}
                 };
-                render_bm->offset = player.P;
-                render_bm->scale = player.scale;
+                render_bm->offset = {0, 0},
+                render_bm->scale = {1, 1};
                 render_bm->rotation = player.rotation;
                 render_bm->texture_id = bitmap_id.value;
+                // render_bm->uv_min = {0, 0};
+                // render_bm->uv_max = {600, 600};
             }
         }
 
@@ -943,7 +945,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         TIMED_BLOCK("frame_buffers_apply");
         // u32 width = (u32)(sinf((f32)app_input->t) * ((f32)client_width / 2));
         // u32 height = (u32)(sinf((f32)app_input->t) * ((f32)client_height / 2));
-        // renderer->apply_framebuffer(thread_context, state->handle_background, client_width, client_height, 0, 0);
+        renderer->apply_framebuffer(thread_context, state->handle_background, { 1, 1 });
         renderer->apply_framebuffer(thread_context, state->handle_3D, { 1, 1 });
         renderer->apply_framebuffer(thread_context, state->handle_UI, { 1, 1 });
     }

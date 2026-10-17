@@ -29,6 +29,7 @@ enum AssetGroupId : u32 {
     AssetGroupId_Explosion,
     AssetGroupId_Test,
     AssetGroupId_TestStripes,
+    AssetGroupId_WoodenCrate,
 
     // Audio
     AssetGroupId_Audio_Laser,

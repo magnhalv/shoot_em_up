@@ -16,6 +16,10 @@ auto inline pack_color_8x4(vec4 color) -> u32 {
     return c;
 }
 
+auto inline pack_color_8x4(u8 r, u8 g, u8 b, u8 a) -> u32 {
+    return a << 24 | b << 16   | g << 8   | r << 0;
+}
+
 inline auto unpack4x8(u32 packed) -> vec4 {
     vec4 result = {
         (f32)((packed >> 16) & 0xFF), //

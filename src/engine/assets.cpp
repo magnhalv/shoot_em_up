@@ -231,7 +231,7 @@ auto load_audio(GameAssets* game_assets, AudioId id) -> void {
 
 auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
     GameAssets* game_assets = allocate<GameAssets>(permanent);
-    game_assets->memory = permanent->allocate_arena(MegaBytes(1));
+    game_assets->memory = permanent->allocate_arena(MegaBytes(8));
 
     PlatformFileGroup platform_file_group = Platform->get_all_files_of_type_begin(PlatformFileType_AssetFile);
     assert(platform_file_group.file_count <= ASSET_FILES_MAX_COUNT);
@@ -298,7 +298,7 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
                     mem_group->first_asset_index = game_assets->asset_count;
 
                     for (auto asset_idx = asset_group->first_asset_index;
-                        asset_idx < asset_group->one_past_last_asset_index; asset_idx++) {
+                         asset_idx < asset_group->one_past_last_asset_index; asset_idx++) {
                         AssetMeta* file_meta = file_assets_meta + asset_idx;
                         game_assets->assets_meta[game_assets->asset_count] = *file_meta;
                         game_assets->assets[game_assets->asset_count].asset_file_index = file_idx;
@@ -307,7 +307,7 @@ auto initialize_game_assets(MemoryArena* permanent) -> GameAssets* {
 
                     mem_group->first_asset_tag_index = game_assets->asset_tag_count;
                     for (auto file_asset_tag_idx = asset_group->first_asset_tag_index;
-                        file_asset_tag_idx < asset_group->one_past_last_asset_tag_index; file_asset_tag_idx++) {
+                         file_asset_tag_idx < asset_group->one_past_last_asset_tag_index; file_asset_tag_idx++) {
 
                         AssetTag* tag = game_assets->asset_tags + game_assets->asset_tag_count++;
                         *tag = *(file_asset_tags + file_asset_tag_idx);
