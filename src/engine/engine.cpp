@@ -466,7 +466,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         if (true) {
-            vec2 center = vec2(app_input->client_width / 2.0f, app_input->client_height / 2.0f);
+            vec3 center = vec3(app_input->client_width / 2.0f, app_input->client_height / 2.0f, 1.0f);
             auto* mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
             generate_cube_mesh(&mesh->model, g_transient);
 
@@ -501,11 +501,44 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
             mesh->world_to_view = camera_get_view(state->camera);
             mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
             mesh->camera_position = vec4(state->camera.m_position, 1.0f);
+
+            auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_WoodenCrate);
+            auto bitmap = get_bitmap(state->assets, bitmap_id);
+            if (bitmap) {
+                i32 width = bitmap->width;
+                i32 height = bitmap->height;
+                void* data = bitmap->data;
+                renderer->add_texture(bitmap_id.value, data, width, height, sizeof(u32));
+
+                auto* triangle1 = PushRenderElement(&group, RenderEntryTriangle, 0);
+                // t = PI + 0.1;
+                triangle1->P0 = vec3(0.0f, 0.0f, 1.0f);
+                triangle1->P1 = vec3(600.0f, 600.0f, 1.0f);
+                triangle1->P2 = vec3(600.0f, 0.0f, 1.0f);
+                triangle1->color = global_color_palette[0];
+                triangle1->texture_id = TextureId{ .v = (i32)bitmap_id.value };
+                triangle1->uv[0] = vec2(0.0f, 0.0f);
+                triangle1->uv[1] = vec2(1.0f, 1.0f);
+                triangle1->uv[2] = vec2(1.0f, 0.0f);
+
+                auto* triangle2 = PushRenderElement(&group, RenderEntryTriangle, 0);
+                // t = PI + 0.1;
+                triangle2->P0 = vec3(0.0f, 0.0f, 1.0f);
+                triangle2->P1 = vec3(0.0f, 600.0f, 1.0f);
+                triangle2->P2 = vec3(600.0f, 600.0f, 1.0f);
+                triangle2->color = global_color_palette[0];
+                triangle2->texture_id = TextureId{ .v = (i32)bitmap_id.value };
+                triangle2->uv[0] = vec2(0.0f, 0.0f);
+                triangle2->uv[1] = vec2(0.0f, 1.0f);
+                triangle2->uv[2] = vec2(1.0f, 1.0f);
+            }
         }
 
-        { renderer->render(thread_context, false, &group, state->handle_3D); }
+        {
+            renderer->render(thread_context, false, &group, state->handle_3D);
+        }
     }
-    if (true) {
+    if (false) {
         // TIMED_BLOCK("render_game");
         RenderGroup group{};
         group.push_buffer_size = 0;
@@ -533,18 +566,12 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                 auto& player = state->player;
                 auto* render_bm = PushRenderElement(&group, RenderEntryBitmap, 0);
-                render_bm->quad = {
-                    .bl = {0, 0},
-                    .tl = {0, 600},
-                    .tr = {600, 600},
-                    .br = {600, 0}
-                };
-                render_bm->offset = {0, 0},
-                render_bm->scale = {1, 1};
+                render_bm->quad = { .bl = { 0, 0 }, .tl = { 0, 600 }, .tr = { 600, 600 }, .br = { 600, 0 } };
+                render_bm->offset = { 0, 0 }, render_bm->scale = { 1, 1 };
                 render_bm->rotation = player.rotation;
                 render_bm->texture_id = bitmap_id.value;
-                // render_bm->uv_min = {0, 0};
-                // render_bm->uv_max = {600, 600};
+                render_bm->uv_min = { 0, 0 };
+                render_bm->uv_max = { 600, 600 };
             }
         }
 

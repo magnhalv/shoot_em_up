@@ -38,16 +38,6 @@ struct Win32RenderInfo {
     Framebuffer buffer;
 };
 
-struct Win32Texture {
-    void* data;
-    i32 width;
-    i32 height;
-    i32 size;
-    i32 count;
-    i32 pitch;
-    i32 bytes_per_pixel;
-};
-
 // TODO: This should probably go to an arena
 struct SWRendererState {
     Win32RenderInfo platform_render_info;
@@ -55,7 +45,7 @@ struct SWRendererState {
     MemoryArena permanent;
     MemoryArena transient;
 
-    Win32Texture textures[MaxTextureId];
+    Texture textures[MaxTextureId];
 };
 
 static SWRendererState state = {};
@@ -356,7 +346,7 @@ static auto draw_bitmap(Quadrilateral quad,     //
     vec2 edge3_border = br_border_c - tr_border_c;
     vec2 edge4_border = bl_border_c - br_border_c;
 
-    Win32Texture* texture = &state.textures[texture_id];
+    Texture* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
     i32 u_max = uv_max.x;
     i32 v_min = uv_min.y;
@@ -523,7 +513,7 @@ static auto draw_bitmap_avx2(                   //
     vec2 edge3 = br_c - tr_c;
     vec2 edge4 = bl_c - br_c;
 
-    Win32Texture* texture = &state.textures[texture_id];
+    Texture* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
     i32 u_max = uv_max.x;
     i32 v_min = uv_min.y;
@@ -750,7 +740,7 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     Platform = platform_api;
     global_debug_table = Platform->debug_table;
 
-    Win32Texture* null_texture = &state.textures[0];
+    Texture* null_texture = &state.textures[0];
     null_texture->height = 1;
     null_texture->width = 1;
     null_texture->count = 1;
@@ -773,7 +763,7 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         return false;
     }
 
-    Win32Texture* texture = &state.textures[texture_id];
+    Texture* texture = &state.textures[texture_id];
     if (texture->data == nullptr) {
         texture->height = height;
         texture->width = width;
@@ -849,13 +839,30 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryTriangle: {
             TIMED_BLOCK("render_entry_triangle");
             auto entry = (RenderEntryTriangle*)data;
-            rasterize_triangle_writeframe_gambetta(entry->P0, entry->P1, entry->P2, entry->color, tile->rect, *framebuffer, transient);
+            TriangleAttribute attr = {};
+            attr.light_intensity[0] = 1.0f;
+            attr.light_intensity[1] = 1.0f;
+            attr.light_intensity[2] = 1.0f;
+
+            if (entry->texture_id.v != 0) {
+                attr.texture = &state.textures[entry->texture_id.v];
+                attr.uv[0] = entry->uv[0];
+                attr.uv[1] = entry->uv[1];
+                attr.uv[2] = entry->uv[2];
+            }
+
+            rasterize_triangle(entry->P0, entry->P1, entry->P2, entry->color, attr, tile->rect, *framebuffer, transient);
+            base_address += sizeof(*entry);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryFilledTriangle: {
             TIMED_BLOCK("render_entry_filled_triangle");
             auto entry = (RenderEntryFilledTriangle*)data;
-            rasterize_triangle(entry->P0, entry->P1, entry->P2, entry->color, {}, tile->rect, *framebuffer, transient);
+            TriangleAttribute attr = {};
+            attr.light_intensity[0] = 1.0f;
+            attr.light_intensity[1] = 1.0f;
+            attr.light_intensity[2] = 1.0f;
+            rasterize_triangle(entry->P0, entry->P1, entry->P2, entry->color, attr, tile->rect, *framebuffer, transient);
             base_address += sizeof(*entry);
         } break;
         case RenderCommands_RenderEntryShadedTriangle: {

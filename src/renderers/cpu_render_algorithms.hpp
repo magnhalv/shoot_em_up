@@ -18,8 +18,20 @@
 
 #include "renderer.hpp"
 
+struct Texture {
+    void* data;
+    i32 width;
+    i32 height;
+    i32 size;
+    i32 count;
+    i32 pitch;
+    i32 bytes_per_pixel;
+};
+
 struct TriangleAttribute {
     f32 light_intensity[3];
+    Texture* texture;
+    vec2 uv[3];
 };
 
 auto inline render_line_bresenham_x(
@@ -485,12 +497,32 @@ auto inline rasterize_triangle(vec3 P0, vec3 P1, vec3 P2, vec4 color, TriangleAt
                     (b > 0 || f20_check > 0) && //
                     (g > 0 || f01_check > 0)    //
                 ) {
-                    f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
-                    f32* Is = attr.light_intensity;
-                    f32 I = a * Is[0] + b * Is[1] + g * Is[2];
-                    vec4 c = color_with_intensitity(I, color);
-                    u32 packed_color = pack_color_8x4(c);
-                    set_pixel_with_z_buffer(x, y, z, packed_color, clip_rect, buffer);
+                    if (attr.texture) {
+
+                        vec2 uv0 = attr.uv[0];
+                        vec2 uv1 = attr.uv[1];
+                        vec2 uv2 = attr.uv[2];
+                        vec2 tex_dim = vec2((f32)(attr.texture->width - 1), (f32)(attr.texture->height - 1));
+
+                        vec2 uv = (a * uv0) + (b * uv1) + (g * uv2);
+                        vec2 texel = uv * tex_dim;
+
+                        u32 c = *((u32*)((u8*)attr.texture->data + (attr.texture->pitch * (i32)texel.y)) + (i32)texel.x);
+                        f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
+                        // f32* Is = attr.light_intensity;
+                        // f32 I = a * Is[0] + b * Is[1] + g * Is[2];
+                        // vec4 c = color_with_intensitity(I, color);
+                        // u32 packed_color = pack_color_8x4(c);
+                        set_pixel_with_z_buffer(x, y, z, c, clip_rect, buffer);
+                    }
+                    else {
+                        f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
+                        f32* Is = attr.light_intensity;
+                        f32 I = a * Is[0] + b * Is[1] + g * Is[2];
+                        vec4 c = color_with_intensitity(I, color);
+                        u32 packed_color = pack_color_8x4(c);
+                        set_pixel_with_z_buffer(x, y, z, packed_color, clip_rect, buffer);
+                    }
                 }
             }
         }
@@ -575,8 +607,8 @@ auto inline rasterize_shaded_triangle_gambetta(vec3 P0, vec3 P1, vec3 P2, f32 h0
 }
 
 auto inline viewport_to_canvas(f32 x, f32 y, f32 z, i32 window_width, i32 window_height) -> vec3 {
-    const f32 new_x = (x * 0.5f + 0.5f) * (window_width - 1);
-    const f32 new_y = (y * 0.5f + 0.5f) * (window_height - 1);
+    const f32 new_x = (x * 0.5f + 0.5f) * (window_width);
+    const f32 new_y = (y * 0.5f + 0.5f) * (window_height);
     return { new_x, new_y, 1 / z };
 }
 

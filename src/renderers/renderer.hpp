@@ -24,6 +24,10 @@ enum RendererType : i32 {
     RendererType_OpenGL    //
 };
 
+struct TextureId {
+    i32 v;
+};
+
 // TODO: delete
 typedef struct {
     vec2 bl;
@@ -143,6 +147,10 @@ struct RenderEntryTriangle {
         };
         vec3 vertices[3];
     };
+
+    TextureId texture_id;
+    vec2 uv[3];
+
     vec4 color;
 };
 
