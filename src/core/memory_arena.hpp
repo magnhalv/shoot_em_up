@@ -37,7 +37,6 @@ struct MemoryArena {
     auto shrink(void* memory, u64 size) -> void;
     auto allocate_arena(u64 request_size) -> MemoryArena*;
     auto clear() -> void;
-    auto clear_to_zero() -> void;
 };
 
 auto inline allocate_arena(void* memory, Size size) -> MemoryArena* {

@@ -982,7 +982,7 @@ extern "C" __declspec(dllexport) RENDERER_RENDER(win32_renderer_render) {
 }
 
 extern "C" __declspec(dllexport) RENDERER_BEGIN_FRAME(win32_renderer_begin_frame) {
-    state.transient.clear_to_zero();
+    state.transient.clear();
 }
 
 extern "C" __declspec(dllexport) RENDERER_END_FRAME(win32_renderer_end_frame) {

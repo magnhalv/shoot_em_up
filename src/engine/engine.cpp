@@ -512,9 +512,9 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                 auto* triangle1 = PushRenderElement(&group, RenderEntryTriangle, 0);
                 // t = PI + 0.1;
-                triangle1->P0 = vec3(0.0f, 0.0f, 1.0f);
+                triangle1->P0 = vec3(0.0f, 1.0f, 1.0f);
                 triangle1->P1 = vec3(600.0f, 600.0f, 1.0f);
-                triangle1->P2 = vec3(600.0f, 0.0f, 1.0f);
+                triangle1->P2 = vec3(600.0f, 1.0f, 1.0f);
                 triangle1->color = global_color_palette[0];
                 triangle1->texture_id = TextureId{ .v = (i32)bitmap_id.value };
                 triangle1->uv[0] = vec2(0.0f, 0.0f);
@@ -523,7 +523,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
 
                 auto* triangle2 = PushRenderElement(&group, RenderEntryTriangle, 0);
                 // t = PI + 0.1;
-                triangle2->P0 = vec3(0.0f, 0.0f, 1.0f);
+                triangle2->P0 = vec3(0.0f, 1.0f, 1.0f);
                 triangle2->P1 = vec3(0.0f, 600.0f, 1.0f);
                 triangle2->P2 = vec3(600.0f, 600.0f, 1.0f);
                 triangle2->color = global_color_palette[0];

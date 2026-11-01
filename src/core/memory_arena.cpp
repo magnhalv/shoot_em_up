@@ -70,16 +70,11 @@ auto MemoryArena::clear() -> void {
     size = 0;
 }
 
-auto MemoryArena::clear_to_zero() -> void {
-    clear_memory(memory, capacity);
-}
-
 auto MemoryArena::init(void* in_memory, u64 in_size) -> void {
     size = 0;
     temp_count = 0;
     memory = (u8*)in_memory;
     capacity = in_size;
-    clear_to_zero();
 }
 
 void set_transient_arena(MemoryArena* arena) {

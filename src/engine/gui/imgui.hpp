@@ -301,7 +301,7 @@ struct UI_Context {
         curr_state_index = curr_state_index == 0 ? 1 : 0;
 
         frame_states[curr_state_index] = {};
-        frame_arenas[curr_state_index]->clear_to_zero();
+        frame_arenas[curr_state_index]->clear();
     }
 };
 
