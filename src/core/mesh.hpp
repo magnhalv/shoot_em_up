@@ -28,33 +28,62 @@ auto inline calculate_face_normals(Array<vec4> vertices, Array<ivec3> triangles,
 }
 
 auto inline generate_cube_mesh(TriMesh* cube, MemoryArena* arena) -> void {
+
     cube->vertices = Array<vec4>::create(8, arena);
-    cube->triangles = Array<ivec3>::create(12, arena);
-
     // front
-    cube->vertices[0] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    cube->vertices[1] = vec4(-1.0f, 1.0f, 1.0f, 1.0f);
-    cube->vertices[2] = vec4(-1.0f, -1.0f, 1.0f, 1.0f);
-    cube->vertices[3] = vec4(1.0f, -1.0f, 1.0f, 1.0f);
-
+    cube->vertices[0] = vec4(-1.0f, -1.0f, -1.0f, 1.0f);
+    cube->vertices[1] = vec4(-1.0f, 1.0f, -1.0f, 1.0f);
+    cube->vertices[2] = vec4(1.0f, 1.0f, -1.0f, 1.0f);
+    cube->vertices[3] = vec4(1.0f, -1.0f, -1.0f, 1.0f);
     // back
-    cube->vertices[4] = vec4(1.0f, 1.0f, -1.0f, 1.0f);
-    cube->vertices[5] = vec4(-1.0f, 1.0f, -1.0f, 1.0f);
-    cube->vertices[6] = vec4(-1.0f, -1.0f, -1.0f, 1.0f);
-    cube->vertices[7] = vec4(1.0f, -1.0f, -1.0f, 1.0f);
+    cube->vertices[4] = vec4(-1.0f, -1.0f, 1.0f, 1.0f);
+    cube->vertices[5] = vec4(-1.0f, 1.0f, 1.0f, 1.0f);
+    cube->vertices[6] = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    cube->vertices[7] = vec4(1.0f, -1.0f, 1.0f, 1.0f);
 
+    cube->triangles = Array<ivec3>::create(12, arena);
+    cube->uv_indicies = Array<ivec3>::create(12, arena);
     cube->triangles[0] = ivec3(0, 1, 2);
+    cube->uv_indicies[0] = ivec3(0, 1, 2);
+
     cube->triangles[1] = ivec3(0, 2, 3);
+    cube->uv_indicies[1] = ivec3(0, 2, 3);
+
     cube->triangles[2] = ivec3(4, 0, 3);
+    cube->uv_indicies[2] = ivec3(0, 1, 2);
+
     cube->triangles[3] = ivec3(4, 3, 7);
+    cube->uv_indicies[3] = ivec3(0, 2, 3);
+
     cube->triangles[4] = ivec3(5, 4, 7);
+    cube->uv_indicies[4] = ivec3(2, 3, 0);
+
     cube->triangles[5] = ivec3(5, 7, 6);
+    cube->uv_indicies[5] = ivec3(2, 0, 1);
+
     cube->triangles[6] = ivec3(1, 5, 6);
+    cube->uv_indicies[6] = ivec3(0, 1, 2);
+
     cube->triangles[7] = ivec3(1, 6, 2);
+    cube->uv_indicies[7] = ivec3(0, 2, 3);
+
     cube->triangles[8] = ivec3(4, 5, 1);
+    cube->uv_indicies[8] = ivec3(0, 1, 2);
+
     cube->triangles[9] = ivec3(4, 1, 0);
+    cube->uv_indicies[9] = ivec3(0, 2, 3);
+
     cube->triangles[10] = ivec3(2, 6, 7);
+    cube->uv_indicies[10] = ivec3(1, 2, 3);
+
     cube->triangles[11] = ivec3(2, 7, 3);
+    cube->uv_indicies[11] = ivec3(1, 3, 0);
+
+    cube->uv = Array<vec2>::create(4, arena);
+    cube->uv[0] = vec2(0.0f, 0.0f);
+    cube->uv[1] = vec2(0.0f, 1.0f);
+    cube->uv[2] = vec2(1.0f, 1.0f);
+    cube->uv[3] = vec2(1.0f, 0.0f);
 
     cube->normals = calculate_face_normals(cube->vertices, cube->triangles, *g_transient);
 }

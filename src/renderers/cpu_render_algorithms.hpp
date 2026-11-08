@@ -453,10 +453,13 @@ auto inline rasterize_triangle(vec3 P0, vec3 P1, vec3 P2, vec4 color, TriangleAt
 
     const f32 x0 = P0.x;
     const f32 y0 = P0.y;
+    const f32 z0 = P0.z;
     const f32 x1 = P1.x;
     const f32 y1 = P1.y;
+    const f32 z1 = P1.z;
     const f32 x2 = P2.x;
     const f32 y2 = P2.y;
+    const f32 z2 = P2.z;
 
     const f32 f12_x0y0 = ((y1 - y2) * x0) + ((x2 - x1) * y0) + (x1 * y2) - (x2 * y1);
     const f32 f20_x1y1 = ((y2 - y0) * x1) + ((x0 - x2) * y1) + (x2 * y0) - (x0 * y2);
@@ -471,6 +474,13 @@ auto inline rasterize_triangle(vec3 P0, vec3 P1, vec3 P2, vec4 color, TriangleAt
     const f32 f20_check = f20_x1y1 * f20_osp;
     const f32 f01_check = f01_x2y2 * f01_osp;
 
+    const vec2 uv0 = attr.uv[0] * z0;
+    const vec2 uv1 = attr.uv[1] * z1;
+    const vec2 uv2 = attr.uv[2] * z2;
+
+    const f32 I0 = attr.light_intensity[0] * z0;
+    const f32 I1 = attr.light_intensity[1] * z0;
+    const f32 I2 = attr.light_intensity[2] * z0;
     for (i32 y = y_min; y < y_max; y++) {
         for (i32 x = x_min; x < x_max; x++) {
             // Check if the center of the pixel fits the coverage
@@ -497,32 +507,27 @@ auto inline rasterize_triangle(vec3 P0, vec3 P1, vec3 P2, vec4 color, TriangleAt
                     (b > 0 || f20_check > 0) && //
                     (g > 0 || f01_check > 0)    //
                 ) {
+
+                    f32 one_over_w = (a)*P0.z + (b)*P1.z + (g)*P2.z;
+                    vec4 c = color;
                     if (attr.texture) {
 
-                        vec2 uv0 = attr.uv[0];
-                        vec2 uv1 = attr.uv[1];
-                        vec2 uv2 = attr.uv[2];
                         vec2 tex_dim = vec2((f32)(attr.texture->width - 1), (f32)(attr.texture->height - 1));
 
+                        // Repeat why this is neccessary
                         vec2 uv = (a * uv0) + (b * uv1) + (g * uv2);
-                        vec2 texel = uv * tex_dim;
+                        uv.x = uv.x / one_over_w;
+                        uv.y = uv.y / one_over_w;
+                        vec2 texel_coord = uv * tex_dim;
 
-                        u32 c = *((u32*)((u8*)attr.texture->data + (attr.texture->pitch * (i32)texel.y)) + (i32)texel.x);
-                        f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
-                        // f32* Is = attr.light_intensity;
-                        // f32 I = a * Is[0] + b * Is[1] + g * Is[2];
-                        // vec4 c = color_with_intensitity(I, color);
-                        // u32 packed_color = pack_color_8x4(c);
-                        set_pixel_with_z_buffer(x, y, z, c, clip_rect, buffer);
+                        u32 texel_packed = *((u32*)((u8*)attr.texture->data + (attr.texture->pitch * (i32)texel_coord.y)) +
+                            (i32)texel_coord.x);
+                        c = unpack4x8_srgb255_to_linear1(texel_packed);
                     }
-                    else {
-                        f32 z = (a)*P0.z + (b)*P1.z + (g)*P2.z;
-                        f32* Is = attr.light_intensity;
-                        f32 I = a * Is[0] + b * Is[1] + g * Is[2];
-                        vec4 c = color_with_intensitity(I, color);
-                        u32 packed_color = pack_color_8x4(c);
-                        set_pixel_with_z_buffer(x, y, z, packed_color, clip_rect, buffer);
-                    }
+                    f32 I = (a * I0 + b * I1 + g * I2) / one_over_w;
+                    vec4 lighted_color = color_with_intensitity(I, c);
+                    u32 packed_color = linear1_to_packed8x4_srgb255(lighted_color);
+                    set_pixel_with_z_buffer(x, y, one_over_w, packed_color, clip_rect, buffer);
                 }
             }
         }
@@ -818,9 +823,10 @@ auto inline compute_lighting(vec3 point, vec3 normal, Array<Light> lights, mat4 
 const Size MAX_VERTEX_COUNT = 1024;
 const Size MAX_TRIANGLE_COUNT = 512;
 
-auto inline render_mesh_gambetta(                                      //
-    Array<vec4> vertices, Array<ivec3> triangles, Array<vec3> normals, //
-    Array<MeshInstance> instances,                                     //
+auto inline render_mesh_gambetta( //
+    TriMesh* mesh,
+    Array<MeshInstance> instances, //
+    Texture* texture,              //
     Array<Light> lights,
     const mat4& world_to_view,                 //
     const mat4& view_to_clip,                  //
@@ -828,7 +834,6 @@ auto inline render_mesh_gambetta(                                      //
     bool is_wireframe,                         //
     Rectangle2i clip_rect, Framebuffer& buffer //
     ) -> void {
-    i32 triangles_rasterized = 0;
     Temp temp = scratch_begin();
     for (const auto& instance : instances) {
         mat4 M_to_W = instance.transform.to_mat4();
@@ -836,21 +841,25 @@ auto inline render_mesh_gambetta(                                      //
         vec4 cam_pos_M = camera_direction * W_to_M;
 
         // Backface culling
-        auto not_culled_triangles = List<ivec3>::create(triangles.count(), temp.arena);
-        auto not_culled_normals = List<vec3>::create(triangles.count(), temp.arena);
-        auto attrs = List<TriangleAttribute>::create(triangles.count(), temp.arena);
-        for (u32 i = 0; i < normals.count(); i++) {
-            const ivec3 triangle = triangles[i];
+        auto not_culled_triangles = List<ivec3>::create(mesh->triangles.count(), temp.arena);
+        auto not_culled_normals = List<vec3>::create(mesh->triangles.count(), temp.arena);
+        auto attrs = List<TriangleAttribute>::create(mesh->triangles.count(), temp.arena);
+        for (u32 i = 0; i < mesh->triangles.count(); i++) {
+            const ivec3 triangle = mesh->triangles[i];
             const i32 sampe_vertex_idx = triangle.x;
-            const vec4 sample_vertex = vertices[sampe_vertex_idx];
+            const vec4 sample_vertex = mesh->vertices[sampe_vertex_idx];
             const vec3 cam_direction_M = (sample_vertex - cam_pos_M).xyz();
-            if (dot(cam_direction_M, normals[i]) < 0) {
-                not_culled_triangles.push(triangles[i]);
-                not_culled_normals.push(normals[i]);
+            if (dot(cam_direction_M, mesh->normals[i]) < 0) {
+                not_culled_triangles.push(mesh->triangles[i]);
+                not_culled_normals.push(mesh->normals[i]);
                 TriangleAttribute attr = {};
-                attr.light_intensity[0] = compute_lighting(vertices[triangle.x].xyz(), normals[i], lights, W_to_M);
-                attr.light_intensity[1] = compute_lighting(vertices[triangle.y].xyz(), normals[i], lights, W_to_M);
-                attr.light_intensity[2] = compute_lighting(vertices[triangle.z].xyz(), normals[i], lights, W_to_M);
+                attr.light_intensity[0] = compute_lighting(mesh->vertices[triangle.x].xyz(), mesh->normals[i], lights, W_to_M);
+                attr.light_intensity[1] = compute_lighting(mesh->vertices[triangle.y].xyz(), mesh->normals[i], lights, W_to_M);
+                attr.light_intensity[2] = compute_lighting(mesh->vertices[triangle.z].xyz(), mesh->normals[i], lights, W_to_M);
+                attr.uv[0] = mesh->uv[mesh->uv_indicies[i].x];
+                attr.uv[1] = mesh->uv[mesh->uv_indicies[i].y];
+                attr.uv[2] = mesh->uv[mesh->uv_indicies[i].z];
+                attr.texture = texture;
                 attrs.push(attr);
             }
         }
@@ -859,8 +868,8 @@ auto inline render_mesh_gambetta(                                      //
         auto clip_space_vertices = List<vec4>::create(MAX_VERTEX_COUNT, temp.arena);
         mat4 M_to_C = M_to_W * world_to_view;
         mat4 M_to_Clip = M_to_C * view_to_clip;
-        for (u32 i = 0; i < vertices.count(); i++) {
-            clip_space_vertices.push(vertices[i] * M_to_Clip);
+        for (u32 i = 0; i < mesh->vertices.count(); i++) {
+            clip_space_vertices.push(mesh->vertices[i] * M_to_Clip);
         }
 
         // Clip triangles
@@ -897,8 +906,6 @@ auto inline render_mesh_gambetta(                                      //
                     a, b, c, color, clipped_attrs[i], clip_rect, buffer, temp.arena);
             }
         }
-        triangles_rasterized += clipped_triangles.count();
         scratch_end(temp);
     }
-    printf("Rasterized triangles: %d\n", triangles_rasterized);
 }

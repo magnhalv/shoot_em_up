@@ -875,9 +875,14 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryTriMesh: {
             TIMED_BLOCK("render_entry_tri_mesh");
             auto entry = (RenderEntryTriMesh*)data;
-            render_mesh_gambetta(                                                    //
-                entry->model.vertices, entry->model.triangles, entry->model.normals, //
-                entry->instances,                                                    //
+            Texture* texture = nullptr;
+            if (entry->model.texture_id.v != 0) {
+                texture = &state.textures[entry->model.texture_id.v];
+            }
+            render_mesh_gambetta( //
+                &entry->model,    //
+                entry->instances, //
+                texture,          //
                 group->lights.to_array(),
                 entry->world_to_view,   //
                 entry->view_to_clip,    //
@@ -888,9 +893,10 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryTriMeshWireframe: {
             TIMED_BLOCK("render_entry_wireframe");
             auto entry = (RenderEntryTriMesh*)data;
-            render_mesh_gambetta(                                                    //
-                entry->model.vertices, entry->model.triangles, entry->model.normals, //
-                entry->instances,                                                    //
+            render_mesh_gambetta( //
+                &entry->model,    //
+                entry->instances, //
+                nullptr,          //
                 group->lights.to_array(),
                 entry->world_to_view,   //
                 entry->view_to_clip,    //

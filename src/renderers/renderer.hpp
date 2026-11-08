@@ -183,8 +183,13 @@ struct RenderEntryShadedTriangle {
 
 struct TriMesh {
     Array<vec4> vertices;
-    Array<ivec3> triangles;
     Array<vec3> normals;
+    Array<vec2> uv;
+
+    Array<ivec3> triangles;
+    Array<ivec3> normal_indicies;
+    Array<ivec3> uv_indicies;
+    TextureId texture_id;
 };
 
 struct MeshInstance {
