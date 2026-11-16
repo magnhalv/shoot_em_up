@@ -45,7 +45,7 @@ struct SWRendererState {
     MemoryArena permanent;
     MemoryArena transient;
 
-    Bitmap textures[MaxTextureId];
+    Texture textures[MaxTextureId];
 };
 
 static SWRendererState state = {};
@@ -234,6 +234,14 @@ static void clear_check_pattern(Framebuffer& buffer, Tile* tile, vec4 color1, ve
     }
 }
 
+static auto get_texture(TextureId id) -> Texture* {
+    Texture* result = &state.textures[id.v];
+    if (result->mip_levels.count() > 0) {
+        return result;
+    }
+    return &state.textures[0];
+}
+
 static auto clear(i32 client_width, i32 client_height, vec4 color, Tile* tile, Framebuffer* buffer) {
     if (tile->is_initialized == false) {
         tile->is_dirty = true;
@@ -346,7 +354,7 @@ static auto draw_bitmap(Quadrilateral quad,     //
     vec2 edge3_border = br_border_c - tr_border_c;
     vec2 edge4_border = bl_border_c - br_border_c;
 
-    Bitmap* texture = &state.textures[texture_id];
+    Bitmap* texture = &state.textures[texture_id].mip_levels[0];
     i32 u_min = uv_min.x;
     i32 u_max = uv_max.x;
     i32 v_min = uv_min.y;
@@ -426,15 +434,12 @@ static auto draw_bitmap(Quadrilateral quad,     //
                         f32 v_frac = clamp(v - (f32)y0, 0.0f, 1.0f);
 
                         Assert(texture->bytes_per_pixel == 4);
-                        u32* data = (u32*)state.textures[texture_id].data;
+                        u32* data = (u32*)texture->data;
                         // Bilinear filtering
                         vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));
-                        vec4 texel10_l1 = unpack4x8_srgb255_to_linear1(
-                            *((u32*)state.textures[texture_id].data + (y0 * texture->width) + x1));
-                        vec4 texel01_l1 = unpack4x8_srgb255_to_linear1(
-                            *((u32*)state.textures[texture_id].data + (y1 * texture->width) + x0));
-                        vec4 texel11_l1 = unpack4x8_srgb255_to_linear1(
-                            *((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));
+                        vec4 texel10_l1 = unpack4x8_srgb255_to_linear1(*((u32*)texture->data + (y0 * texture->width) + x1));
+                        vec4 texel01_l1 = unpack4x8_srgb255_to_linear1(*((u32*)texture->data + (y1 * texture->width) + x0));
+                        vec4 texel11_l1 = unpack4x8_srgb255_to_linear1(*((u32*)texture->data + (y1 * texture->width) + x1));
 
                         src_color_l1 = lerp(                       //
                             lerp(texel00_l1, u_frac, texel10_l1),  //
@@ -513,15 +518,15 @@ static auto draw_bitmap_avx2(                   //
     vec2 edge3 = br_c - tr_c;
     vec2 edge4 = bl_c - br_c;
 
-    Bitmap* texture = &state.textures[texture_id];
+    Bitmap* bitmap = &state.textures[texture_id].mip_levels[0];
     i32 u_min = uv_min.x;
     i32 u_max = uv_max.x;
     i32 v_min = uv_min.y;
     i32 v_max = uv_max.y;
 
     if (u_max == 0 || v_max == 0) {
-        u_max = texture->width - 1;
-        v_max = texture->height - 1;
+        u_max = bitmap->width - 1;
+        v_max = bitmap->height - 1;
     }
 
     f32 tex_range_u = (f32)(u_max - u_min);
@@ -653,8 +658,8 @@ static auto draw_bitmap_avx2(                   //
                 y0_v8 = clamp_i32_v8(v_min, y0_v8, v_max);
                 y1_v8 = clamp_i32_v8(v_min, y1_v8, v_max);
 
-                Assert(texture->bytes_per_pixel == 4);
-                u32* data = (u32*)state.textures[texture_id].data;
+                Assert(bitmap->bytes_per_pixel == 4);
+                u32* data = (u32*)bitmap->data;
                 // Bilinear filtering
 
                 /*vec4 texel00_l1 = unpack4x8_srgb255_to_linear1(*(data + (y0 * texture->width) + x0));*/
@@ -665,7 +670,7 @@ static auto draw_bitmap_avx2(                   //
                 /*vec4 texel11_l1 =*/
                 /*    unpack4x8_srgb255_to_linear1(*((u32*)state.textures[texture_id].data + (y1 * texture->width) + x1));*/
 
-                __m256i width_v8 = _mm256_set1_epi32(texture->width);
+                __m256i width_v8 = _mm256_set1_epi32(bitmap->width);
 
                 __m256i texel_idx_00_v8 = _mm256_add_epi32(x0_v8, _mm256_mullo_epi32(y0_v8, width_v8));
                 __m256i texel_idx_10_v8 = _mm256_add_epi32(x1_v8, _mm256_mullo_epi32(y0_v8, width_v8));
@@ -740,15 +745,9 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     Platform = platform_api;
     global_debug_table = Platform->debug_table;
 
-    Bitmap* null_texture = &state.textures[0];
-    null_texture->height = 1;
-    null_texture->width = 1;
-    null_texture->count = 1;
-    null_texture->bytes_per_pixel = BYTES_PER_PIXEL;
-    null_texture->size = null_texture->count * null_texture->bytes_per_pixel;
-    null_texture->data = allocate<u32>(state.permanent);
-    u32* data = (u32*)null_texture->data;
-    *data = pack_color_8x4(vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    u32 data[1] = { pack_color_8x4(vec4(1.0f, 0.0f, 1.0f, 1.0f)) };
+    state.textures[0] = generate_mip_map_texture(data, 1, 1, &state.permanent);
+    Assert(state.textures[0].mip_levels.count() == 1)
 }
 
 extern "C" __declspec(dllexport) RENDERER_DELETE_CONTEXT(win32_renderer_delete_context) {
@@ -763,21 +762,16 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         return false;
     }
 
-    Bitmap* texture = &state.textures[texture_id];
-    if (texture->data == nullptr) {
-        texture->height = height;
-        texture->width = width;
-        texture->bytes_per_pixel = bytes_per_pixel;
-        texture->size = width * height * texture->bytes_per_pixel;
-        texture->count = width * height;
-        texture->pitch = width * texture->bytes_per_pixel;
-        texture->data = state.permanent.allocate(texture->size);
+    Assert(bytes_per_pixel == 4);
+    Texture* texture = &state.textures[texture_id];
+    MemoryArena* transient = tctx_get_scratch(nullptr, 0);
+    if (texture->mip_levels.count() == 0) {
+        Bitmap temp = Bitmap::create(width, height, transient);
 
-        Assert(texture->bytes_per_pixel == 4);
         // Windows want ARGB
         u32* source = (u32*)data;
-        u32* dest = (u32*)texture->data;
-        for (auto i = 0; i < texture->count; i++) {
+        u32* dest = (u32*)temp.data;
+        for (auto i = 0; i < temp.count; i++) {
             u8 red = (*source >> 0) & 0xFF;
             u8 green = (*source >> 8) & 0xFF;
             u8 blue = (*source >> 16) & 0xFF;
@@ -785,6 +779,8 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
             *dest++ = alpha << 24 | red << 16 | green << 8 | blue;
             source++;
         }
+
+        *texture = generate_mip_map_texture((u32*)temp.data, temp.width, temp.height, &state.permanent);
         log_info("Texture added");
         return true;
     }
@@ -844,12 +840,11 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
             attr.light_intensity[1] = 1.0f;
             attr.light_intensity[2] = 1.0f;
 
-            if (entry->texture_id.v != 0) {
-                attr.texture = &state.textures[entry->texture_id.v];
-                attr.uv[0] = entry->uv[0];
-                attr.uv[1] = entry->uv[1];
-                attr.uv[2] = entry->uv[2];
-            }
+            Texture* texture = get_texture(entry->texture_id);
+            attr.texture = &texture->mip_levels[0];
+            attr.uv[0] = entry->uv[0];
+            attr.uv[1] = entry->uv[1];
+            attr.uv[2] = entry->uv[2];
 
             rasterize_triangle(entry->P0, entry->P1, entry->P2, entry->color, attr, tile->rect, *framebuffer, transient);
             base_address += sizeof(*entry);
@@ -875,14 +870,11 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryTriMesh: {
             TIMED_BLOCK("render_entry_tri_mesh");
             auto entry = (RenderEntryTriMesh*)data;
-            Bitmap* texture = nullptr;
-            if (entry->model.texture_id.v != 0) {
-                texture = &state.textures[entry->model.texture_id.v];
-            }
+            Texture* texture = get_texture(entry->model.texture_id);
             render_mesh_gambetta( //
                 &entry->model,    //
                 entry->instances, //
-                texture, entry->model.texture_wrap_mode, group->lights.to_array(),
+                &texture->mip_levels[0], entry->model.texture_wrap_mode, group->lights.to_array(),
                 entry->world_to_view,   //
                 entry->view_to_clip,    //
                 entry->camera_position, //

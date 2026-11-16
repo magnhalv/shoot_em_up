@@ -346,4 +346,20 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "mipmap") {
             CHECK(are_equal);
         }
     }
+    {
+        const i32 width = 1;
+        const i32 height = 1;
+        u32 data[1] = { red };
+
+        u32 expected_level0[1] = { red };
+
+        Texture texture = generate_mip_map_texture(data, width, height, &arena);
+
+        REQUIRE_EQ(texture.mip_levels.count(), 1);
+        bool are_equal = texture.mip_levels[0].at(0) == expected_level0[0];
+        if (!are_equal) {
+            printf("0x%08x - 0x%08x\n", texture.mip_levels[0].at(0), expected_level0[0]);
+        }
+        CHECK(are_equal);
+    }
 }
