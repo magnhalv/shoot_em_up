@@ -10,13 +10,13 @@
 auto initialize_memory_lib() -> void {
     if (cpu_supports_avx512f()) {
         // TODO: Implement AVX512
-        copy_memory = copy_memory_AVX2;
+        copy_memory_from_to = copy_memory_AVX2;
     }
     else if (cpu_supports_avx2()) {
-        copy_memory = copy_memory_AVX2;
+        copy_memory_from_to = copy_memory_AVX2;
     }
     else {
-        copy_memory = copy_memory_scalar;
+        copy_memory_from_to = copy_memory_scalar;
     }
 }
 

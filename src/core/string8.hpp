@@ -9,7 +9,7 @@
 
 #include <third-party/stb_sprintf.hpp>
 // https://graphics.stanford.edu/~seander/bithacks.html
-#define HAS_ZERO_BYTE (v)(((v)-0x01010101UL) & ~(v) & 0x80808080UL)
+#define HAS_ZERO_BYTE (v)(((v) - 0x01010101UL) & ~(v) & 0x80808080UL)
 auto inline c_string_length(const char* str) -> Size {
     Size counter = 0;
     while ((*str++) != '\0') {
@@ -33,7 +33,7 @@ struct String8 {
         String8 result;
         result.size = c_string_length(cstr);
         result.data = allocate<char>(arena, result.size);
-        copy_memory(cstr, result.data, result.size);
+        copy_memory_from_to(cstr, result.data, result.size);
         return result;
     }
 
@@ -94,8 +94,8 @@ auto inline string8_concat(CString8 a, CString8 b, MemoryArena* arena) -> CStrin
     Size new_length = a.size + b.size;
     char* memory = allocate<char>(arena, new_length);
 
-    copy_memory((void*)a.data, (void*)memory, a.size);
-    copy_memory((void*)b.data, (void*)(memory + a.size), b.size);
+    copy_memory_from_to((void*)a.data, (void*)memory, a.size);
+    copy_memory_from_to((void*)b.data, (void*)(memory + a.size), b.size);
 
     return { memory, new_length };
 }

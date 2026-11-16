@@ -87,3 +87,28 @@ auto inline generate_cube_mesh(TriMesh* cube, MemoryArena* arena) -> void {
 
     cube->normals = calculate_face_normals(cube->vertices, cube->triangles, *g_transient);
 }
+
+auto inline generate_plane_mesh(TriMesh* mesh, MemoryArena* arena) -> void {
+    mesh->vertices = Array<vec4>::create(4, arena);
+    // front
+    mesh->vertices[0] = vec4(-1.0f, 0.0f, -1.0f, 1.0f);
+    mesh->vertices[1] = vec4(-1.0f, 0.0f, 1.0f, 1.0f);
+    mesh->vertices[2] = vec4(1.0f, 0.0f, 1.0f, 1.0f);
+    mesh->vertices[3] = vec4(1.0f, 0.0f, -1.0f, 1.0f);
+
+    mesh->triangles = Array<ivec3>::create(2, arena);
+    mesh->uv_indicies = Array<ivec3>::create(2, arena);
+    mesh->triangles[0] = ivec3(0, 1, 2);
+    mesh->uv_indicies[0] = ivec3(0, 1, 2);
+
+    mesh->triangles[1] = ivec3(0, 2, 3);
+    mesh->uv_indicies[1] = ivec3(0, 2, 3);
+
+    mesh->uv = Array<vec2>::create(4, arena);
+    mesh->uv[0] = vec2(0.0f, 0.0f);
+    mesh->uv[1] = vec2(0.0f, 1.0f);
+    mesh->uv[2] = vec2(1.0f, 1.0f);
+    mesh->uv[3] = vec2(1.0f, 0.0f);
+
+    mesh->normals = calculate_face_normals(mesh->vertices, mesh->triangles, *g_transient);
+}

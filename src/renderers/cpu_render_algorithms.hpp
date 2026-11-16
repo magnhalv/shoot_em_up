@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <math/math.hpp>
 #include <platform/platform.hpp>
 #include <platform/types.hpp>
@@ -18,7 +19,9 @@
 
 #include "renderer.hpp"
 
-struct Texture {
+const i32 PIXEL_SIZE = 4;
+
+struct Bitmap {
     void* data;
     i32 width;
     i32 height;
@@ -26,13 +29,94 @@ struct Texture {
     i32 count;
     i32 pitch;
     i32 bytes_per_pixel;
+
+    auto inline at(i32 i) -> u32 {
+        i32 location = (i * bytes_per_pixel);
+        Assert(location < size);
+        return *(u32*)((u8*)data + location);
+    }
+    auto inline at(i32 x, i32 y) -> u32 {
+        i32 location = (y * pitch) + (x * bytes_per_pixel);
+        Assert(location < size);
+        return *(u32*)((u8*)data + location);
+    }
+
+    auto inline set(i32 x, i32 y, u32 value) -> void {
+        i32 location = (y * pitch) + (x * bytes_per_pixel);
+        Assert(location < size);
+        *(u32*)((u8*)data + location) = value;
+    }
+
+    static auto create(i32 width, i32 height, MemoryArena* arena) -> Bitmap {
+        Bitmap result;
+        result.width = width;
+        result.height = height;
+        result.count = width * height;
+        result.size = width * height * PIXEL_SIZE;
+        result.pitch = width * PIXEL_SIZE;
+        result.bytes_per_pixel = PIXEL_SIZE;
+        result.data = arena->allocate(result.size);
+        return result;
+    }
+};
+
+struct Texture {
+    Array<Bitmap> mip_levels;
+
+    // TODO:
+    // void* memory
+    // void* memory_size
 };
 
 struct TriangleAttribute {
-    f32 light_intensity[3];
-    Texture* texture;
+    // TODO: This is bad. Figure out something.
+    bool hasLight;
+    StackArray<f32, 3> light_intensity;
+    Bitmap* texture;
+    TextureWrapMode texture_wrap_mode;
     vec2 uv[3];
 };
+
+// TODO: Premultiplied alpha
+auto inline generate_mip_map_texture(u32* data, i32 width, i32 height, MemoryArena* arena) -> Texture {
+    Texture result = {};
+
+    i32 level_count = floor_log2(hm::max(width, height)) + 1;
+
+    result.mip_levels = Array<Bitmap>::create(level_count, arena);
+
+    result.mip_levels[0] = Bitmap::create(width, height, arena);
+    copy_memory_from_to(data, result.mip_levels[0].data, result.mip_levels[0].size);
+
+    const i32 mask_size = 2;
+    for (i32 level = 1; level < level_count; level++) {
+        Bitmap* src_level = &result.mip_levels[level - 1];
+
+        i32 target_width = hm::max(src_level->width / 2, 1);
+        i32 target_height = hm::max(src_level->height / 2, 1);
+
+        Bitmap* target_level = &result.mip_levels[level];
+        *target_level = Bitmap::create(target_width, target_height, arena);
+
+        for (i32 y = 0; y < target_height; y++) {
+            for (i32 x = 0; x < target_width; x++) {
+                i32 x0 = clamp(x * mask_size, 0, src_level->width - 1);
+                i32 y0 = clamp(y * mask_size, 0, src_level->height - 1);
+                i32 x1 = clamp(x0 + 1, 0, src_level->width - 1);
+                i32 y1 = clamp(y0 + 1, 0, src_level->height - 1);
+                vec4 c00 = unpack4x8_srgb255_to_linear1(src_level->at(x0, y0));
+                vec4 c10 = unpack4x8_srgb255_to_linear1(src_level->at(x1, y0));
+                vec4 c01 = unpack4x8_srgb255_to_linear1(src_level->at(x0, y1));
+                vec4 c11 = unpack4x8_srgb255_to_linear1(src_level->at(x1, y1));
+                vec4 c = (c00 + c10 + c01 + c11) * 0.25;
+                u32 packed_color = linear1_to_packed8x4_srgb255(c);
+
+                target_level->set(x, y, packed_color);
+            }
+        }
+    }
+    return result;
+}
 
 auto inline render_line_bresenham_x(
     i32 xs, i32 ys, i32 xe, i32 ye, i32 dx, i32 dy, u32 color, Rectangle2i clip_rect, Framebuffer& buffer) {
@@ -129,7 +213,7 @@ auto inline set_pixels(i32 x_start, i32 x_end, i32 y, u32 color, Rectangle2i cli
         return;
     }
     x_start = hm::max(x_start, clip_rect.min_x);
-    x_end = hm::min(x_end, clip_rect.min_x);
+    x_end = hm::min(x_end, clip_rect.max_x);
     Assert(x_start <= x_end);
     set_memory_u32(buffer.get_pixel(x_start, y), color, x_end - x_start);
 }
@@ -436,6 +520,37 @@ auto inline rasterize_triangle_filled_gambetta(
     // render_line_gambetta_internal(P2, P0, packed_color, clip_rect, buffer, arena);
 }
 
+// Assuming clamping here
+auto inline get_texel_bilinear_linear1(Bitmap* texture, TextureWrapMode wrap_mode, vec2 uv) -> vec4 {
+    f32 tx = (uv.x * texture->width) - .5f;
+    f32 ty = (uv.y * texture->height) - .5f;
+    f32 fx = get_fraction_f32(tx);
+    f32 fy = get_fraction_f32(ty);
+
+    i32 x0 = floor_f32_to_i32(tx);
+    i32 y0 = floor_f32_to_i32(ty);
+    i32 x1 = x0 + 1;
+    i32 y1 = y0 + 1;
+
+    if (wrap_mode == TextureWrapMode__Repeat) {
+        x0 %= texture->width;
+        y0 %= texture->height;
+        x1 %= texture->width;
+        y1 %= texture->height;
+    }
+
+    vec4 t00 = unpack4x8_srgb255_to_linear1(*((u32*)((u8*)texture->data + (texture->pitch * y0)) + x0));
+    vec4 t10 = unpack4x8_srgb255_to_linear1(*((u32*)((u8*)texture->data + (texture->pitch * y0)) + x1));
+    vec4 t01 = unpack4x8_srgb255_to_linear1(*((u32*)((u8*)texture->data + (texture->pitch * y1)) + x0));
+    vec4 t11 = unpack4x8_srgb255_to_linear1(*((u32*)((u8*)texture->data + (texture->pitch * y1)) + x1));
+
+    vec4 result = lerp(      //
+        lerp(t00, fx, t10),  //
+        fy,                  //
+        lerp(t01, fx, t11)); //
+    return result;
+}
+
 auto inline rasterize_triangle(vec3 P0, vec3 P1, vec3 P2, vec4 color, TriangleAttribute attr, Rectangle2i clip_rect,
     Framebuffer& buffer, MemoryArena* arena) -> void {
 
@@ -478,9 +593,14 @@ auto inline rasterize_triangle(vec3 P0, vec3 P1, vec3 P2, vec4 color, TriangleAt
     const vec2 uv1 = attr.uv[1] * z1;
     const vec2 uv2 = attr.uv[2] * z2;
 
-    const f32 I0 = attr.light_intensity[0] * z0;
-    const f32 I1 = attr.light_intensity[1] * z0;
-    const f32 I2 = attr.light_intensity[2] * z0;
+    f32 I0 = 1.0f;
+    f32 I1 = 1.0f;
+    f32 I2 = 1.0f;
+    if (attr.hasLight) {
+        I0 = attr.light_intensity[0] * z0;
+        I1 = attr.light_intensity[1] * z1;
+        I2 = attr.light_intensity[2] * z2;
+    }
     for (i32 y = y_min; y < y_max; y++) {
         for (i32 x = x_min; x < x_max; x++) {
             // Check if the center of the pixel fits the coverage
@@ -507,22 +627,15 @@ auto inline rasterize_triangle(vec3 P0, vec3 P1, vec3 P2, vec4 color, TriangleAt
                     (b > 0 || f20_check > 0) && //
                     (g > 0 || f01_check > 0)    //
                 ) {
-
                     f32 one_over_w = (a)*P0.z + (b)*P1.z + (g)*P2.z;
                     vec4 c = color;
                     if (attr.texture) {
-
-                        vec2 tex_dim = vec2((f32)(attr.texture->width - 1), (f32)(attr.texture->height - 1));
 
                         // Repeat why this is neccessary
                         vec2 uv = (a * uv0) + (b * uv1) + (g * uv2);
                         uv.x = uv.x / one_over_w;
                         uv.y = uv.y / one_over_w;
-                        vec2 texel_coord = uv * tex_dim;
-
-                        u32 texel_packed = *((u32*)((u8*)attr.texture->data + (attr.texture->pitch * (i32)texel_coord.y)) +
-                            (i32)texel_coord.x);
-                        c = unpack4x8_srgb255_to_linear1(texel_packed);
+                        c = get_texel_bilinear_linear1(attr.texture, attr.texture_wrap_mode, uv);
                     }
                     f32 I = (a * I0 + b * I1 + g * I2) / one_over_w;
                     vec4 lighted_color = color_with_intensitity(I, c);
@@ -825,8 +938,8 @@ const Size MAX_TRIANGLE_COUNT = 512;
 
 auto inline render_mesh_gambetta( //
     TriMesh* mesh,
-    Array<MeshInstance> instances, //
-    Texture* texture,              //
+    Array<MeshInstance> instances,                      //
+    Bitmap* texture, TextureWrapMode texture_wrap_mode, //
     Array<Light> lights,
     const mat4& world_to_view,                 //
     const mat4& view_to_clip,                  //
@@ -856,10 +969,12 @@ auto inline render_mesh_gambetta( //
                 attr.light_intensity[0] = compute_lighting(mesh->vertices[triangle.x].xyz(), mesh->normals[i], lights, W_to_M);
                 attr.light_intensity[1] = compute_lighting(mesh->vertices[triangle.y].xyz(), mesh->normals[i], lights, W_to_M);
                 attr.light_intensity[2] = compute_lighting(mesh->vertices[triangle.z].xyz(), mesh->normals[i], lights, W_to_M);
+                attr.hasLight = true;
                 attr.uv[0] = mesh->uv[mesh->uv_indicies[i].x];
                 attr.uv[1] = mesh->uv[mesh->uv_indicies[i].y];
                 attr.uv[2] = mesh->uv[mesh->uv_indicies[i].z];
                 attr.texture = texture;
+                attr.texture_wrap_mode = texture_wrap_mode;
                 attrs.push(attr);
             }
         }

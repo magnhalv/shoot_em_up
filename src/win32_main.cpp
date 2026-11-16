@@ -1432,7 +1432,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
                         if (is_success) {
                             printf("Started playback.\n");
                             is_playing_back = true;
-                            copy_memory(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
+                            copy_memory_from_to(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
                         }
                         else {
                             printf("Failed to start playback.\n");
@@ -1446,7 +1446,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
                 if (is_playing_back) {
                     if (playback.current_playback_frame == playback.num_frames_recorded) {
-                        copy_memory(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
+                        copy_memory_from_to(playback.permanent_memory, engine_memory.permanent, Permanent_Memory_Block_Size);
                         playback.current_playback_frame = 0;
                     }
                     engine_input = playback.input[playback.current_playback_frame++];

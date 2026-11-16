@@ -58,7 +58,7 @@ DEBUG_FRAME_END(debug_frame_end) {
     }
 
     u32 current_thread_node_indexes[TOTAL_THREAD_COUNT] = {};
-    copy_memory(original_thread_node_indexes, current_thread_node_indexes, sizeof(u32) * TOTAL_THREAD_COUNT);
+    copy_memory_from_to(original_thread_node_indexes, current_thread_node_indexes, sizeof(u32) * TOTAL_THREAD_COUNT);
     frame_node->first_kid_idx = current_thread_node_indexes[0];
 
     // For each thread, add any non-closed branch from the previous frame

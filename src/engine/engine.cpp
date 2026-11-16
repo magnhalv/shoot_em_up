@@ -25,6 +25,7 @@
 #include "core/mesh.hpp"
 #include "core/string8.hpp"
 #include "engine.hpp"
+#include "engine/hugin_file_formats.hpp"
 #include "gameplay.hpp"
 #include "globals.hpp"
 #include "gui/imgui.hpp"
@@ -466,7 +467,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
         }
 
         if (true) {
-            auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_WoodenCrate);
+            auto bitmap_id = get_first_bitmap_id(state->assets, AssetGroupId_CheckerBoard);
             auto bitmap = get_bitmap(state->assets, bitmap_id);
             if (bitmap) {
                 renderer->add_texture(bitmap_id.value, bitmap->data, bitmap->width, bitmap->height, sizeof(u32));
@@ -476,7 +477,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 generate_cube_mesh(&mesh->model, g_transient);
 
                 mesh->instances = Array<MeshInstance>::create(3, g_transient);
-                mesh->model.texture_id = TextureId { .v = (i32)bitmap_id.value};
+                mesh->model.texture_id = TextureId{ .v = (i32)bitmap_id.value };
 
                 const vec3 up(0.0f, 1.0f, 0.0f);
                 const vec3 right(1.0f, 0.0f, 0.0f);
@@ -486,7 +487,7 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 mesh->instances[0].colors = global_color_palette.to_array();
 
                 mesh->instances[1].transform.scale = vec3(1.0f, 1.0f, 1.0f);
-                mesh->instances[1].transform.position = vec3(1.5f, 1.0f, 4.0f);
+                mesh->instances[1].transform.position = vec3(1.5f, sqrt(2.0f) / 4, 4.0f);
                 mesh->instances[1].transform.rotation = angle_axis((f32)app_input->t * 0.5f, right);
                 mesh->instances[1].colors = global_color_palette.to_array();
 
@@ -508,31 +509,26 @@ ENGINE_UPDATE_AND_RENDER(update_and_render) {
                 mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
                 mesh->camera_position = vec4(state->camera.m_position, 1.0f);
 
-                if (false) {
+                if (true) {
+                    auto* plane_mesh = PushRenderElement(&group, RenderEntryTriMesh, 0);
+                    generate_plane_mesh(&plane_mesh->model, g_transient);
 
-                    auto* triangle1 = PushRenderElement(&group, RenderEntryTriangle, 0);
-                    // t = PI + 0.1;
-                    triangle1->P0 = vec3(0.0f, 1.0f, 1.0f);
-                    triangle1->P1 = vec3(600.0f, 600.0f, 1.0f);
-                    triangle1->P2 = vec3(600.0f, 1.0f, 1.0f);
-                    triangle1->color = global_color_palette[0];
-                    triangle1->texture_id = TextureId{ .v = (i32)bitmap_id.value };
-                    triangle1->uv[0] = vec2(0.0f, 0.0f);
-                    triangle1->uv[1] = vec2(1.0f, 1.0f);
-                    triangle1->uv[2] = vec2(1.0f, 0.0f);
+                    plane_mesh->instances = Array<MeshInstance>::create(1, g_transient);
+                    plane_mesh->instances[0].transform.scale = vec3(5.0f, 1.0f, 5.0f);
+                    plane_mesh->instances[0].transform.position = vec3(0, -1.0f, 4);
+                    plane_mesh->instances[0].transform.rotation = angle_axis(0, up);
+                    plane_mesh->instances[0].colors = global_color_palette.to_array();
 
-                    auto* triangle2 = PushRenderElement(&group, RenderEntryTriangle, 0);
-                    // t = PI + 0.1;
-                    triangle2->P0 = vec3(0.0f, 1.0f, 1.0f);
-                    triangle2->P1 = vec3(0.0f, 600.0f, 1.0f);
-                    triangle2->P2 = vec3(600.0f, 600.0f, 1.0f);
-                    triangle2->color = global_color_palette[0];
-                    triangle2->texture_id = TextureId{ .v = (i32)bitmap_id.value };
-                    triangle2->uv[0] = vec2(0.0f, 0.0f);
-                    triangle2->uv[1] = vec2(0.0f, 1.0f);
-                    triangle2->uv[2] = vec2(1.0f, 1.0f);
+                    plane_mesh->model.uv[0] = vec2(0.0f, 0.0f);
+                    plane_mesh->model.uv[1] = vec2(0.0f, 5.0f);
+                    plane_mesh->model.uv[2] = vec2(5.0f, 5.0f);
+                    plane_mesh->model.uv[3] = vec2(5.0f, 0.0f);
+
+                    plane_mesh->model.texture_id = TextureId{ .v = (i32)bitmap_id.value };
+                    plane_mesh->world_to_view = camera_get_view(state->camera);
+                    plane_mesh->view_to_clip = perspective(60.0f, aspect_ratio, 0.1, 1000.0);
+                    plane_mesh->camera_position = vec4(state->camera.m_position, 1.0f);
                 }
-
             }
         }
 

@@ -1,4 +1,5 @@
 #include "core/color.hpp"
+#include "platform/assert.hpp"
 #include <platform/types.hpp>
 
 #include <cstdio>
@@ -232,39 +233,25 @@ auto load_font(const char* path) -> Font {
 
 auto load_bitmap_stbi(const char* path) -> Bitmap {
     Bitmap result;
-    i32 num_channels;
+    i32 channel_count;
     stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-    unsigned char* stbi_data = stbi_load(path, &result.width, &result.height, &num_channels, 4);
+    // This makes stdbi return 4 channels, even if there are less.
+    const i32 required_channel_count = 4;
+    unsigned char* stbi_data = stbi_load(path, &result.width, &result.height, &channel_count, required_channel_count);
 
     if (!stbi_data) {
         printf("Invalid bitmap path: %s\n", path);
         InvalidCodePath;
     }
 
-    result.pitch = result.width * 4;
-    auto stbi_data_size = result.width * result.height * num_channels; // 1 byte per channel
-    if (num_channels == 3) {
-        InvalidCodePath;
-        // u32 result_data_size = result.width * result.height * 4;
-        // result.data = malloc(result_data_size);
-        // u32* result_data = (u32*)result.data;
-        // u32 result_i = 0;
-        // for (i32 i = 0; i < stbi_data_size; i += num_channels) {
-        //     u8 r = stbi_data[i];
-        //     u8 g = stbi_data[i + 1];
-        //     u8 b = stbi_data[i + 2];
-        //     u8 a = 255;
-        //     result_data[result_i++] = pack_color_8x4(b, g, r, a);
-        // }
-    }
-    else if (num_channels == 4) {
-        result.data = malloc(stbi_data_size);
-        memcpy(result.data, stbi_data, stbi_data_size);
-    }
-    else {
-        printf("Num channels: %d\n", num_channels);
+    if (channel_count > required_channel_count) {
         InvalidCodePath;
     }
+
+    result.pitch = result.width * required_channel_count;
+    auto stbi_data_size = result.width * result.height * required_channel_count; // 1 byte per channel
+    result.data = malloc(stbi_data_size);
+    memcpy(result.data, stbi_data, stbi_data_size);
 
     stbi_image_free(stbi_data);
 
@@ -545,6 +532,9 @@ static auto write_bitmaps() -> void {
 
     AddAssetGroup(assets, AssetGroupId_WoodenCrate) {
         add_bitmap_asset(assets, "assets/bitmaps/wooden_crate.png");
+    }
+    AddAssetGroup(assets, AssetGroupId_CheckerBoard) {
+        add_bitmap_asset(assets, "assets/bitmaps/checkerboard.png");
     }
 
     AddAssetGroup(assets, AssetGroupId_Fonts_Ubuntu) {

@@ -1,3 +1,4 @@
+#include "core/color.hpp"
 #include "doctest.h"
 #include "renderers/cpu_render_algorithms.hpp"
 
@@ -175,7 +176,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle") {
     rasterize_triangle(                                                         //
         vec3(0.0f, 0.0f, 1.0f), vec3(1.5f, 2.0f, 1.0f), vec3(3.0f, 0.0f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
-        clip, fb, &arena);
+        TriangleAttribute{}, clip, fb, &arena);
 
     CString8 expected = "0X0"
                         "XXX";
@@ -202,7 +203,7 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle2") {
     rasterize_triangle(                                                         //
         vec3(0.0f, 2.0f, 1.0f), vec3(3.0f, 0.0f, 1.0f), vec3(6.0f, 0.0f, 1.0f), //
         vec4(1.0f, 1.0f, 1.0f, 1.0f),                                           //
-        clip, fb, &arena);
+        TriangleAttribute{}, clip, fb, &arena);
 
     CString8 expected = "0X0000"
                         "00XXX0";
@@ -246,102 +247,103 @@ TEST_CASE_FIXTURE(RendererArenaFixture, "render_filled_triangle3") {
     }
     REQUIRE(equal);
 }
-//
-// TEST_CASE_FIXTURE(RendererArenaFixture, "apply_frame_buffer skips transparent src pixels, leaving dest untouched (32x35)") {
-//     // Width must be a multiple of the AVX512 path's 16-wide lane count (see the
-//     // `(end_x - start_x) % LANE_COUNT == 0` assert in apply_frame_buffer_AVX512);
-//     // only the height is free to be an arbitrary value.
-//     Framebuffer src = create_frame_buffer(arena, 32, 35);
-//     Framebuffer dest = create_frame_buffer(arena, 32, 35);
-//     fill_checkerboard(src, Color_Opaque);
-//     fill_solid(dest, Color_Sentinel);
-//
-//     Framebuffer expected = create_frame_buffer(arena, 32, 35);
-//     for (i32 y = 0; y < expected.height; y++)
-//         for (i32 x = 0; x < expected.width; x++)
-//             expected.set_pixel(x, y, ((x + y) % 2 == 0) ? Color_Opaque : Color_Sentinel);
-//
-//     INFO("src (checkerboard, '.' = transparent):\n", buffer_to_string(src, arena).data);
-//     apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0, 0, dest.height);
-//     string8 dest_str = buffer_to_string(dest, arena);
-//     string8 expected_str = buffer_to_string(expected, arena);
-//     INFO("dest:\n", dest_str.data);
-//
-//     REQUIRE(string8_equal(dest_str, expected_str));
-// }
-//
-// TEST_CASE_FIXTURE(RendererArenaFixture, "apply_frame_buffer nearest-neighbor upscales quadrants by an exact 2x (32x32 -> 64x64)") {
-//     Framebuffer src = create_frame_buffer(arena, 32, 32);
-//     Framebuffer dest = create_frame_buffer(arena, 64, 64);
-//     fill_quadrants(src);
-//
-//     Framebuffer expected = create_frame_buffer(arena, 64, 64);
-//     fill_expected_scaled_quadrants(expected, src.width, src.height);
-//
-//     INFO("src:\n", buffer_to_string(src, arena).data);
-//     apply_frame_buffer(&src, &dest, dest.width, dest.height, 0, 0, 0, 64);
-//     string8 dest_str = buffer_to_string(dest, arena);
-//     string8 expected_str = buffer_to_string(expected, arena);
-//     INFO("dest:\n", dest_str.data);
-//
-//     REQUIRE(string8_equal(dest_str, expected_str));
-// }
-//
-// TEST_CASE_FIXTURE(RendererArenaFixture,
-//     "apply_frame_buffer places an unscaled block at an offset inside a larger canvas (32x32 into 64x64 at 16,16)") {
-//     Framebuffer src = create_frame_buffer(arena, 32, 32);
-//     Framebuffer dest = create_frame_buffer(arena, 64, 64);
-//     fill_quadrants(src);
-//     fill_solid(dest, Color_Sentinel);
-//
-//     Framebuffer expected = create_frame_buffer(arena, 64, 64);
-//     fill_expected_translated_quadrants(expected, Color_Sentinel, src.width, src.height, 16, 16);
-//
-//     INFO("src:\n", buffer_to_string(src, arena).data);
-//     apply_frame_buffer(&src, &dest, src.width, src.height, 16, 16, 0, 64);
-//     string8 dest_str = buffer_to_string(dest, arena);
-//     string8 expected_str = buffer_to_string(expected, arena);
-//     INFO("dest:\n", dest_str.data);
-//
-//     REQUIRE(string8_equal(dest_str, expected_str));
-// }
-//
-// TEST_CASE_FIXTURE(RendererArenaFixture,
-//     "apply_frame_buffer clips a positive offset that overhangs the far edge of dest (32x32 src into 32x32 dest at "
-//     "16,16)") {
-//     Framebuffer src = create_frame_buffer(arena, 32, 32);
-//     Framebuffer dest = create_frame_buffer(arena, 32, 32);
-//     fill_quadrants(src);
-//     fill_solid(dest, Color_Sentinel);
-//
-//     Framebuffer expected = create_frame_buffer(arena, 32, 32);
-//     fill_expected_translated_quadrants(expected, Color_Sentinel, src.width, src.height, 16, 16);
-//
-//     INFO("src:\n", buffer_to_string(src, arena).data);
-//     apply_frame_buffer(&src, &dest, src.width, src.height, 16, 16, 0, 32);
-//     string8 dest_str = buffer_to_string(dest, arena);
-//     string8 expected_str = buffer_to_string(expected, arena);
-//     INFO("dest:\n", dest_str.data);
-//
-//     REQUIRE(string8_equal(dest_str, expected_str));
-// }
-//
-// TEST_CASE_FIXTURE(RendererArenaFixture, "Set chunk dirty") {
-//     i32 width = 1024;
-//     i32 height = 512;
-//
-//     i32 tile_dim_x = 64;
-//     i32 tile_dim_y = 64;
-//
-//     Array<Tile> tiles = generate_tiles(width, height, tile_dim_x, tile_dim_y, &arena);
-//     REQUIRE(tiles.count() == 128);
-//     REQUIRE(tiles[0].rect.min_x == 0);
-//     REQUIRE(tiles[0].rect.max_x == tile_dim_x);
-//     REQUIRE(tiles[0].rect.min_y == 0);
-//     REQUIRE(tiles[0].rect.max_y == tile_dim_y);
-//
-//     REQUIRE(tiles[127].rect.min_x == width - tile_dim_x);
-//     REQUIRE(tiles[127].rect.max_x == width);
-//     REQUIRE(tiles[127].rect.min_y == height - tile_dim_y);
-//     REQUIRE(tiles[127].rect.max_y == height);
-// }
+
+TEST_CASE_FIXTURE(RendererArenaFixture, "mipmap") {
+    const u32 red = pack_color_8x4(255, 0, 0, 255);
+    const u32 gre = pack_color_8x4(0, 255, 0, 255);
+    const u32 blu = pack_color_8x4(0, 0, 255, 255);
+    const u32 whi = pack_color_8x4(255, 255, 255, 255);
+    const u32 silver_grey = pack_color_8x4(188, 188, 188, 255);
+    {
+        const i32 width = 4;
+        const i32 height = 4;
+        u32 data[width * height] = {
+            red, red, gre, gre, //
+            red, red, gre, gre, //
+            blu, blu, whi, whi, //
+            blu, blu, whi, whi, //
+        };
+
+        u32 level1_count = (width * height) / 4;
+        u32 expected_level1[] = {
+            red, gre, //
+            blu, whi, //
+        };
+
+        u32 expected_level2[1] = { silver_grey };
+
+        Texture texture = generate_mip_map_texture(data, width, height, &arena);
+
+        REQUIRE_EQ(texture.mip_levels.count(), 3);
+        for (u32 i = 0; i < level1_count; i++) {
+            bool are_equal = texture.mip_levels[1].at(i) == expected_level1[i];
+            if (!are_equal) {
+                printf("0x%08x - 0x%08x\n", texture.mip_levels[1].at(i), expected_level1[i]);
+            }
+            CHECK(are_equal);
+        }
+        {
+            bool are_equal = texture.mip_levels[2].at(0) == expected_level2[0];
+            if (!are_equal) {
+                printf("0x%08x - 0x%08x\n", texture.mip_levels[2].at(0), expected_level2[0]);
+            }
+            CHECK(are_equal);
+        }
+    }
+    {
+        const i32 width = 4;
+        const i32 height = 1;
+        u32 data[width * height] = {
+            red, red, gre, gre, //
+        };
+
+        u32 expected_level1[2] = { red, gre };
+        u32 expected_level2[1] = { pack_color_8x4(188, 188, 0, 255) };
+
+        Texture texture = generate_mip_map_texture(data, width, height, &arena);
+
+        REQUIRE_EQ(texture.mip_levels.count(), 3);
+        for (u32 i = 0; i < 2; i++) {
+            bool are_equal = texture.mip_levels[1].at(i) == expected_level1[i];
+            if (!are_equal) {
+                printf("0x%08x - 0x%08x\n", texture.mip_levels[1].at(i), expected_level1[i]);
+            }
+            CHECK(are_equal);
+        }
+        {
+            bool are_equal = texture.mip_levels[2].at(0) == expected_level2[0];
+            if (!are_equal) {
+                printf("0x%08x - 0x%08x\n", texture.mip_levels[2].at(0), expected_level2[0]);
+            }
+            CHECK(are_equal);
+        }
+    }
+    {
+        const i32 width = 1;
+        const i32 height = 4;
+        u32 data[width * height] = {
+            red, red, gre, gre, //
+        };
+
+        u32 expected_level1[2] = { red, gre };
+        u32 expected_level2[1] = { pack_color_8x4(188, 188, 0, 255) };
+
+        Texture texture = generate_mip_map_texture(data, width, height, &arena);
+
+        REQUIRE_EQ(texture.mip_levels.count(), 3);
+        for (u32 i = 0; i < 2; i++) {
+            bool are_equal = texture.mip_levels[1].at(i) == expected_level1[i];
+            if (!are_equal) {
+                printf("0x%08x - 0x%08x\n", texture.mip_levels[1].at(i), expected_level1[i]);
+            }
+            CHECK(are_equal);
+        }
+        {
+            bool are_equal = texture.mip_levels[2].at(0) == expected_level2[0];
+            if (!are_equal) {
+                printf("0x%08x - 0x%08x\n", texture.mip_levels[2].at(0), expected_level2[0]);
+            }
+            CHECK(are_equal);
+        }
+    }
+}

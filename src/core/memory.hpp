@@ -22,7 +22,7 @@ auto inline is_aligned(void* memory, u64 alignment) -> bool {
 
 typedef void (*copy_memory_fn)(void* src, void* dest, u64 size);
 void copy_memory_no_init(void* src, void* dest, u64 size);
-global_variable copy_memory_fn copy_memory = copy_memory_no_init;
+global_variable copy_memory_fn copy_memory_from_to = copy_memory_no_init;
 void copy_memory_AVX2(void* src, void* dest, u64 size);
 void copy_memory_scalar(void* src, void* dest, u64 size);
 

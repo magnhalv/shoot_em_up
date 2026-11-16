@@ -181,6 +181,11 @@ struct RenderEntryShadedTriangle {
     vec4 color;
 };
 
+enum TextureWrapMode {
+    TextureWrapMode__Repeat = 0,
+    TextureWrapMode__Stretch,
+};
+
 struct TriMesh {
     Array<vec4> vertices;
     Array<vec3> normals;
@@ -189,6 +194,8 @@ struct TriMesh {
     Array<ivec3> triangles;
     Array<ivec3> normal_indicies;
     Array<ivec3> uv_indicies;
+
+    TextureWrapMode texture_wrap_mode;
     TextureId texture_id;
 };
 

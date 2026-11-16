@@ -33,7 +33,7 @@ auto inline merge_sort_split(i32* a, i32 start, i32 end, i32* b) {
 
 auto inline merge_sort(i32* values, i32 count, MemoryArena* temp_arena) {
     i32* b = allocate<i32>(temp_arena, count);
-    copy_memory(values, b, sizeof(i32) * count);
+    copy_memory_from_to(values, b, sizeof(i32) * count);
     i32* a = values;
     merge_sort_split(a, 0, count, b);
 }
@@ -70,7 +70,7 @@ auto inline merge_sort_indices(i32* values, i32 count, MemoryArena* arena) -> i3
     i32* src = allocate<i32>(arena, count);
     i32* src_indices = allocate<i32>(arena, count);
     i32* dest_indices = allocate<i32>(arena, count);
-    copy_memory(values, src, sizeof(i32) * count);
+    copy_memory_from_to(values, src, sizeof(i32) * count);
 
     for (i32 i = 0; i < count; i++) {
         dest_indices[i] = i;

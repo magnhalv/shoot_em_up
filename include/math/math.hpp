@@ -1,5 +1,6 @@
 #pragma once
 
+#include <platform/assert.hpp>
 #include <platform/types.hpp>
 
 namespace hm {
@@ -113,4 +114,14 @@ inline i32 ceil_f32_to_i32(f32 value) {
 
 inline f32 get_fraction_f32(f32 value) {
     return value - floor_f32(value);
+}
+
+// Optimize this, I think ther should be intrinsics for it
+inline auto floor_log2(i32 value) -> i32 {
+    Assert(value > 0);
+    int r = 0;
+    while (value >>= 1) {
+        r++;
+    }
+    return r;
 }

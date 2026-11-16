@@ -45,7 +45,7 @@ struct SWRendererState {
     MemoryArena permanent;
     MemoryArena transient;
 
-    Texture textures[MaxTextureId];
+    Bitmap textures[MaxTextureId];
 };
 
 static SWRendererState state = {};
@@ -346,7 +346,7 @@ static auto draw_bitmap(Quadrilateral quad,     //
     vec2 edge3_border = br_border_c - tr_border_c;
     vec2 edge4_border = bl_border_c - br_border_c;
 
-    Texture* texture = &state.textures[texture_id];
+    Bitmap* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
     i32 u_max = uv_max.x;
     i32 v_min = uv_min.y;
@@ -513,7 +513,7 @@ static auto draw_bitmap_avx2(                   //
     vec2 edge3 = br_c - tr_c;
     vec2 edge4 = bl_c - br_c;
 
-    Texture* texture = &state.textures[texture_id];
+    Bitmap* texture = &state.textures[texture_id];
     i32 u_min = uv_min.x;
     i32 u_max = uv_max.x;
     i32 v_min = uv_min.y;
@@ -740,7 +740,7 @@ extern "C" __declspec(dllexport) RENDERER_INIT(win32_renderer_init) {
     Platform = platform_api;
     global_debug_table = Platform->debug_table;
 
-    Texture* null_texture = &state.textures[0];
+    Bitmap* null_texture = &state.textures[0];
     null_texture->height = 1;
     null_texture->width = 1;
     null_texture->count = 1;
@@ -763,7 +763,7 @@ extern "C" __declspec(dllexport) RENDERER_ADD_TEXTURE(win32_renderer_add_texture
         return false;
     }
 
-    Texture* texture = &state.textures[texture_id];
+    Bitmap* texture = &state.textures[texture_id];
     if (texture->data == nullptr) {
         texture->height = height;
         texture->width = width;
@@ -875,15 +875,14 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
         case RenderCommands_RenderEntryTriMesh: {
             TIMED_BLOCK("render_entry_tri_mesh");
             auto entry = (RenderEntryTriMesh*)data;
-            Texture* texture = nullptr;
+            Bitmap* texture = nullptr;
             if (entry->model.texture_id.v != 0) {
                 texture = &state.textures[entry->model.texture_id.v];
             }
             render_mesh_gambetta( //
                 &entry->model,    //
                 entry->instances, //
-                texture,          //
-                group->lights.to_array(),
+                texture, entry->model.texture_wrap_mode, group->lights.to_array(),
                 entry->world_to_view,   //
                 entry->view_to_clip,    //
                 entry->camera_position, //
@@ -896,8 +895,7 @@ auto execute_render_commands(i32 job_id, RenderGroup* group, //
             render_mesh_gambetta( //
                 &entry->model,    //
                 entry->instances, //
-                nullptr,          //
-                group->lights.to_array(),
+                nullptr, TextureWrapMode__Repeat, group->lights.to_array(),
                 entry->world_to_view,   //
                 entry->view_to_clip,    //
                 entry->camera_position, //

@@ -100,16 +100,16 @@ template <typename T> struct Array {
 
 template <typename T> auto inline concat(Array<T>& arr1, Array<T>& arr2, MemoryArena& arena) -> Array<T> {
     Array<T> result = Array<T>::create(arr1.count() + arr2.count(), arena);
-    copy_memory(arr1.data(), result.data(), arr1.size());
-    copy_memory(arr2.data(), result.data() + arr1.count(), arr2.size());
+    copy_memory_from_to(arr1.data(), result.data(), arr1.size());
+    copy_memory_from_to(arr2.data(), result.data() + arr1.count(), arr2.size());
 
     return result;
 }
 
 template <typename T> auto inline concat(Array<T>& arr1, Array<T>& arr2, MemoryArena* arena) -> Array<T> {
     Array<T> result = Array<T>::create(arr1.count() + arr2.count(), arena);
-    copy_memory(arr1.data(), result.data(), arr1.size());
-    copy_memory(arr2.data(), result.data() + arr1.count(), arr2.size());
+    copy_memory_from_to(arr1.data(), result.data(), arr1.size());
+    copy_memory_from_to(arr2.data(), result.data() + arr1.count(), arr2.size());
 
     return result;
 }
